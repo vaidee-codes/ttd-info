@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TTD Autofill Extension - Support</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            line-height: 1.6;
+            color: #333;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 20px;
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+        }
+
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.2);
+            overflow: hidden;
+            width: 100%;
+        }
+
+        header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 40px 30px;
+            text-align: center;
+        }
+
+        header h1 {
+            font-size: 2.2em;
+            margin-bottom: 10px;
+        }
+
+        header p {
+            font-size: 1.1em;
+            opacity: 0.9;
+        }
+
+        .content {
+            padding: 40px 30px;
+        }
+
+        .contact-card {
+            background: #f8f9fa;
+            border-radius: 8px;
+            padding: 30px;
+            text-align: center;
+            border: 1px solid #e9ecef;
+            margin-bottom: 30px;
+        }
+
+        .contact-method {
+            margin: 20px 0;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);
+            transition: transform 0.2s;
+        }
+
+        .contact-method:hover {
+            transform: translateY(-2px);
+        }
+
+        .contact-method h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 1.2em;
+        }
+
+        .contact-value {
+            font-size: 1.1em;
+            color: #333;
+            font-weight: 500;
+        }
+
+        .social-link {
+            display: inline-block;
+            background: #1da1f2;
+            color: white;
+            text-decoration: none;
+            padding: 10px 20px;
+            border-radius: 25px;
+            margin-top: 10px;
+            font-weight: bold;
+        }
+
+        .social-link:hover {
+            background: #0c85d0;
+        }
+
+        .email-link {
+            color: #667eea;
+            text-decoration: none;
+            font-weight: bold;
+        }
+
+        .back-link {
+            display: block;
+            text-align: center;
+            margin-top: 30px;
+            color: #666;
+            text-decoration: none;
+        }
+
+        .back-link:hover {
+            color: #667eea;
+        }
+
+        footer {
+            background: #f8f9fa;
+            padding: 20px 30px;
+            text-align: center;
+            color: #666;
+            font-size: 0.9em;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="container">
+        <header>
+            <h1>📬 Support & Contact</h1>
+            <p>Get help or get in touch with the developer</p>
+        </header>
+
+        <div class="content">
+            <div class="contact-card">
+                <h2>Contact the Developer</h2>
+                <p>Have questions, suggestions, or found a bug? Feel free to reach out!</p>
+
+                <div class="contact-method">
+                    <h3>📧 Email Support</h3>
+                    <p>For detailed inquiries or feedback:</p>
+                    <div class="contact-value">
+                        <!-- REPLACE WITH YOUR EMAIL -->
+                        <a href="mailto:vaidee.work@gmail.com" class="email-link">vaidee.work@gmail.com</a>
+                    </div>
+                </div>
+
+                <div class="contact-method">
+                    <h3>🐦 Twitter / X</h3>
+                    <p>Follow for updates or quick DMs:</p>
+                    <div class="contact-value">
+                        <!-- REPLACE WITH YOUR TWITTER HANDLE -->
+                        <a href="https://x.com/light_zenitsu" target="_blank" class="social-link">@light_zenitsu</a>
+                    </div>
+                </div>
+            </div>
+
+            <a href="index.html" class="back-link">← Back to User Guide</a>
+        </div>
+
+        <footer>
+            <p>TTD Autofill Extension</p>
+        </footer>
+    </div>
+</body>
+
+</html>
