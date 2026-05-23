@@ -97,6 +97,37 @@
             font-weight: 500;
         }
 
+        .cta-button {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            margin-top: 24px;
+            padding: 14px 28px;
+            background: #ffffff;
+            color: var(--primary-dark);
+            border-radius: 999px;
+            text-decoration: none;
+            font-weight: 700;
+            font-size: 1rem;
+            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
+            transition: transform var(--transition), box-shadow var(--transition);
+            position: relative;
+            z-index: 1;
+        }
+
+        .cta-button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25);
+        }
+
+        .cta-button .cta-arrow {
+            transition: transform var(--transition);
+        }
+
+        .cta-button:hover .cta-arrow {
+            transform: translateX(3px);
+        }
+
         .content {
             padding: 48px 40px;
         }
@@ -353,7 +384,12 @@
     <div class="container">
         <header>
             <h1>⚡ TTD Autofill Extension</h1>
-            <p>Quick & Easy Form Filling for TTD Booking</p>
+            <p>Quick &amp; Easy Form Filling for TTD Booking</p>
+            <a href="https://chromewebstore.google.com/detail/ttd-autofill-assistant/piiegkjdfbbakjmjdckgdjbbohfjfolg"
+               target="_blank" rel="noopener noreferrer" class="cta-button">
+                <span>Add to Chrome</span>
+                <span class="cta-arrow">→</span>
+            </a>
         </header>
 
         <div class="content">
@@ -386,30 +422,31 @@
 
                 <div class="step">
                     <span class="step-number">1</span>
-                    <strong>Download the Extension</strong>
-                    <p>Get the extension files from your administrator or download from the repository.</p>
+                    <strong>Open the Chrome Web Store listing</strong>
+                    <p>
+                        Visit
+                        <a href="https://chromewebstore.google.com/detail/ttd-autofill-assistant/piiegkjdfbbakjmjdckgdjbbohfjfolg"
+                           target="_blank" rel="noopener noreferrer">TTD Autofill Assistant on the Chrome Web Store</a>.
+                        Works in Chrome and any Chromium-based browser (Edge, Brave, Arc).
+                    </p>
                 </div>
 
                 <div class="step">
                     <span class="step-number">2</span>
-                    <strong>Open Chrome Extensions</strong>
-                    <p>In Google Chrome, navigate to <code>chrome://extensions/</code></p>
+                    <strong>Click "Add to Chrome"</strong>
+                    <p>Chrome will show a permission prompt — click "Add extension" to confirm.</p>
                 </div>
 
                 <div class="step">
                     <span class="step-number">3</span>
-                    <strong>Enable Developer Mode</strong>
-                    <p>Toggle the "Developer mode" switch in the top-right corner.</p>
-                </div>
-
-                <div class="step">
-                    <span class="step-number">4</span>
-                    <strong>Load the Extension</strong>
-                    <p>Click "Load unpacked" and select the <code>dist</code> folder.</p>
+                    <strong>Pin the icon (recommended)</strong>
+                    <p>Click the puzzle piece 🧩 in your toolbar and pin TTD Autofill Assistant so it's always one
+                        click away.</p>
                 </div>
 
                 <div class="tip">
-                    <strong>✓ Success!</strong> The extension icon should now appear in your Chrome toolbar.
+                    <strong>✓ Success!</strong> The extension icon appears in your toolbar — click it to start saving
+                    pilgrim details.
                 </div>
             </section>
 

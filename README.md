@@ -2,6 +2,8 @@
 
 **Quick & Easy Form Filling for TTD Booking**
 
+[**Install from the Chrome Web Store →**](https://chromewebstore.google.com/detail/ttd-autofill-assistant/piiegkjdfbbakjmjdckgdjbbohfjfolg)
+
 A Chrome Extension designed to assist pilgrims in booking Seva, Darshan, and Accommodation tickets on the Tirumala Tirupati Devasthanams (TTD) official website by automating the form-filling process.
 
 ## ✨ Features
@@ -20,9 +22,9 @@ A Chrome Extension designed to assist pilgrims in booking Seva, Darshan, and Acc
 
 ## 🚀 Quick Start
 
-1. **Install:** Load the extension in Chrome (Developer Mode -> Load Unpacked).
+1. **Install:** Get it from the [Chrome Web Store](https://chromewebstore.google.com/detail/ttd-autofill-assistant/piiegkjdfbbakjmjdckgdjbbohfjfolg) and click "Add to Chrome".
 2. **Setup:** Click the extension icon and add your pilgrim details.
-3. **Book:** Go to the TTD booking page and click "Fill All Pilgrims".
+3. **Book:** Go to the TTD booking page and click "Fill All Details".
 
 ## ⚠️ Disclaimer
 
