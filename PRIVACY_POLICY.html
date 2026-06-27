@@ -261,14 +261,15 @@
     <div class="container">
         <header>
             <h1>🔒 Privacy Policy</h1>
-            <div class="last-updated">Last updated: December 24, 2025</div>
+            <div class="last-updated">Last updated: June 27, 2026</div>
         </header>
 
         <div class="content">
             <p class="intro">
                 The <strong>TTD Autofill Assistant</strong> ("we", "our", or "us") is a Chrome Extension designed to
-                assist users in autofilling forms on the Tirumala Tirupati Devasthanams (TTD) booking website. We are
-                committed to protecting your privacy and handling your data with transparency.
+                assist users in autofilling pilgrim, contact, and Srivari Seva forms on the official Tirumala Tirupati
+                Devasthanams (TTD) booking websites. We are committed to protecting your privacy and handling your data
+                with transparency.
             </p>
 
             <div class="callout">
@@ -291,8 +292,15 @@
                         information (country, visa details).</li>
                     <li><strong>Contact Details:</strong> Email addresses, mailing addresses, city, state, and
                         pincodes.</li>
+                    <li><strong>Srivari Seva &amp; Srivani Details:</strong> Sevak/devotee names and related
+                        information, darshan dates, laddu counts, and group booking entries you enter for Srivari Seva
+                        and Srivani booking forms.</li>
+                    <li><strong>Preferences:</strong> Your chosen interface theme.</li>
+                    <li><strong>Beta Access Data:</strong> A local session marker and a per-PIN usage counter used to
+                        manage Beta feature access. These contain no personal information.</li>
                 </ul>
-                <p>This data is stored solely to allow you to reuse it for future bookings without re-entering it.</p>
+                <p>This data is stored solely to allow you to reuse it for future bookings without re-entering it, and
+                    to remember your preferences and access state between sessions.</p>
             </section>
 
             <section class="section">
@@ -305,13 +313,43 @@
                 <ul>
                     <li><strong>Autofill:</strong> When you click the "Fill" buttons, the extension reads your locally
                         saved data and populates the fields on the active webpage.</li>
-                    <li><strong>No External Transmission:</strong> We do not send your data to any third-party servers,
-                        analytics platforms, or ad networks. Your data never leaves your browser.</li>
+                    <li><strong>No Personal Data Transmission:</strong> We do not send your pilgrim, contact, or Seva
+                        details to any third-party servers, analytics platforms, or ad networks. This information never
+                        leaves your browser.</li>
                 </ul>
             </section>
 
             <section class="section">
-                <h2><span class="num">3</span> Data Sharing and Disclosure</h2>
+                <h2><span class="num">3</span> Network Requests</h2>
+                <p>
+                    To keep the extension's Beta features secure, the extension makes a single outbound network request
+                    to download a list of valid access-key hashes from a remote file we host. This request:
+                </p>
+                <ul>
+                    <li><strong>Only downloads data</strong> (a list of hashes); it does <strong>not</strong> upload or
+                        transmit any of your personal information.</li>
+                    <li>Verifies your Beta access PIN entirely on your device — your PIN is hashed locally and compared
+                        against the downloaded list. The PIN itself is never sent over the network.</li>
+                    <li>Caches the downloaded list locally so the extension continues to work briefly if you are
+                        offline.</li>
+                </ul>
+                <p>Apart from this access-verification download, the extension makes no other network requests with your
+                    data.</p>
+            </section>
+
+            <section class="section">
+                <h2><span class="num">4</span> Third-Party Links</h2>
+                <p>
+                    The extension's popup and our website include optional links to external pages, such as voluntary
+                    support/contribution pages (hosted by our payment processor), email, and community channels. If you
+                    choose to follow these links, you will be subject to the privacy practices of those third-party
+                    services. We do not control and are not responsible for the content or privacy practices of external
+                    sites.
+                </p>
+            </section>
+
+            <section class="section">
+                <h2><span class="num">5</span> Data Sharing and Disclosure</h2>
                 <p>Since we do not collect your data, we have no data to share.</p>
                 <ul>
                     <li>We do <strong>not</strong> sell, trade, or otherwise transfer your personally identifiable
@@ -322,19 +360,19 @@
             </section>
 
             <section class="section">
-                <h2><span class="num">4</span> Your Control Over Data</h2>
+                <h2><span class="num">6</span> Your Control Over Data</h2>
                 <p>You retain full ownership and control over your data:</p>
                 <ul>
                     <li><strong>View/Edit:</strong> You can view or update your saved data at any time via the
                         extension's popup interface.</li>
-                    <li><strong>Delete:</strong> You can delete individual pilgrim entries or clear all contact details
-                        directly within the extension. Removing the extension from Chrome will also permanently delete
-                        all locally stored data associated with it.</li>
+                    <li><strong>Delete:</strong> You can delete individual pilgrim, Seva, or Srivani entries or clear all
+                        contact details directly within the extension. Removing the extension from Chrome will also
+                        permanently delete all locally stored data associated with it.</li>
                 </ul>
             </section>
 
             <section class="section">
-                <h2><span class="num">5</span> Changes to This Policy</h2>
+                <h2><span class="num">7</span> Changes to This Policy</h2>
                 <p>
                     We may update our Privacy Policy from time to time. We will notify you of any changes by posting
                     the new Privacy Policy on this page. You are advised to review this Privacy Policy periodically for
@@ -343,10 +381,11 @@
             </section>
 
             <section class="section">
-                <h2><span class="num">6</span> Contact Us</h2>
+                <h2><span class="num">8</span> Contact Us</h2>
                 <p>
-                    If you have any questions about this Privacy Policy, please reach out through any of the channels
-                    listed on the <a href="support.html">Support page</a>.
+                    If you have any questions about this Privacy Policy, please contact us at
+                    <a href="mailto:ttdautofill@gmail.com">ttdautofill@gmail.com</a> or reach out through any of the
+                    channels listed on the <a href="support.html">Support page</a>.
                 </p>
             </section>
 

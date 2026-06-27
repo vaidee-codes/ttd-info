@@ -1,43 +1,64 @@
 # Privacy Policy for TTD Autofill Assistant
 
-**Last Updated:** December 24, 2025
+**Last Updated:** June 27, 2026
 
-The **TTD Autofill Assistant** ("we", "our", or "us") is a Chrome Extension designed to assist users in autofilling forms on the Tirumala Tirupati Devasthanams (TTD) booking website. We are committed to protecting your privacy and handling your data with transparency.
+The **TTD Autofill Assistant** ("we", "our", or "us") is a Chrome Extension designed to assist users in autofilling pilgrim, contact, and Srivari Seva forms on the official Tirumala Tirupati Devasthanams (TTD) booking websites. We are committed to protecting your privacy and handling your data with transparency.
 
 ## 1. Information We Collect and Store
 
 We do **not** collect, transmit, or store any of your personal information on our servers. All data you enter into the extension stays entirely on your local device.
 
 ### Local Data Storage
+
 The extension uses your browser's local storage (`chrome.storage.local`) to save the following details for your convenience:
+
 - **Pilgrim Details:** Names, ages, genders, ID proof numbers, and related passport information (country, visa details).
 - **Contact Details:** Email addresses, mailing addresses, city, state, and pincodes.
+- **Srivari Seva & Srivani Details:** Sevak/devotee names and related information, darshan dates, laddu counts, and group booking entries you enter for Srivari Seva and Srivani booking forms.
+- **Preferences:** Your chosen interface theme.
+- **Beta Access Data:** A local session marker and a per-PIN usage counter used to manage Beta feature access. These contain no personal information.
 
-This data is stored solely to allow you to reuse it for future bookings without re-entering it.
+This data is stored solely to allow you to reuse it for future bookings without re-entering it, and to remember your preferences and access state between sessions.
 
 ## 2. How We Use Your Information
 
 The information you save is used exclusively for the Single Purpose of autofilling booking forms on the official TTD websites (`tirupatibalaji.ap.gov.in`, `ttdevasthanams.ap.gov.in`, etc.).
 
 - **Autofill:** When you click the "Fill" buttons, the extension reads your locally saved data and populates the fields on the active webpage.
-- **No External Transmission:** We do not send your data to any third-party servers, analytics platforms, or ad networks. Your data never leaves your browser.
+- **No Personal Data Transmission:** We do not send your pilgrim, contact, or Seva details to any third-party servers, analytics platforms, or ad networks. This information never leaves your browser.
 
-## 3. Data Sharing and Disclosure
+## 3. Network Requests
+
+To keep the extension's Beta features secure, the extension makes a single outbound network request to download a list of valid access-key hashes from a remote file we host. This request:
+
+- **Only downloads data** (a list of hashes); it does **not** upload or transmit any of your personal information.
+- Verifies your Beta access PIN entirely on your device — your PIN is hashed locally and compared against the downloaded list. The PIN itself is never sent over the network.
+- Caches the downloaded list locally so the extension continues to work briefly if you are offline.
+
+Apart from this access-verification download, the extension makes no other network requests with your data.
+
+## 4. Third-Party Links
+
+The extension's popup and our website include optional links to external pages, such as voluntary support/contribution pages (hosted by our payment processor), email, and community channels. If you choose to follow these links, you will be subject to the privacy practices of those third-party services. We do not control and are not responsible for the content or privacy practices of external sites.
+
+## 5. Data Sharing and Disclosure
 
 Since we do not collect your data, we have no data to share.
+
 - We do **not** sell, trade, or otherwise transfer your personally identifiable information to outside parties.
 - We do **not** use your data for creditworthiness, lending, or any other unrelated purposes.
 
-## 4. Your Control Over Data
+## 6. Your Control Over Data
 
 You retain full ownership and control over your data:
-- **View/Edit:** You can view or update your saved data at any time via the extension's popup interface.
-- **Delete:** You can delete individual pilgrim entries or clear all contact details directly within the extension. Removing the extension from Chrome will also permanently delete all locally stored data associated with it.
 
-## 5. Changes to This Policy
+- **View/Edit:** You can view or update your saved data at any time via the extension's popup interface.
+- **Delete:** You can delete individual pilgrim, Seva, or Srivani entries or clear all contact details directly within the extension. Removing the extension from Chrome will also permanently delete all locally stored data associated with it.
+
+## 7. Changes to This Policy
 
 We may update our Privacy Policy from time to time. We will notify you of any changes by posting the new Privacy Policy on this page. You are advised to review this Privacy Policy periodically for any changes.
 
-## 6. Contact Us
+## 8. Contact Us
 
-If you have any questions about this Privacy Policy, please contact us via the Chrome Web Store support page.
+If you have any questions about this Privacy Policy, please contact us at **ttdautofill@gmail.com** or via the Chrome Web Store support page.
