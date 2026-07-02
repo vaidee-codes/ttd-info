@@ -6,12 +6,28 @@ import type { Inquiry, NewInquiry, InquiryStatus } from "./inquiry-types";
 export type { Inquiry, NewInquiry, InquiryStatus } from "./inquiry-types";
 export { INQUIRY_STATUSES } from "./inquiry-types";
 
-const dataDir = path.join(process.cwd(), "data");
-if (!fs.existsSync(dataDir)) {
-  fs.mkdirSync(dataDir, { recursive: true });
+// Prefer DATA_DIR, then ./data; on serverless hosts (e.g. Vercel) the project
+// dir is read-only, so fall back to /tmp. /tmp is ephemeral — attach a real
+// database before taking production traffic (see README).
+function resolveDataDir(): string {
+  const candidates = [
+    process.env.DATA_DIR,
+    path.join(process.cwd(), "data"),
+    path.join("/tmp", "yatra-assist-data"),
+  ].filter((d): d is string => Boolean(d));
+  for (const dir of candidates) {
+    try {
+      fs.mkdirSync(dir, { recursive: true });
+      fs.accessSync(dir, fs.constants.W_OK);
+      return dir;
+    } catch {
+      // try next candidate
+    }
+  }
+  throw new Error("No writable data directory found for SQLite");
 }
 
-const db = new Database(path.join(dataDir, "yatra-assist.db"));
+const db = new Database(path.join(resolveDataDir(), "yatra-assist.db"));
 db.pragma("journal_mode = WAL");
 
 db.exec(`

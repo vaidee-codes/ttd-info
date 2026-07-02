@@ -64,3 +64,22 @@ production business. Before actually operating:
    real deployment you'll want a persistent volume (or swap in a hosted DB)
    and to set `ADMIN_PASSWORD`/`AUTH_SECRET` to real secrets, not the
    `.env.example` placeholders.
+
+## Deploying to Vercel
+
+1. Import the GitHub repo at https://vercel.com/new and pick the branch
+   this app lives on (set it as the production branch under
+   Settings → Git if it isn't the default branch).
+2. Framework preset: Next.js (auto-detected). No build settings to change.
+3. Add environment variables: `ADMIN_PASSWORD` and `AUTH_SECRET`
+   (long random strings — never the `.env.example` placeholders).
+4. Deploy.
+
+**Important:** on Vercel the SQLite file falls back to `/tmp`, which is
+wiped between serverless invocations — the site works and the form
+submits, but inquiries are **not durably stored**. Before real customers
+use the form, attach a persistent database (Vercel Postgres/Neon, Turso,
+or any hosted SQL) and swap the storage calls in `src/lib/db.ts`; every
+query lives in that one file. Alternatively, deploy to a host with a
+persistent disk (Railway, Fly.io, a VPS) and SQLite works as-is with
+`DATA_DIR` pointed at the mounted volume.
