@@ -8,6 +8,7 @@ import {
 } from './_dodo.mjs';
 
 const PAGE_SIZE = 100;
+const DAY_MS = 24 * 60 * 60 * 1000;
 const SUPPORTER_PRODUCT_ID = 'pdt_0NjbdVzVqfSrrofI36ENV';
 
 function authorized(req) {
@@ -164,12 +165,6 @@ function buildInventory(state) {
         .map((grant) => ({ ...grant, status: `${grant.status} (canonical customer grant)` }));
     }
     const grantKeys = grants.map((grant) => grant.key).filter(Boolean);
-    const entitlements = grants.length
-      ? grants.map(({ entitlement_id, status }) => ({ entitlement_id, status }))
-      : products.map((product) => ({
-          entitlement_id: product.expected_entitlement_id,
-          status: payment.status === 'succeeded' ? 'not_granted' : 'not_applicable'
-        }));
     let keys = grantKeys.length
       ? grantKeys
       : (keysByPayment.get(payment.payment_id) || []);
@@ -182,6 +177,25 @@ function buildInventory(state) {
           expires_at: license.expires_at || null
         }));
     }
+    let replacementCoverage = false;
+    if (!keys.length && customerId) {
+      keys = (licensesByCustomer.get(customerId) || [])
+        .filter((license) => license.status === 'active' || license.status === 'expired')
+        .map((license) => ({
+          status: String(license.status || 'unknown'),
+          expires_at: license.expires_at || null,
+          coverage: 'replacement_or_canonical_time'
+        }));
+      replacementCoverage = keys.length > 0;
+    }
+    const entitlements = grants.length
+      ? grants.map(({ entitlement_id, status }) => ({ entitlement_id, status }))
+      : products.map((product) => ({
+          entitlement_id: product.expected_entitlement_id,
+          status: replacementCoverage
+            ? 'covered_by_replacement_time'
+            : (payment.status === 'succeeded' ? 'not_granted' : 'not_applicable')
+        }));
     return {
       record: `purchase-${String(index + 1).padStart(3, '0')}`,
       products,
@@ -268,6 +282,113 @@ async function normalizeStacking(licenseKeys) {
   return { customers_with_stacked_time: found, canonical_keys_extended: extended, failed };
 }
 
+async function backfillUnfulfilledSupporterPayments(state, dryRun) {
+  const subscriptionById = new Map(state.subscriptions.map((subscription) => [
+    subscription.subscription_id,
+    subscription
+  ]));
+  const deliveredCustomers = new Set();
+  for (const group of state.grantGroups) {
+    if (group.entitlementId !== MONTHLY_ENTITLEMENT_ID) continue;
+    for (const grant of group.grants) {
+      if (String(grant.status).toLowerCase() === 'delivered') deliveredCustomers.add(grant.customer_id);
+    }
+  }
+  const supporterKeyCustomers = new Set(state.licenseKeys
+    .filter((license) => license.product_id === SUPPORTER_PRODUCT_ID)
+    .map((license) => license.customer_id));
+
+  const unfulfilledByCustomer = new Map();
+  state.payments.forEach((payment, index) => {
+    if (payment.status !== 'succeeded') return;
+    const detail = state.paymentDetails[index];
+    const subscription = payment.subscription_id
+      ? subscriptionById.get(payment.subscription_id)
+      : null;
+    const productIds = new Set([
+      ...(detail && detail.product_cart || []).map((item) => item.product_id),
+      subscription && subscription.product_id
+    ].filter(Boolean));
+    if (!productIds.has(SUPPORTER_PRODUCT_ID)) return;
+    const customerId = (payment.customer && payment.customer.customer_id) ||
+      (detail && detail.customer && detail.customer.customer_id) ||
+      null;
+    if (!customerId || deliveredCustomers.has(customerId) || supporterKeyCustomers.has(customerId)) return;
+    unfulfilledByCustomer.set(customerId, (unfulfilledByCustomer.get(customerId) || 0) + 1);
+  });
+
+  let customersCoveredByIndefiniteKey = 0;
+  let canonicalKeysExtended = 0;
+  let replacementKeysCreated = 0;
+  let failed = 0;
+  let daysIssued = 0;
+  for (const [customerId, paymentCount] of unfulfilledByCustomer) {
+    const customerKeys = state.licenseKeys
+      .filter((license) => license.customer_id === customerId && ['active', 'expired'].includes(license.status))
+      .sort((a, b) => Date.parse(b.created_at || 0) - Date.parse(a.created_at || 0));
+    const indefinite = customerKeys.find((license) => license.status === 'active' && !license.expires_at);
+    if (indefinite) {
+      customersCoveredByIndefiniteKey++;
+      continue;
+    }
+
+    const issuedDays = paymentCount * 30;
+    const expiresAt = new Date(Math.max(
+      Date.now(),
+      ...customerKeys.map((license) => license.expires_at ? Date.parse(license.expires_at) : 0)
+    ) + issuedDays * DAY_MS).toISOString();
+    if (dryRun) {
+      if (customerKeys.length) canonicalKeysExtended++;
+      else replacementKeysCreated++;
+      daysIssued += issuedDays;
+      continue;
+    }
+
+    try {
+      if (customerKeys.length) {
+        const canonical = customerKeys[0];
+        await dodo('/license_keys/' + encodeURIComponent(canonical.id), {
+          method: 'PATCH',
+          body: { expires_at: expiresAt }
+        });
+        const source = state.licenseKeys.find((license) => license.id === canonical.id);
+        if (source) {
+          source.status = 'active';
+          source.expires_at = expiresAt;
+        }
+        canonicalKeysExtended++;
+      } else {
+        const replacement = await dodo('/license_keys', {
+          method: 'POST',
+          body: {
+            key: crypto.randomUUID(),
+            customer_id: customerId,
+            product_id: PASS_PLANS['7d'].product_id,
+            activations_limit: 1,
+            expires_at: expiresAt
+          }
+        });
+        state.licenseKeys.push(replacement);
+        replacementKeysCreated++;
+      }
+      daysIssued += issuedDays;
+    } catch {
+      failed++;
+    }
+  }
+
+  return {
+    dry_run: !!dryRun,
+    unfulfilled_payments: [...unfulfilledByCustomer.values()].reduce((sum, count) => sum + count, 0),
+    affected_customers: unfulfilledByCustomer.size,
+    customers_covered_by_indefinite_key: customersCoveredByIndefiniteKey,
+    canonical_keys_extended: canonicalKeysExtended,
+    replacement_keys_created: replacementKeysCreated,
+    replacement_days_issued: daysIssued,
+    failed
+  };
+}
+
 export default async function handler(req, res) {
   cors(res);
   res.setHeader('Cache-Control', 'no-store');
@@ -276,18 +397,23 @@ export default async function handler(req, res) {
   if (!authorized(req)) return res.status(404).json({ error: 'Not found' });
 
   const body = readBody(req);
-  if (!['inventory', 'contain'].includes(body.action)) {
+  if (!['inventory', 'contain', 'backfill-supporter'].includes(body.action)) {
     return res.status(400).json({ error: 'Unsupported action' });
   }
 
   try {
     const state = await loadState();
-    const reconciliation = body.action === 'contain'
-      ? {
+    let reconciliation = null;
+    if (body.action === 'contain') {
+      reconciliation = {
           discounts: await revokeDiscounts(),
           stacking: await normalizeStacking(state.licenseKeys)
-        }
-      : null;
+      };
+    } else if (body.action === 'backfill-supporter') {
+      reconciliation = {
+        supporter_backfill: await backfillUnfulfilledSupporterPayments(state, body.dry_run !== false)
+      };
+    }
     return res.status(200).json({
       ok: true,
       action: body.action,
