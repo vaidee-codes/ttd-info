@@ -66,3 +66,5 @@ Before enabling sales or deploying Production:
 5. Enable `PASS_SALES_ENABLED` only after every check passes. Keep the switch off for rollback.
 
 API logs contain only operation name and provider status/code. Never add request bodies, email addresses, licence keys, entitlement tokens, activation IDs or complete provider responses to logs.
+
+The sanitized Dodo purchase and entitlement baseline is stored in `ops/dodo-inventory-2026-08-10.json`. It contains no customer, payment, refund or licence-key identifiers.

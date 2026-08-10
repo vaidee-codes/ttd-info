@@ -1,0 +1,1135 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-08-10T17:08:43.066Z",
+  "sanitized": true,
+  "reconciliation": {
+    "discounts": {
+      "found": 1,
+      "revoked": 1,
+      "failed": 0
+    },
+    "stacking": {
+      "customers_with_stacked_time": 3,
+      "canonical_keys_extended": 3,
+      "failed": 0
+    },
+    "supporter_backfill": {
+      "dry_run": false,
+      "unfulfilled_payments": 4,
+      "affected_customers": 4,
+      "customers_covered_by_indefinite_key": 0,
+      "canonical_keys_extended": 1,
+      "replacement_keys_created": 3,
+      "replacement_days_issued": 120,
+      "failed": 0
+    }
+  },
+  "inventory": {
+    "generated_at": "2026-08-10T17:08:43.066Z",
+    "sanitized": true,
+    "excluded_fields": [
+      "customer",
+      "customer_id",
+      "email",
+      "name",
+      "phone",
+      "address",
+      "payment_id",
+      "refund_id",
+      "license_key",
+      "license_key_id"
+    ],
+    "purchase_count": 34,
+    "purchases": [
+      {
+        "record": "purchase-001",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "Delivered"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": null
+          }
+        ]
+      },
+      {
+        "record": "purchase-002",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "Delivered"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": null
+          }
+        ]
+      },
+      {
+        "record": "purchase-003",
+        "products": [
+          {
+            "product_id": "pdt_0Nk4Gw67usedtjPoO6hX2",
+            "plan": "7d",
+            "label": "7-day pass",
+            "expected_entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC",
+            "status": "Delivered"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 0,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-11-10T04:44:57.579Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-004",
+        "products": [
+          {
+            "product_id": "pdt_0NkvjEr1l8rhSF6Ibxlj3",
+            "plan": "90d",
+            "label": "90-day pass",
+            "expected_entitlement_id": "ent_0NkvjEqEgOtu4zXZbpSnR"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NkvjEqEgOtu4zXZbpSnR",
+            "status": "Delivered"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 0,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-11-10T20:30:59.820Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-005",
+        "products": [
+          {
+            "product_id": "pdt_0NkvjEpCQNkDuaCT65cFV",
+            "plan": "30d",
+            "label": "30-day pass",
+            "expected_entitlement_id": "ent_0NkvjEit63fF12KazuaN1"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NkvjEit63fF12KazuaN1",
+            "status": "Delivered"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 0,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-09-07T08:08:58.287921Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-006",
+        "products": [
+          {
+            "product_id": "pdt_0Nk4Gw67usedtjPoO6hX2",
+            "plan": "7d",
+            "label": "7-day pass",
+            "expected_entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC",
+            "status": "Delivered"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 0,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-08-15T08:08:02.986030Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-007",
+        "products": [
+          {
+            "product_id": "pdt_0Nk4Gw67usedtjPoO6hX2",
+            "plan": "7d",
+            "label": "7-day pass",
+            "expected_entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC",
+            "status": "Delivered"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 0,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-08-15T06:27:38.984065Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-008",
+        "products": [
+          {
+            "product_id": "pdt_0Nk4Gw67usedtjPoO6hX2",
+            "plan": "7d",
+            "label": "7-day pass",
+            "expected_entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC",
+            "status": "Delivered"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 0,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-08-15T05:22:47.627633Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-009",
+        "products": [
+          {
+            "product_id": "pdt_0Nk4Gw67usedtjPoO6hX2",
+            "plan": "7d",
+            "label": "7-day pass",
+            "expected_entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC",
+            "status": "Delivered"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 0,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-08-15T05:09:51.869142Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-010",
+        "products": [
+          {
+            "product_id": "pdt_0Nk4Gw67usedtjPoO6hX2",
+            "plan": "7d",
+            "label": "7-day pass",
+            "expected_entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC",
+            "status": "Delivered"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 0,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-08-15T03:04:04.131117Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-011",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "not_applicable"
+          }
+        ],
+        "payment": {
+          "status": "failed",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "not_issued",
+            "expires_at": null
+          }
+        ]
+      },
+      {
+        "record": "purchase-012",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "not_applicable"
+          }
+        ],
+        "payment": {
+          "status": "failed",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "not_issued",
+            "expires_at": null
+          }
+        ]
+      },
+      {
+        "record": "purchase-013",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "Delivered (canonical customer grant)"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-09-04T15:24:02Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-014",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "Delivered (canonical customer grant)"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-09-04T05:57:20Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-015",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "covered_by_replacement_time"
+          }
+        ],
+        "payment": {
+          "status": "failed",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-08-14T18:34:05Z",
+            "coverage": "replacement_or_canonical_time"
+          }
+        ]
+      },
+      {
+        "record": "purchase-016",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "Delivered (canonical customer grant)"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-09-03T14:21:38Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-017",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "Delivered (canonical customer grant)"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-09-03T07:07:36Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-018",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "Delivered (canonical customer grant)"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-09-02T04:24:04Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-019",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "covered_by_replacement_time"
+          }
+        ],
+        "payment": {
+          "status": "requires_payment_method",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-08-14T18:34:05Z",
+            "coverage": "replacement_or_canonical_time"
+          }
+        ]
+      },
+      {
+        "record": "purchase-020",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "Delivered (canonical customer grant)"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-09-01T10:18:03.769Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-021",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "not_applicable"
+          }
+        ],
+        "payment": {
+          "status": "requires_payment_method",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "not_issued",
+            "expires_at": null
+          }
+        ]
+      },
+      {
+        "record": "purchase-022",
+        "products": [
+          {
+            "product_id": "pdt_0Nk4Gw67usedtjPoO6hX2",
+            "plan": "7d",
+            "label": "7-day pass",
+            "expected_entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0Nk4GugPIsPbnFf5dYYqC",
+            "status": "Delivered"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 0,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "expired",
+            "expires_at": "2026-08-03T04:25:46.337932Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-023",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "covered_by_replacement_time"
+          }
+        ],
+        "payment": {
+          "status": "requires_payment_method",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-08-14T18:34:11Z",
+            "coverage": "replacement_or_canonical_time"
+          }
+        ]
+      },
+      {
+        "record": "purchase-024",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "Delivered (canonical customer grant)"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-08-24T04:23:02Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-025",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "covered_by_replacement_time"
+          }
+        ],
+        "payment": {
+          "status": "failed",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-08-14T18:34:21Z",
+            "coverage": "replacement_or_canonical_time"
+          }
+        ]
+      },
+      {
+        "record": "purchase-026",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "Delivered (canonical customer grant)"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-08-23T13:36:29Z"
+          }
+        ]
+      },
+      {
+        "record": "purchase-027",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "covered_by_replacement_time"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-09-09T17:08:15.574Z",
+            "coverage": "replacement_or_canonical_time"
+          }
+        ]
+      },
+      {
+        "record": "purchase-028",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "not_applicable"
+          }
+        ],
+        "payment": {
+          "status": "requires_payment_method",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "not_issued",
+            "expires_at": null
+          }
+        ]
+      },
+      {
+        "record": "purchase-029",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "covered_by_replacement_time"
+          }
+        ],
+        "payment": {
+          "status": "requires_payment_method",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-11-10T04:44:57.579Z",
+            "coverage": "replacement_or_canonical_time"
+          },
+          {
+            "status": "active",
+            "expires_at": "2026-09-07T08:08:58.287921Z",
+            "coverage": "replacement_or_canonical_time"
+          },
+          {
+            "status": "active",
+            "expires_at": "2026-08-15T08:08:02.986030Z",
+            "coverage": "replacement_or_canonical_time"
+          },
+          {
+            "status": "active",
+            "expires_at": "2026-08-15T06:27:38.984065Z",
+            "coverage": "replacement_or_canonical_time"
+          },
+          {
+            "status": "active",
+            "expires_at": "2026-08-15T05:09:51.869142Z",
+            "coverage": "replacement_or_canonical_time"
+          },
+          {
+            "status": "active",
+            "expires_at": "2026-08-15T03:04:04.131117Z",
+            "coverage": "replacement_or_canonical_time"
+          },
+          {
+            "status": "active",
+            "expires_at": "2026-08-21T18:34:22Z",
+            "coverage": "replacement_or_canonical_time"
+          }
+        ]
+      },
+      {
+        "record": "purchase-030",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "covered_by_replacement_time"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-09-09T17:08:15.838Z",
+            "coverage": "replacement_or_canonical_time"
+          }
+        ]
+      },
+      {
+        "record": "purchase-031",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "not_applicable"
+          }
+        ],
+        "payment": {
+          "status": "failed",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "not_issued",
+            "expires_at": null
+          }
+        ]
+      },
+      {
+        "record": "purchase-032",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "not_applicable"
+          }
+        ],
+        "payment": {
+          "status": "failed",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "not_issued",
+            "expires_at": null
+          }
+        ]
+      },
+      {
+        "record": "purchase-033",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "covered_by_replacement_time"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-09-09T17:08:16.293Z",
+            "coverage": "replacement_or_canonical_time"
+          }
+        ]
+      },
+      {
+        "record": "purchase-034",
+        "products": [
+          {
+            "product_id": "pdt_0NjbdVzVqfSrrofI36ENV",
+            "plan": "supporter-monthly",
+            "label": "Monthly supporter",
+            "expected_entitlement_id": "ent_0NktSBrbESJK6IQ99toyW"
+          }
+        ],
+        "entitlements": [
+          {
+            "entitlement_id": "ent_0NktSBrbESJK6IQ99toyW",
+            "status": "covered_by_replacement_time"
+          }
+        ],
+        "payment": {
+          "status": "succeeded",
+          "amount": 9900,
+          "currency": "INR",
+          "refund_status": null,
+          "refunds": []
+        },
+        "keys": [
+          {
+            "status": "active",
+            "expires_at": "2026-11-10T04:44:57.579Z",
+            "coverage": "replacement_or_canonical_time"
+          },
+          {
+            "status": "active",
+            "expires_at": "2026-09-07T08:08:58.287921Z",
+            "coverage": "replacement_or_canonical_time"
+          },
+          {
+            "status": "active",
+            "expires_at": "2026-08-15T08:08:02.986030Z",
+            "coverage": "replacement_or_canonical_time"
+          },
+          {
+            "status": "active",
+            "expires_at": "2026-08-15T06:27:38.984065Z",
+            "coverage": "replacement_or_canonical_time"
+          },
+          {
+            "status": "active",
+            "expires_at": "2026-08-15T05:09:51.869142Z",
+            "coverage": "replacement_or_canonical_time"
+          },
+          {
+            "status": "active",
+            "expires_at": "2026-08-15T03:04:04.131117Z",
+            "coverage": "replacement_or_canonical_time"
+          },
+          {
+            "status": "active",
+            "expires_at": "2026-08-21T18:34:22Z",
+            "coverage": "replacement_or_canonical_time"
+          }
+        ]
+      }
+    ]
+  }
+}
