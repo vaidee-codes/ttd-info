@@ -22,7 +22,7 @@
       <p class="eyebrow">Privacy policy · Updated August 10, 2026</p>
       <h1>Your details stay under your control.</h1>
       <p>This policy explains what TTD Autofill Assistant version 6.9.0 stores, how it uses the information and what happens when you fill a TTD form.</p>
-      <div class="policy-summary"><div><strong>Profiles stay local</strong><span>Your pilgrim data is stored in Chrome, not on our servers.</span></div><div><strong>No tracking or ads</strong><span>We do not analyze or sell your personal data.</span></div><div><strong>Payments are minimal</strong><span>Pass purchases only ask for email and pincode.</span></div></div>
+      <div class="policy-summary"><div><strong>Profiles stay local</strong><span>Your pilgrim data is stored in Chrome, not on our servers.</span></div><div><strong>No tracking or ads</strong><span>We do not analyze or sell your personal data.</span></div><div><strong>Licence data is limited</strong><span>Pass checks use only the key and installation identifiers needed for activation.</span></div></div>
     </header>
 
     <div class="policy-copy">
@@ -61,8 +61,8 @@
         <p>We do not include third-party advertising or analytics SDKs in the extension. The extension interacts with supported TTD pages only to perform the autofill action you request.</p>
 
         <h3>Paid passes and licence data</h3>
-        <p>When you buy a Professional Pass or Supporter subscription on the pass page, we ask only for the email used at checkout and an optional pincode (India's payment gateway requires a postal code; we never ask for your street address or a full billing address).</p>
-        <p>That information is sent to <strong>Dodo Payments</strong>, our merchant of record, which processes the payment and delivers your licence key by email under its own privacy policy and terms. The extension sends the key, a random installation identifier and a device label to our server for Dodo activation and hourly entitlement checks. We do not store your pilgrim profiles or contact details from the extension on our servers.</p>
+        <p>When you buy the optional seven-day pass, checkout is hosted by Dodo Payments. Card and billing details are entered with Dodo Payments and are not available to the extension.</p>
+        <p>Dodo Payments processes the payment and delivers your licence key under its own privacy policy and terms. The extension sends the key, a random installation identifier, a short device label, the provider activation-instance identifier and a short-lived signed entitlement token to our licence API for activation and hourly entitlement checks. We do not store your pilgrim profiles or contact details from the extension on our servers.</p>
         <p>If you voluntarily email support or contact the developer on Reddit, that communication is handled by the relevant email/Reddit service and may contain the information you choose to provide. Please do not send identity documents, passwords, OTPs or unredacted personal data.</p>
       </section>
 
@@ -91,7 +91,7 @@
 
       <section>
         <h2>8. Support website and external links</h2>
-        <p>The support website hosts the pass purchase page, the success page and the pass-status lookup. The pass page collects only the email and optional pincode described in section 4; the status lookup asks for either your email or a licence key to show remaining time. None of these pages collect extension profiles.</p>
+        <p>The support website hosts the pass purchase and success pages. For security, it does not provide public email, customer or licence-key lookup. Pass status is shown inside the extension from a signed, browser-bound entitlement. None of these pages collect extension profiles.</p>
         <p>The site links to external services including the Chrome Web Store, Dodo Payments, official TTD pages and Reddit. Those services have their own privacy policies.</p>
         <p>The site's Tirumala guides credit public discussions from <a href="https://www.reddit.com/r/TirumalaDarshan/" target="_blank" rel="noopener noreferrer">r/TirumalaDarshan</a>, but this website is independently owned and is not affiliated with or endorsed by Reddit or the subreddit.</p>
       </section>
@@ -115,3 +115,4 @@
   </footer>
 </body>
 </html>
+

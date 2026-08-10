@@ -21,7 +21,7 @@ This data is stored solely to allow you to reuse it for future bookings without 
 
 ## 2. How We Use Your Information
 
-The information you save is used exclusively for autofilling booking forms on the official TTD websites (`tirupatibalaji.ap.gov.in`, `ttdevasthanams.ap.gov.in`, etc.).
+The information you save is used exclusively for the Single Purpose of autofilling booking forms on the official TTD websites (`tirupatibalaji.ap.gov.in`, `ttdevasthanams.ap.gov.in`, etc.).
 
 - **Autofill:** When you click the "Fill" buttons, the extension reads your locally saved data and populates the fields on the active webpage.
 - **No booking-data transmission:** Pilgrim, contact, Seva, Srivani, and booking-draft data is not sent to our servers, analytics platforms, or ad networks.
@@ -64,3 +64,4 @@ We may update our Privacy Policy from time to time. We will notify you of any ch
 ## 8. Contact Us
 
 If you have any questions about this Privacy Policy, please contact us at **ttdautofill@gmail.com** or via the Chrome Web Store support page.
+
