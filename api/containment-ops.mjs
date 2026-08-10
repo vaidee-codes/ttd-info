@@ -38,9 +38,10 @@ async function loadState() {
     MONTHLY_ENTITLEMENT_ID
   ].filter(Boolean))];
 
-  const [payments, refunds, licenseKeys, grantGroups] = await Promise.all([
+  const [payments, refunds, subscriptions, licenseKeys, grantGroups] = await Promise.all([
     list('/payments'),
     list('/refunds'),
+    list('/subscriptions'),
     list('/license_keys'),
     Promise.all(entitlementIds.map(async (entitlementId) => ({
       entitlementId,
@@ -56,7 +57,7 @@ async function loadState() {
     }
   }));
 
-  return { payments, paymentDetails, refunds, licenseKeys, grantGroups };
+  return { payments, paymentDetails, refunds, subscriptions, licenseKeys, grantGroups };
 }
 
 function buildInventory(state) {
@@ -67,16 +68,34 @@ function buildInventory(state) {
     refundByPayment.set(refund.payment_id, statuses);
   }
 
+  const licenseStatusByKey = new Map(state.licenseKeys.map((license) => [
+    license.key,
+    { status: String(license.status || 'unknown'), expires_at: license.expires_at || null }
+  ]));
   const grantsByPayment = new Map();
+  const grantsBySubscription = new Map();
   for (const group of state.grantGroups) {
     for (const grant of group.grants) {
-      if (!grant.payment_id) continue;
-      const grants = grantsByPayment.get(grant.payment_id) || [];
-      grants.push({
+      const normalized = {
         entitlement_id: group.entitlementId,
-        status: String(grant.status || 'unknown')
-      });
-      grantsByPayment.set(grant.payment_id, grants);
+        status: String(grant.status || 'unknown'),
+        key: grant.license_key && grant.license_key.key
+          ? (licenseStatusByKey.get(grant.license_key.key) || {
+              status: String(grant.status || 'unknown'),
+              expires_at: grant.license_key.expires_at || null
+            })
+          : null
+      };
+      if (grant.payment_id) {
+        const grants = grantsByPayment.get(grant.payment_id) || [];
+        grants.push(normalized);
+        grantsByPayment.set(grant.payment_id, grants);
+      }
+      if (grant.subscription_id) {
+        const grants = grantsBySubscription.get(grant.subscription_id) || [];
+        grants.push(normalized);
+        grantsBySubscription.set(grant.subscription_id, grants);
+      }
     }
   }
 
@@ -91,11 +110,20 @@ function buildInventory(state) {
     keysByPayment.set(key.payment_id, keys);
   }
 
+  const subscriptionById = new Map(state.subscriptions.map((subscription) => [
+    subscription.subscription_id,
+    subscription
+  ]));
+
   const purchases = state.payments.map((payment, index) => {
     const detail = state.paymentDetails[index];
-    const productIds = [...new Set((detail && detail.product_cart || [])
-      .map((item) => item.product_id)
-      .filter(Boolean))];
+    const subscription = payment.subscription_id
+      ? subscriptionById.get(payment.subscription_id)
+      : null;
+    const productIds = [...new Set([
+      ...(detail && detail.product_cart || []).map((item) => item.product_id),
+      subscription && subscription.product_id
+    ].filter(Boolean))];
     const products = productIds.map((productId) => {
       const plan = planByProduct.get(productId);
       return {
@@ -104,16 +132,20 @@ function buildInventory(state) {
         label: plan ? plan.label : 'Unmapped Dodo product'
       };
     });
+    const grants = grantsByPayment.get(payment.payment_id) ||
+      (payment.subscription_id ? grantsBySubscription.get(payment.subscription_id) : null) ||
+      [];
+    const grantKeys = grants.map((grant) => grant.key).filter(Boolean);
     return {
       record: `purchase-${String(index + 1).padStart(3, '0')}`,
       products,
-      entitlements: grantsByPayment.get(payment.payment_id) || [],
+      entitlements: grants.map(({ entitlement_id, status }) => ({ entitlement_id, status })),
       payment: {
         status: String(payment.status || 'unknown'),
         refund_status: payment.refund_status || null,
         refunds: refundByPayment.get(payment.payment_id) || []
       },
-      keys: keysByPayment.get(payment.payment_id) || []
+      keys: grantKeys.length ? grantKeys : (keysByPayment.get(payment.payment_id) || [])
     };
   });
 
