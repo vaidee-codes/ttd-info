@@ -1,0 +1,146 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Get a Professional Pass for TTD Autofill Assistant — unlocks pilgrim booking autofill. 7, 30 or 90 days. Instant licence key.">
+  <meta name="theme-color" content="#5b21b6">
+  <title>Professional Pass — TTD Autofill Assistant</title>
+  <link rel="stylesheet" href="/site.css">
+  <link rel="stylesheet" href="/planning.css">
+  <link rel="stylesheet" href="/pass/pass.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <nav class="site-nav" aria-label="Main navigation">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a>
+    <div class="nav-links"><a href="/">Website</a><a href="/guides">Tirumala guides</a><a href="/support">Support</a><a href="/PRIVACY_POLICY">Privacy</a></div>
+  </nav>
+  <aside class="advisory-bar" aria-label="Information disclaimer"><strong>Independent tool.</strong> Not affiliated with or endorsed by TTD. Does not book tickets, bypass CAPTCHA, OTP, queues or payments, and provides no booking guarantee.</aside>
+
+  <main id="main" class="inner-main pass-wrap">
+    <header class="pass-hero">
+      <p class="eyebrow">Professional Access</p>
+      <h1>Unlock pilgrim booking autofill.</h1>
+      <p>One payment, one browser, instant licence key. Pick 7, 30 or 90 days. Personal and family use of the rest of the extension stays free.</p>
+      <div class="pass-price-row" id="price-row">
+        <span class="pass-price">₹99 <small>one-time</small></span>
+        <span class="pass-price-old">₹198</span>
+      </div>
+    </header>
+
+    <section class="pass-card">
+      <h2>Choose your pass</h2>
+      <div class="pass-plans" id="plans">
+        <label class="pass-plan active">
+          <input type="radio" name="plan" value="7d" checked>
+          <span class="pass-plan-name">7 days</span>
+          <span class="pass-plan-price">₹99</span>
+          <span class="pass-plan-old">₹198</span>
+        </label>
+        <label class="pass-plan">
+          <input type="radio" name="plan" value="30d">
+          <span class="pass-plan-name">30 days</span>
+          <span class="pass-plan-price">₹299</span>
+          <span class="pass-plan-old"></span>
+        </label>
+        <label class="pass-plan">
+          <input type="radio" name="plan" value="90d">
+          <span class="pass-plan-name">90 days</span>
+          <span class="pass-plan-price">₹699</span>
+          <span class="pass-plan-old"></span>
+        </label>
+      </div>
+
+      <h2>What the pass unlocks</h2>
+      <ul class="pass-feature-list">
+        <li><span aria-hidden="true">⚡</span><span><b>Pilgrim booking autofill</b> on the official TTD pilgrim booking portal (<code>ttdevasthanams.ap.gov.in</code>) — the floating fill button and the Pilgrim tab.</span></li>
+        <li><span aria-hidden="true">🔑</span><span><b>Licence key delivered instantly</b> by email and on the success page — valid <b id="feat-days">7 days</b>, 1 browser activation.</span></li>
+        <li><span aria-hidden="true">🔄</span><span><b>Renew anytime — passes stack.</b> Buying a new pass adds its full duration on top of whatever time you have left.</span></li>
+      </ul>
+
+      <div class="pass-check">
+        <input type="checkbox" id="activate" checked>
+        <div>
+          <label for="activate">Activate this extension automatically</label>
+          <small>After payment, the licence key is sent straight to your extension — no copy-paste needed. Uncheck to receive the key by email and on the success page instead.</small>
+        </div>
+      </div>
+
+      <button class="pass-btn" id="get-pass">Get 7-day pass · ₹99</button>
+      <p class="pass-note">You'll enter your email and payment details on the secure checkout page.</p>
+      <div class="pass-error" id="error"></div>
+      <p class="pass-note">Refunds within 24 hours of purchase if the pass has not been used. See the <a class="pass-link" href="/refund-policy">refund policy</a> and <a class="pass-link" href="/terms">terms</a>.</p>
+      <p class="pass-note">Already have a key or a supporter subscription? <a class="pass-link" href="/pass/status">Check your pass status →</a></p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div><a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a><p>Support for TTD Autofill Assistant.</p></div>
+    <div class="footer-links"><a href="/">Website</a><a href="/guides">Guides</a><a href="/PRIVACY_POLICY">Privacy</a><a href="/terms">Terms</a><a href="/refund-policy">Refunds</a></div>
+    <p class="disclaimer">ttdautofill@gmail.com<br>TTD Autofill Assistant is an independent browser productivity tool and is not affiliated with or endorsed by TTD. It does not book tickets, bypass CAPTCHA, OTP, queues or payments, and provides no booking guarantee.</p>
+  </footer>
+
+  <script>
+    const PLANS = {
+      '7d':  { label: '7-day pass',  days: '7 days',  price: '₹99',  old: '₹198' },
+      '30d': { label: '30-day pass', days: '30 days', price: '₹299', old: '' },
+      '90d': { label: '90-day pass', days: '90 days', price: '₹699', old: '' }
+    };
+
+    const params = new URLSearchParams(location.search);
+    const extensionId = (params.get('extension_id') || '').trim();
+    const activateBox = document.getElementById('activate');
+    const errorEl = document.getElementById('error');
+    const btn = document.getElementById('get-pass');
+    const priceRow = document.getElementById('price-row');
+    const featDays = document.getElementById('feat-days');
+
+    // From the extension link -> activate by default (still user-toggleable).
+    if (params.get('activate') === '0') activateBox.checked = false;
+
+    let selected = '7d';
+    function applyPlan(code) {
+      const p = PLANS[code] || PLANS['7d'];
+      selected = code;
+      document.querySelectorAll('.pass-plan').forEach((el) => {
+        const active = el.querySelector('input').value === code;
+        el.classList.toggle('active', active);
+        if (active) el.querySelector('input').checked = true;
+      });
+      priceRow.innerHTML = '<span class="pass-price">' + p.price + ' <small>one-time</small></span>' +
+        (p.old ? '<span class="pass-price-old">' + p.old + '</span>' : '');
+      featDays.textContent = p.days;
+      btn.textContent = 'Get ' + p.label + ' · ' + p.price;
+    }
+    document.querySelectorAll('.pass-plan input').forEach((input) => {
+      input.addEventListener('change', () => applyPlan(input.value));
+    });
+
+    btn.addEventListener('click', async () => {
+      errorEl.classList.remove('show');
+      btn.disabled = true;
+      btn.textContent = 'Opening secure checkout…';
+      try {
+        const res = await fetch('/api/checkout', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            product: selected,
+            activate: activateBox.checked,
+            extension_id: activateBox.checked ? extensionId : ''
+          })
+        });
+        const data = await res.json();
+        if (!res.ok || !data.checkout_url) throw new Error(data.error || 'Could not start checkout. Please try again.');
+        location.href = data.checkout_url;
+      } catch (e) {
+        errorEl.textContent = e.message;
+        errorEl.classList.add('show');
+        btn.disabled = false;
+        applyPlan(selected);
+      }
+    });
+  </script>
+</body>
+</html>

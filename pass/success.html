@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Your TTD Autofill licence key.">
+  <meta name="theme-color" content="#5b21b6">
+  <title>Pass activated — TTD Autofill Assistant</title>
+  <link rel="stylesheet" href="/site.css">
+  <link rel="stylesheet" href="/planning.css">
+  <link rel="stylesheet" href="/pass/pass.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <nav class="site-nav" aria-label="Main navigation">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a>
+    <div class="nav-links"><a href="/">Website</a><a href="/guides">Tirumala guides</a><a href="/support">Support</a><a href="/PRIVACY_POLICY">Privacy</a></div>
+  </nav>
+
+  <main id="main" class="inner-main pass-wrap">
+    <header class="pass-hero">
+      <p class="eyebrow">Payment received</p>
+      <h1 id="heading">Checking your payment…</h1>
+      <p id="subline">We're confirming your licence with the payment provider.</p>
+    </header>
+
+    <section class="pass-card" id="license-card" style="display:none">
+      <h2>Your licence key</h2>
+      <p class="pass-muted" id="email-note">Also sent to your email.</p>
+      <div class="pass-key">
+        <span id="license-key">…</span>
+        <button id="copy-key" type="button">Copy</button>
+      </div>
+      <div class="pass-status" id="activation-status"></div>
+      <p class="pass-count" id="countdown">Valid until <b id="valid-until">…</b></p>
+      <button class="pass-btn" id="renew" type="button">Buy another pass</button>
+    </section>
+
+    <section class="pass-card" id="waiting-card" style="display:none">
+      <h2>Almost there</h2>
+      <p class="pass-muted">If you've just paid, your key can take a few seconds to appear. Your licence key is also emailed to you automatically.</p>
+      <button class="pass-btn" id="retry" type="button">Check again</button>
+      <p class="pass-note"><a class="pass-link" href="/pass/status">Already have your key? Check its status →</a></p>
+    </section>
+
+    <section class="pass-card" id="error-card" style="display:none">
+      <h2>Something went wrong</h2>
+      <p class="pass-muted" id="error-msg">We couldn't confirm this payment. Your licence key is emailed to you automatically on success.</p>
+      <p class="pass-note"><a class="pass-link" href="/pass/status">Check your pass status →</a> · <a class="pass-link" href="/pass">Buy a pass →</a></p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div><a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a><p>Support for TTD Autofill Assistant.</p></div>
+    <div class="footer-links"><a href="/">Website</a><a href="/guides">Guides</a><a href="/PRIVACY_POLICY">Privacy</a><a href="/terms">Terms</a><a href="/refund-policy">Refunds</a></div>
+    <p class="disclaimer">ttdautofill@gmail.com<br>TTD Autofill Assistant is an independent browser productivity tool and is not affiliated with or endorsed by TTD. It does not book tickets, bypass CAPTCHA, OTP, queues or payments, and provides no booking guarantee.</p>
+  </footer>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const sessionId = (params.get('session_id') || params.get('id') || '').trim();
+    let extensionId = (params.get('extension_id') || '').trim();
+    const keyParam = (params.get('license_key') || '').trim();
+    const statusParam = (params.get('status') || '').trim();
+    const heading = document.getElementById('heading');
+    const subline = document.getElementById('subline');
+    const keyCard = document.getElementById('license-card');
+    const waitingCard = document.getElementById('waiting-card');
+    const errorCard = document.getElementById('error-card');
+    let pendingLicense = null;
+
+    function showEl(el) { [keyCard, waitingCard, errorCard].forEach(x => x.style.display = x === el ? 'block' : 'none'); }
+    function fmtCountdown(ms) {
+      const total = Math.max(0, Math.floor(ms / 1000));
+      const d = Math.floor(total / 86400), h = Math.floor((total % 86400) / 3600), m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      if (d > 0) return d + ' day' + (d === 1 ? '' : 's') + ' ' + h + 'h';
+      if (h > 0) return h + 'h ' + m + 'm';
+      if (m > 0) return m + ' minute' + (m === 1 ? '' : 's');
+      return s + ' second' + (s === 1 ? '' : 's');
+    }
+
+    let productDays = null;
+    function showLicense(lic, email) {
+      heading.textContent = 'Your pass is ready';
+      const daysLabel = productDays ? productDays + '-day' : 'Professional';
+      subline.textContent = daysLabel + ' Access for TTD Autofill Assistant.';
+      document.getElementById('license-key').textContent = lic.key;
+      if (lic.expires_at) {
+        const expiry = new Date(lic.expires_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
+        document.getElementById('valid-until').textContent = expiry;
+        document.getElementById('countdown').innerHTML = 'Valid for <b>' + fmtCountdown(Date.parse(lic.expires_at) - Date.now()) + '</b> · expires <b>' + expiry + '</b>';
+      } else {
+        document.getElementById('countdown').textContent = productDays ? ('Valid ' + productDays + ' days from purchase.') : 'Valid from purchase.';
+      }
+      if (email) document.getElementById('email-note').textContent = 'Also sent to ' + email + '.';
+      showEl(keyCard);
+      deliverToExtension(lic);
+    }
+
+    async function load() {
+      try {
+        // Dodo appends license_key + status + email to the return URL — show the
+        // key immediately while the session poll fills in the expiry.
+        if (keyParam && !sessionId) {
+          pendingLicense = { key: keyParam };
+          showLicense(pendingLicense, params.get('email') || '');
+          return;
+        }
+        if (!sessionId) {
+          heading.textContent = 'Payment confirmed?';
+          subline.textContent = 'No session was found in this link. Your key is emailed to you — or check your pass status below.';
+          showEl(errorCard);
+          return;
+        }
+        const res = await fetch('/api/session?session_id=' + encodeURIComponent(sessionId), { signal: AbortSignal.timeout(8000) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Could not load your licence.');
+        const paid = data.paid || statusParam === 'succeeded' || statusParam === 'active';
+        if (!paid) {
+          heading.textContent = 'Payment not confirmed yet';
+          subline.textContent = 'Your key will appear here (and arrive by email) as soon as the payment clears.';
+          showEl(waitingCard);
+          return;
+        }
+        if (data.extension_id) extensionId = data.extension_id;
+        if (data.product_days) productDays = data.product_days;
+        const lic = data.license;
+        if (!lic || !lic.key) {
+          heading.textContent = 'Payment received';
+          subline.textContent = 'Your licence key is on its way — check your email, or refresh in a few seconds.';
+          showEl(waitingCard);
+          return;
+        }
+        showLicense(lic, data.email);
+      } catch (e) {
+        heading.textContent = 'Something went wrong';
+        subline.textContent = e.message;
+        showEl(errorCard);
+      }
+    }
+
+    // Auto-activation: hand the key to the extension that opened this page.
+    function deliverToExtension(lic) {
+      const statusEl = document.getElementById('activation-status');
+      const target = extensionId && window.chrome && window.chrome.runtime && window.chrome.runtime.sendMessage ? extensionId : null;
+      if (!target) {
+        statusEl.className = 'pass-status warn';
+        statusEl.textContent = 'Extension not detected — copy your key and paste it in the extension popup.';
+        return;
+      }
+      try {
+        window.chrome.runtime.sendMessage(target, {
+          type: 'TTDAF_LICENSE',
+          license_key: lic.key,
+          expires_at: lic.expires_at
+        }, () => {
+          if (window.chrome.runtime.lastError) {
+            statusEl.className = 'pass-status warn';
+            statusEl.textContent = 'Could not reach the extension — copy your key and paste it in the extension popup.';
+          } else {
+            statusEl.className = 'pass-status ok';
+            statusEl.textContent = '✓ Activated on this browser. Open the extension to see your countdown.';
+          }
+        });
+      } catch (e) {
+        statusEl.className = 'pass-status warn';
+        statusEl.textContent = 'Copy your key and paste it in the extension popup.';
+      }
+    }
+
+    document.getElementById('copy-key').addEventListener('click', async () => {
+      const key = document.getElementById('license-key').textContent;
+      try { await navigator.clipboard.writeText(key); } catch { /* fallback */ }
+      const btn = document.getElementById('copy-key');
+      btn.textContent = 'Copied ✓';
+      setTimeout(() => btn.textContent = 'Copy', 1600);
+    });
+    document.getElementById('retry').addEventListener('click', load);
+    document.getElementById('renew').addEventListener('click', () => {
+      location.href = '/pass' + (extensionId ? '?extension_id=' + encodeURIComponent(extensionId) + '&activate=1' : '');
+    });
+
+    load();
+    // Poll a few times for webhook/session latency.
+    let attempts = 0;
+    const poll = setInterval(() => {
+      attempts++;
+      if (attempts > 8) { clearInterval(poll); return; }
+      if (keyCard.style.display === 'block') { clearInterval(poll); return; }
+      load();
+    }, 4000);
+  </script>
+</body>
+</html>

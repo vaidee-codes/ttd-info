@@ -1,257 +1,88 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TTD Autofill Extension — Support</title>
-    <style>
-        :root {
-            --primary: #7c3aed;
-            --primary-dark: #6d28d9;
-            --primary-light: #8b5cf6;
-            --primary-muted: #f3eeff;
-            --bg: #f7f7fb;
-            --surface: #ffffff;
-            --text: #1f2937;
-            --text-muted: #6b7280;
-            --border: #e5e7eb;
-            --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-            --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.08);
-            --shadow-lg: 0 24px 60px rgba(76, 29, 149, 0.18);
-            --radius: 12px;
-            --radius-lg: 20px;
-            --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.65;
-            color: var(--text);
-            background:
-                radial-gradient(1200px 600px at 0% -10%, rgba(124, 58, 237, 0.18), transparent 60%),
-                radial-gradient(1000px 500px at 100% 0%, rgba(139, 92, 246, 0.15), transparent 60%),
-                var(--bg);
-            min-height: 100vh;
-            padding: 32px 16px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        .container {
-            max-width: 720px;
-            width: 100%;
-            background: var(--surface);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-lg);
-            overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.6);
-        }
-
-        header {
-            position: relative;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-            color: white;
-            padding: 48px 32px 40px;
-            text-align: center;
-            overflow: hidden;
-        }
-
-        header::before {
-            content: "";
-            position: absolute;
-            inset: -40% -10% auto auto;
-            width: 320px;
-            height: 320px;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.18), transparent 70%);
-            pointer-events: none;
-        }
-
-        header h1 {
-            font-size: clamp(1.7rem, 4vw, 2.2rem);
-            margin-bottom: 8px;
-            letter-spacing: -0.02em;
-            font-weight: 800;
-        }
-
-        header p {
-            font-size: 1.05rem;
-            opacity: 0.92;
-            font-weight: 500;
-        }
-
-        .content {
-            padding: 40px 32px;
-        }
-
-        .lead {
-            text-align: center;
-            color: var(--text-muted);
-            margin-bottom: 28px;
-            font-size: 1rem;
-        }
-
-        .lead strong {
-            color: var(--text);
-        }
-
-        .contact-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
-            gap: 16px;
-        }
-
-        .contact-card {
-            display: flex;
-            align-items: center;
-            gap: 16px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            padding: 20px 22px;
-            text-decoration: none;
-            color: var(--text);
-            transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
-            box-shadow: var(--shadow-sm);
-        }
-
-        .contact-card:hover {
-            transform: translateY(-2px);
-            border-color: var(--primary);
-            box-shadow: var(--shadow-md);
-        }
-
-        .contact-icon {
-            width: 48px;
-            height: 48px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            border-radius: 12px;
-            background: var(--primary-muted);
-            font-size: 1.5rem;
-            flex-shrink: 0;
-        }
-
-        .contact-body {
-            display: flex;
-            flex-direction: column;
-            gap: 2px;
-            min-width: 0;
-        }
-
-        .contact-label {
-            font-size: 0.75rem;
-            color: var(--text-muted);
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 0.06em;
-        }
-
-        .contact-value {
-            font-size: 1rem;
-            color: var(--text);
-            font-weight: 600;
-            word-break: break-word;
-        }
-
-        .contact-card:hover .contact-value {
-            color: var(--primary-dark);
-        }
-
-        .back-link {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            margin-top: 32px;
-            color: var(--text-muted);
-            text-decoration: none;
-            font-size: 0.95rem;
-            font-weight: 500;
-            padding: 8px 14px;
-            border-radius: 8px;
-            transition: background var(--transition), color var(--transition);
-        }
-
-        .back-link:hover {
-            background: var(--primary-muted);
-            color: var(--primary-dark);
-        }
-
-        .back-link-wrap {
-            text-align: center;
-        }
-
-        footer {
-            background: var(--primary-muted);
-            padding: 20px 32px;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.85rem;
-            border-top: 1px solid var(--border);
-        }
-
-        @media (max-width: 540px) {
-            .content {
-                padding: 32px 22px;
-            }
-
-            header {
-                padding: 40px 20px 32px;
-            }
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Troubleshooting and contact support for TTD Autofill Assistant.">
+  <meta name="theme-color" content="#5b21b6">
+  <title>Support — TTD Autofill Assistant</title>
+  <link rel="stylesheet" href="site.css">
+  <link rel="stylesheet" href="planning.css">
 </head>
-
 <body>
-    <div class="container">
-        <header>
-            <h1>📬 Support &amp; Contact</h1>
-            <p>Get help or get in touch with the developer</p>
-        </header>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <nav class="site-nav" aria-label="Main navigation">
+    <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a>
+    <div class="nav-links"><a href="index.html">Home</a><a href="guides.html">Tirumala guides</a><a href="#fixes">Troubleshooting</a><a href="PRIVACY_POLICY.html">Privacy</a></div>
+  </nav>
+  <aside class="advisory-bar" aria-label="Information disclaimer"><strong>TTD information changes frequently.</strong> For current tickets, tokens, timings, eligibility and facilities, check the <a href="https://www.tirumala.org/" target="_blank" rel="noopener noreferrer">official TTD website ↗</a> or ask in <a href="https://www.reddit.com/r/TirumalaDarshan/" target="_blank" rel="noopener noreferrer">r/TirumalaDarshan ↗</a>. This page supports only the extension.</aside>
 
-        <div class="content">
-            <p class="lead">
-                Have questions, suggestions, or found a bug? Pick whichever channel suits you best — <strong>I read every message.</strong>
-            </p>
+  <main id="main" class="inner-main">
+    <header class="inner-hero">
+      <p class="eyebrow">Extension support · v6.8.0</p>
+      <h1>Let’s get your autofill working.</h1>
+      <p>Try the quick checks below. If the TTD page has changed or a supported field still fails, send a useful, privacy-safe report.</p>
+    </header>
 
-            <div class="contact-grid">
-                <a href="mailto:ttdautofill@gmail.com" class="contact-card">
-                    <span class="contact-icon">📧</span>
-                    <span class="contact-body">
-                        <span class="contact-label">Email</span>
-                        <span class="contact-value">ttdautofill@gmail.com</span>
-                    </span>
-                </a>
+    <section class="inner-section" id="fixes">
+      <div class="section-heading"><p class="eyebrow">Start here</p><h2>Five checks solve most issues</h2></div>
+      <div class="info-grid">
+        <article class="info-card"><h3>1. Update the extension</h3><p>Open <code>chrome://extensions</code>, enable Developer mode and choose Update. The current published version is 6.8.0.</p></article>
+        <article class="info-card"><h3>2. Use the matching tab</h3><p>Choose Pilgrims, individual Seva, Group Seva or Srivani to match the TTD page you opened.</p></article>
+        <article class="info-card"><h3>3. Wait for the page</h3><p>Let the TTD form and its dropdowns finish loading, then open the extension and click the relevant fill action.</p></article>
+        <article class="info-card"><h3>4. Refresh after an update</h3><p>Reload the TTD tab after Chrome updates or after installing a new extension version.</p></article>
+        <article class="info-card"><h3>5. Verify every field</h3><p>Autofill is an entry aid. Review names, IDs, dates, dropdowns and files before you submit or pay.</p></article>
+        <article class="info-card"><h3>TTD page unavailable?</h3><p>Availability, login, CAPTCHA and payment problems are controlled by TTD or its providers, not by the extension.</p></article>
+      </div>
+    </section>
 
-                <a href="https://www.reddit.com/user/Logical-Delivery6183/" target="_blank" rel="noopener noreferrer" class="contact-card">
-                    <span class="contact-icon">🟠</span>
-                    <span class="contact-body">
-                        <span class="contact-label">Reddit</span>
-                        <span class="contact-value">u/Logical-Delivery6183</span>
-                    </span>
-                </a>
-            </div>
+    <section class="inner-section">
+      <div class="section-heading"><p class="eyebrow">Common questions</p><h2>Workflow-specific fixes</h2></div>
+      <div class="accordion-list">
+        <details open><summary><span>Some pilgrim slots are not filled</span><span class="plus" aria-hidden="true">+</span></summary><div class="details-body"><p>The extension intentionally detects available slots and fills only the number present. Confirm that the saved list is in your preferred order and that the TTD page has rendered all slots before trying again.</p></div></details>
+        <details><summary><span>Passport popup does not complete</span><span class="plus" aria-hidden="true">+</span></summary><div class="details-body"><p>Check that country, passport number, Visa/OCI number, visa type and validity date are complete and valid. Close any half-open popup, refresh the booking page and retry after it fully loads.</p></div></details>
+        <details><summary><span>Photo or document upload fails</span><span class="plus" aria-hidden="true">+</span></summary><div class="details-body"><p>For supported Srivari Seva uploads, use JPEG or PNG within the TTD form's current size limit (the published workflow currently specifies up to 1 MB). Re-select the file in the extension if it was moved or removed from your device.</p></div></details>
+        <details><summary><span>A Group Seva member fills the wrong section</span><span class="plus" aria-hidden="true">+</span></summary><div class="details-body"><p>Confirm the member number in the extension matches the accordion on the TTD page. Member 1 is the team leader. Fill one member at a time and verify before allowing auto-advance.</p></div></details>
+        <details><summary><span>Srivani fills fewer than expected</span><span class="plus" aria-hidden="true">+</span></summary><div class="details-body"><p>Srivani supports up to 4 saved people and fills the rows available on the current form. It cannot create additional ticket inventory or bypass the booking limit.</p></div></details>
+        <details><summary><span>Saved details disappeared</span><span class="plus" aria-hidden="true">+</span></summary><div class="details-body"><p>Data is stored in Chrome's local extension storage for that browser profile. Removing the extension or clearing its storage deletes it. It is not synced to a developer account or recoverable from our servers.</p></div></details>
+      </div>
+    </section>
 
-            <div class="back-link-wrap">
-                <a href="index.html" class="back-link">← Back to User Guide</a>
-            </div>
-        </div>
+    <section class="inner-section" id="passes">
+      <div class="section-heading"><p class="eyebrow">Passes &amp; payments</p><h2>How the Professional Pass works</h2></div>
+      <div class="info-grid">
+        <article class="info-card"><h3>What the pass covers</h3><p>The pass unlocks one-click autofilling of the TTD pilgrim-booking form. Srivani and other saved details remain free. Choose a 7-day (₹99), 30-day (₹299) or 90-day (₹699) pass at <a href="/pass">ttd-info.vercel.app/pass</a>.</p></article>
+        <article class="info-card"><h3>One browser at a time</h3><p>Each pass key activates on a single browser. A key that is already active on another browser can't be activated again — use it where it was first activated, or remove the pass there first.</p></article>
+        <article class="info-card"><h3>Renewals stack fairly</h3><p>Buying another pass while one is active adds its remaining days to your current expiry instead of replacing it. The timer in the extension always shows the effective (stacked) expiry.</p></article>
+        <article class="info-card"><h3>Automatic activation</h3><p>Open the pass page from the extension and, after a successful payment, the pass activates in that browser automatically. You can also copy and paste the pass key into the extension at any time.</p></article>
+        <article class="info-card"><h3>Refunds &amp; returns</h3><p>Digital pass keys are non-returnable once used. If you haven't used a pass, request a refund within 24 hours of purchase and it will be returned to your original payment method. See <a href="refund-policy.html">Refund Policy</a>.</p></article>
+        <article class="info-card"><h3>Payment trouble</h3><p>Payments are processed by Dodo Payments. For a failed payment, a missing key, or a receipt, email <a href="mailto:ttdautofill@gmail.com">ttdautofill@gmail.com</a> with the order reference and we'll sort it out.</p></article>
+      </div>
+    </section>
 
-        <footer>
-            TTD Autofill Extension ·
-            <a href="PRIVACY_POLICY.html" style="color: inherit; text-decoration: underline;">Privacy Policy</a>
-        </footer>
-    </div>
+    <section class="inner-section">
+      <div class="section-heading"><p class="eyebrow">Contact</p><h2>Send an actionable bug report</h2><p>Include the details below, then use email or Reddit.</p></div>
+      <div class="info-grid">
+        <div class="info-card"><h3>What to include</h3><ul><li>Extension version and Chrome version</li><li>Which extension tab you used</li><li>The TTD page/service name</li><li>Expected result and actual result</li><li>Exact steps to reproduce the problem</li><li>A redacted screenshot, if useful</li></ul></div>
+        <div class="info-card"><h3>What to remove</h3><ul><li>Aadhaar, passport or Visa/OCI numbers</li><li>Names, dates of birth and phone numbers</li><li>Booking IDs, payment references and QR codes</li><li>Photos, certificates and address documents</li><li>Passwords, OTPs and CAPTCHA content</li></ul></div>
+      </div>
+      <div class="info-grid contact-grid-spaced">
+        <a href="mailto:ttdautofill@gmail.com?subject=TTD%20Autofill%20v6.8.0%20support" class="contact-card"><span class="contact-icon" aria-hidden="true">✉️</span><span><small>Email support</small><strong>ttdautofill@gmail.com</strong></span></a>
+        <a href="https://www.reddit.com/user/Logical-Delivery6183/" target="_blank" rel="noopener noreferrer" class="contact-card"><span class="contact-icon" aria-hidden="true">🟠</span><span><small>Developer on Reddit</small><strong>u/Logical-Delivery6183</strong></span></a>
+      </div>
+      <div class="safe-note"><strong>We will never ask for your password, OTP or complete identity documents.</strong> Please redact personal data before sharing a screenshot or recording.</div>
+    </section>
+
+    <section class="inner-section source-panel">
+      <div><p class="eyebrow">Tirumala questions</p><h2>Extension support and travel advice are different.</h2><p>For live questions about crowds, tokens, rooms, dress or travel, search and ask the independent r/TirumalaDarshan community. For a broken autofill field, contact us above.</p><p class="source-note">This website and extension are not owned, sponsored or endorsed by the subreddit.</p></div>
+      <div class="source-actions"><a class="button reddit" href="https://www.reddit.com/r/TirumalaDarshan/" target="_blank" rel="noopener noreferrer">Visit the community ↗</a><a class="text-link" href="guides.html">Read our Tirumala guides →</a></div>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div><a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a><p>Support for TTD Autofill Assistant.</p></div>
+    <div class="footer-links"><a href="index.html">Product</a><a href="guides.html">Guides</a><a href="PRIVACY_POLICY.html">Privacy</a><a href="terms.html">Terms</a><a href="refund-policy.html">Refunds</a></div>
+    <p class="disclaimer"><span hidden><strong>Merchant: FireflyAI Softwares</strong><br></span>ttdautofill@gmail.com<br>TTD Autofill Assistant is an independent browser productivity tool and is not affiliated with or endorsed by TTD. It does not book tickets, bypass CAPTCHA, OTP, queues or payments, and provides no booking guarantee.</p>
+  </footer>
 </body>
-
 </html>

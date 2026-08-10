@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="Check your TTD Autofill pass status, remaining time and licence key.">
+  <meta name="theme-color" content="#5b21b6">
+  <title>Pass status — TTD Autofill Assistant</title>
+  <link rel="stylesheet" href="/site.css">
+  <link rel="stylesheet" href="/planning.css">
+  <link rel="stylesheet" href="/pass/pass.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <nav class="site-nav" aria-label="Main navigation">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a>
+    <div class="nav-links"><a href="/">Website</a><a href="/guides">Tirumala guides</a><a href="/support">Support</a><a href="/PRIVACY_POLICY">Privacy</a></div>
+  </nav>
+
+  <main id="main" class="inner-main pass-wrap">
+    <header class="pass-hero">
+      <p class="eyebrow">Licence status</p>
+      <h1>How much time is left on your pass?</h1>
+      <p>Look up by email or paste your licence key.</p>
+    </header>
+
+    <section class="pass-card">
+      <div class="pass-tabs">
+        <button class="pass-tab active" id="tab-email" type="button">By email</button>
+        <button class="pass-tab" id="tab-key" type="button">By licence key</button>
+      </div>
+
+      <div class="pass-tabpane active" id="pane-email">
+        <p class="pass-muted">Use the email you paid with — works for passes and supporter subscriptions.</p>
+        <input class="pass-field" id="lookup-email" type="email" placeholder="you@example.com">
+        <button class="pass-btn" id="btn-email" type="button">Check my pass</button>
+      </div>
+
+      <div class="pass-tabpane" id="pane-key">
+        <p class="pass-muted">Paste the licence key from your email or the success page.</p>
+        <input class="pass-field" id="lookup-key" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
+        <button class="pass-btn" id="btn-key" type="button">Validate key</button>
+      </div>
+
+      <div class="pass-error" id="error"></div>
+      <div id="result"></div>
+      <p class="pass-note"><a class="pass-link" href="/pass">Buy a pass →</a></p>
+    </section>
+  </main>
+
+  <footer class="site-footer">
+    <div><a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a><p>Support for TTD Autofill Assistant.</p></div>
+    <div class="footer-links"><a href="/">Website</a><a href="/guides">Guides</a><a href="/PRIVACY_POLICY">Privacy</a><a href="/terms">Terms</a><a href="/refund-policy">Refunds</a></div>
+    <p class="disclaimer">ttdautofill@gmail.com<br>TTD Autofill Assistant is an independent browser productivity tool and is not affiliated with or endorsed by TTD. It does not book tickets, bypass CAPTCHA, OTP, queues or payments, and provides no booking guarantee.</p>
+  </footer>
+
+  <script>
+    const errorEl = document.getElementById('error');
+    const resultEl = document.getElementById('result');
+    const tabs = { email: document.getElementById('pane-email'), key: document.getElementById('pane-key') };
+
+    function showError(msg) { errorEl.textContent = msg; errorEl.classList.add('show'); }
+    function clearError() { errorEl.classList.remove('show'); }
+    function fmtRemaining(expiresAt) {
+      const ms = Date.parse(expiresAt) - Date.now();
+      if (ms <= 0) return 'expired';
+      const total = Math.floor(ms / 1000);
+      const d = Math.floor(total / 86400), h = Math.floor((total % 86400) / 3600), m = Math.floor((total % 3600) / 60);
+      const s = total % 60;
+      if (d > 0) return d + ' day' + (d === 1 ? '' : 's') + ' ' + h + 'h left';
+      if (h > 0) return h + 'h ' + m + 'm left';
+      if (m > 0) return m + ' minute' + (m === 1 ? '' : 's') + ' left';
+      return s + ' second' + (s === 1 ? '' : 's') + ' left';
+    }
+    function render(license) {
+      const expired = !license.expires_at || Date.parse(license.expires_at) <= Date.now();
+      resultEl.innerHTML =
+        '<div class="pass-status ' + (expired ? 'warn' : 'ok') + '">' + (expired ? '✕ This pass has expired' : '✓ Pass is active — ' + fmtRemaining(license.expires_at)) + '</div>' +
+        (license.key ? '<div class="pass-key"><span>' + license.key + '</span><button type="button" id="copy-status">Copy</button></div>' : '') +
+        (license.expires_at ? '<p class="pass-count">Expires <b>' + new Date(license.expires_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' }) + '</b></p>' : '') +
+        '<p class="pass-note"><a class="pass-link" href="/pass">Renew your pass →</a></p>';
+      const copyBtn = document.getElementById('copy-status');
+      if (copyBtn) copyBtn.addEventListener('click', async () => {
+        try { await navigator.clipboard.writeText(license.key); } catch {}
+        copyBtn.textContent = 'Copied ✓';
+        setTimeout(() => copyBtn.textContent = 'Copy', 1600);
+      });
+    }
+
+    document.getElementById('tab-email').addEventListener('click', () => switchTab('email'));
+    document.getElementById('tab-key').addEventListener('click', () => switchTab('key'));
+    function switchTab(name) {
+      document.querySelectorAll('.pass-tab').forEach(b => b.classList.toggle('active', b.id === 'tab-' + name));
+      document.querySelectorAll('.pass-tabpane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + name));
+    }
+
+    document.getElementById('btn-email').addEventListener('click', async () => {
+      clearError(); resultEl.innerHTML = '';
+      const email = document.getElementById('lookup-email').value.trim();
+      if (!email) return showError('Enter your email.');
+      try {
+        const res = await fetch('/api/license-lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }), signal: AbortSignal.timeout(8000) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Lookup failed.');
+        if (!data.found || !data.license) {
+          resultEl.innerHTML = '<div class="pass-status warn">No active pass found for this email. <a class="pass-link" href="/pass">Get a pass →</a></div>';
+          return;
+        }
+        render(data.license);
+      } catch (e) { showError(e.message); }
+    });
+
+    document.getElementById('btn-key').addEventListener('click', async () => {
+      clearError(); resultEl.innerHTML = '';
+      const key = document.getElementById('lookup-key').value.trim();
+      if (!key) return showError('Paste your licence key.');
+      try {
+        const res = await fetch('/api/license-key', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ license_key: key }), signal: AbortSignal.timeout(8000) });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.error || 'Validation failed.');
+        if (!data.valid) {
+          resultEl.innerHTML = '<div class="pass-status warn">This key is not valid (expired, revoked or incorrect).</div>';
+          return;
+        }
+        render({ key, expires_at: data.expires_at || null });
+      } catch (e) { showError(e.message); }
+    });
+  </script>
+</body>
+</html>

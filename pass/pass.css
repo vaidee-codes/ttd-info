@@ -1,0 +1,56 @@
+/* Professional Pass pages — extends site.css/planning.css */
+.pass-wrap{max-width:680px;margin:0 auto}
+.pass-hero{margin-top:24px;padding:56px 48px;border-radius:28px;color:#fff;background:radial-gradient(circle at 90% 10%,rgba(255,255,255,.16),transparent 30%),linear-gradient(135deg,#25143d,#5b21b6)}
+.pass-hero .eyebrow{color:#cdbdf2}
+.pass-hero h1{margin:6px 0 10px;font-size:clamp(2rem,5vw,3.2rem);line-height:1.1}
+.pass-hero>p{margin:0;color:#ddd3eb;font-size:1.05rem}
+.pass-price-row{display:flex;align-items:baseline;gap:14px;margin-top:22px}
+.pass-price{font-size:2.6rem;font-weight:900}
+.pass-price small{font-size:.95rem;font-weight:600;color:#ddd3eb}
+.pass-price-old{color:#b9a7e8;text-decoration:line-through;font-size:1.05rem}
+.pass-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;margin-top:22px}
+.pass-card h2{margin-top:0;font-size:1.25rem}
+.pass-feature-list{display:grid;gap:12px;margin:0;padding:0;list-style:none}
+.pass-feature-list li{display:flex;gap:12px;align-items:flex-start;color:var(--muted);font-size:.95rem}
+.pass-feature-list li b{color:var(--ink)}
+.pass-check{display:flex;gap:12px;align-items:flex-start;margin-top:22px;padding:16px;border:1px solid var(--line);border-radius:14px;background:#faf8ff}
+.pass-check input{width:20px;height:20px;margin:2px 0 0;accent-color:#5b21b6}
+.pass-check label{font-weight:700;color:var(--ink)}
+.pass-check small{display:block;color:var(--muted);font-weight:400;margin-top:3px}
+.pass-field{width:100%;box-sizing:border-box;padding:13px 14px;border:1px solid var(--line);border-radius:12px;font:inherit;font-size:.95rem;margin-top:8px}
+.pass-field:focus{outline:2px solid #b798ec;border-color:#7c3aed}
+.pass-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:16px;padding:15px 20px;border:0;border-radius:14px;font:inherit;font-weight:800;font-size:1.02rem;color:#fff;background:linear-gradient(135deg,#4c1d95,#7c3aed);cursor:pointer;text-decoration:none;transition:filter .15s ease,transform .15s ease}
+.pass-btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
+.pass-btn:disabled{opacity:.6;cursor:wait;transform:none}
+.pass-btn.ghost{background:transparent;color:var(--violet);border:1px solid #d8c9f4;width:auto}
+.pass-note{margin-top:12px;color:var(--muted);font-size:.85rem}
+.pass-error{display:none;margin-top:14px;padding:12px 14px;border-radius:12px;color:#7f1d1d;background:#fef2f2;border:1px solid #fecaca;font-size:.9rem}
+.pass-error.show{display:block}
+.pass-key{display:flex;gap:10px;align-items:center;margin-top:16px;padding:14px;border:1px solid var(--line);border-radius:14px;background:#0f172a;color:#e2e8f0;font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;font-size:.92rem;word-break:break-all}
+.pass-key button{flex:0 0 auto;padding:8px 12px;border:0;border-radius:8px;background:#7c3aed;color:#fff;font-weight:700;cursor:pointer}
+.pass-status{display:flex;gap:10px;align-items:center;margin-top:18px;padding:13px 15px;border-radius:12px;font-size:.95rem;font-weight:600}
+.pass-status.ok{color:#14532d;background:#f0fdf4;border:1px solid #bbf7d0}
+.pass-status.warn{color:#78350f;background:#fffbeb;border:1px solid #fde68a}
+.pass-count{margin-top:10px;color:var(--muted);font-size:.9rem}
+.pass-count b{color:var(--ink)}
+.pass-tabs{display:flex;gap:8px;margin-bottom:18px}
+.pass-tab{flex:1;padding:11px;border:1px solid var(--line);border-radius:12px;background:#fff;font:inherit;font-weight:700;color:var(--muted);cursor:pointer}
+.pass-tab.active{color:#fff;background:linear-gradient(135deg,#4c1d95,#7c3aed);border-color:transparent}
+.pass-tabpane{display:none}
+.pass-tabpane.active{display:block}
+.pass-link{color:var(--violet);font-weight:750;text-decoration:none}
+.pass-link:hover{text-decoration:underline}
+.pass-muted{color:var(--muted);font-size:.85rem}
+@media(max-width:680px){.pass-hero{padding:40px 24px}.pass-card{padding:22px}}
+
+/* Pass plan selector (7 / 30 / 90 days) */
+.pass-plans{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px}
+.pass-plan{position:relative;display:grid;gap:2px;padding:16px 14px;border:1.5px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
+.pass-plan input{position:absolute;opacity:0;pointer-events:none}
+.pass-plan-name{font-weight:800;color:var(--ink)}
+.pass-plan-price{font-size:1.25rem;font-weight:900;color:var(--violet)}
+.pass-plan-old{min-height:1em;color:var(--muted);text-decoration:line-through;font-size:.8rem}
+.pass-plan:hover{transform:translateY(-1px);border-color:#b798ec}
+.pass-plan.active{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.14)}
+.pass-plan.active::after{content:'✓';position:absolute;top:10px;right:12px;color:#7c3aed;font-weight:900}
+@media(max-width:480px){.pass-plans{grid-template-columns:1fr}}

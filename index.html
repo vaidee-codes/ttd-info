@@ -1,708 +1,136 @@
 <!DOCTYPE html>
 <html lang="en">
-
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>TTD Autofill Extension - User Guide</title>
-    <style>
-        :root {
-            --primary: #7c3aed;
-            --primary-dark: #6d28d9;
-            --primary-light: #8b5cf6;
-            --primary-muted: #f3eeff;
-            --bg: #f7f7fb;
-            --surface: #ffffff;
-            --text: #1f2937;
-            --text-muted: #6b7280;
-            --border: #e5e7eb;
-            --tip-bg: #ecfeff;
-            --tip-accent: #0891b2;
-            --warning-bg: #fef9c3;
-            --warning-accent: #b45309;
-            --code-bg: #f1f5f9;
-            --code-text: #be185d;
-            --shadow-sm: 0 1px 2px rgba(15, 23, 42, 0.04);
-            --shadow-md: 0 4px 14px rgba(15, 23, 42, 0.08);
-            --shadow-lg: 0 24px 60px rgba(76, 29, 149, 0.18);
-            --radius-sm: 8px;
-            --radius: 12px;
-            --radius-lg: 20px;
-            --transition: 200ms cubic-bezier(0.4, 0, 0.2, 1);
-        }
-
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
-        html {
-            scroll-behavior: smooth;
-        }
-
-        body {
-            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Inter", Roboto, "Helvetica Neue", Arial, sans-serif;
-            line-height: 1.65;
-            color: var(--text);
-            background:
-                radial-gradient(1200px 600px at 0% -10%, rgba(124, 58, 237, 0.18), transparent 60%),
-                radial-gradient(1000px 500px at 100% 0%, rgba(139, 92, 246, 0.15), transparent 60%),
-                var(--bg);
-            min-height: 100vh;
-            padding: 32px 16px;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
-        }
-
-        .container {
-            max-width: 960px;
-            margin: 0 auto;
-            background: var(--surface);
-            border-radius: var(--radius-lg);
-            box-shadow: var(--shadow-lg);
-            overflow: hidden;
-            border: 1px solid rgba(255, 255, 255, 0.6);
-        }
-
-        header {
-            position: relative;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-            color: white;
-            padding: 56px 32px 48px;
-            text-align: center;
-            overflow: hidden;
-        }
-
-        header::before {
-            content: "";
-            position: absolute;
-            inset: -40% -10% auto auto;
-            width: 360px;
-            height: 360px;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.18), transparent 70%);
-            pointer-events: none;
-        }
-
-        header h1 {
-            font-size: clamp(1.9rem, 4vw, 2.6rem);
-            margin-bottom: 10px;
-            letter-spacing: -0.02em;
-            font-weight: 800;
-        }
-
-        header p {
-            font-size: 1.1rem;
-            opacity: 0.92;
-            font-weight: 500;
-        }
-
-        .cta-button {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            margin-top: 24px;
-            padding: 14px 28px;
-            background: #ffffff;
-            color: var(--primary-dark);
-            border-radius: 999px;
-            text-decoration: none;
-            font-weight: 700;
-            font-size: 1rem;
-            box-shadow: 0 8px 24px rgba(15, 23, 42, 0.18);
-            transition: transform var(--transition), box-shadow var(--transition);
-            position: relative;
-            z-index: 1;
-        }
-
-        .cta-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 12px 32px rgba(15, 23, 42, 0.25);
-        }
-
-        .cta-button .cta-arrow {
-            transition: transform var(--transition);
-        }
-
-        .cta-button:hover .cta-arrow {
-            transform: translateX(3px);
-        }
-
-        .content {
-            padding: 48px 40px;
-        }
-
-        .section {
-            margin-bottom: 48px;
-            scroll-margin-top: 16px;
-        }
-
-        .section h2 {
-            color: var(--text);
-            font-size: 1.6rem;
-            margin-bottom: 18px;
-            padding-bottom: 12px;
-            border-bottom: 1px solid var(--border);
-            letter-spacing: -0.01em;
-            font-weight: 700;
-        }
-
-        .section h3 {
-            color: var(--primary-dark);
-            font-size: 1.15rem;
-            margin: 28px 0 12px;
-            font-weight: 600;
-            letter-spacing: -0.005em;
-        }
-
-        .feature-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-            gap: 16px;
-            margin: 20px 0;
-        }
-
-        .feature-card {
-            padding: 22px;
-            background: var(--surface);
-            border: 1px solid var(--border);
-            border-radius: var(--radius);
-            transition: transform var(--transition), box-shadow var(--transition), border-color var(--transition);
-        }
-
-        .feature-card:hover {
-            transform: translateY(-2px);
-            box-shadow: var(--shadow-md);
-            border-color: rgba(124, 58, 237, 0.35);
-        }
-
-        .feature-card h4 {
-            color: var(--primary-dark);
-            margin-bottom: 8px;
-            font-size: 1rem;
-            font-weight: 700;
-        }
-
-        .feature-card p {
-            color: var(--text-muted);
-            font-size: 0.92rem;
-        }
-
-        .step {
-            background: var(--surface);
-            padding: 20px 22px;
-            border-radius: var(--radius);
-            margin: 14px 0;
-            border: 1px solid var(--border);
-            box-shadow: var(--shadow-sm);
-            transition: box-shadow var(--transition);
-        }
-
-        .step:hover {
-            box-shadow: var(--shadow-md);
-        }
-
-        .step strong {
-            font-weight: 700;
-        }
-
-        .step p,
-        .step ul {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-        }
-
-        .step-number {
-            display: inline-flex;
-            align-items: center;
-            justify-content: center;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-            color: white;
-            width: 28px;
-            height: 28px;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 0.85rem;
-            margin-right: 10px;
-            vertical-align: middle;
-            box-shadow: 0 2px 8px rgba(124, 58, 237, 0.3);
-        }
-
-        code {
-            background: var(--code-bg);
-            padding: 2px 8px;
-            border-radius: 6px;
-            font-family: "SF Mono", Monaco, "Cascadia Code", "Roboto Mono", monospace;
-            font-size: 0.88em;
-            color: var(--code-text);
-        }
-
-        .tip,
-        .warning {
-            padding: 16px 18px;
-            margin: 18px 0;
-            border-radius: var(--radius);
-            font-size: 0.95rem;
-        }
-
-        .tip {
-            background: var(--tip-bg);
-            border: 1px solid rgba(8, 145, 178, 0.2);
-            color: #0e7490;
-        }
-
-        .tip strong {
-            color: var(--tip-accent);
-        }
-
-        .warning {
-            background: var(--warning-bg);
-            border: 1px solid rgba(180, 83, 9, 0.2);
-            color: #92400e;
-        }
-
-        .warning strong {
-            color: var(--warning-accent);
-        }
-
-        ul,
-        ol {
-            margin-left: 22px;
-            margin-top: 10px;
-        }
-
-        li {
-            margin: 6px 0;
-            color: var(--text-muted);
-        }
-
-        li strong {
-            color: var(--text);
-        }
-
-        .button-example {
-            display: inline-flex;
-            align-items: center;
-            gap: 4px;
-            background: linear-gradient(135deg, var(--primary) 0%, var(--primary-light) 100%);
-            color: white;
-            padding: 8px 14px;
-            border-radius: 8px;
-            text-decoration: none;
-            font-weight: 600;
-            font-size: 0.88rem;
-            margin: 4px;
-            box-shadow: 0 2px 6px rgba(124, 58, 237, 0.3);
-        }
-
-        .button-example.secondary {
-            background: var(--surface);
-            color: var(--primary);
-            border: 1.5px solid var(--primary);
-            box-shadow: none;
-        }
-
-        table {
-            width: 100%;
-            border-collapse: separate;
-            border-spacing: 0;
-            margin: 20px 0;
-            border-radius: var(--radius);
-            overflow: hidden;
-            border: 1px solid var(--border);
-        }
-
-        th,
-        td {
-            padding: 12px 16px;
-            text-align: left;
-            border-bottom: 1px solid var(--border);
-        }
-
-        tr:last-child td {
-            border-bottom: none;
-        }
-
-        th {
-            background: var(--primary-muted);
-            color: var(--primary-dark);
-            font-weight: 700;
-            font-size: 0.9rem;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-        }
-
-        td {
-            color: var(--text-muted);
-            font-size: 0.95rem;
-        }
-
-        tr:hover td {
-            background: rgba(243, 238, 255, 0.4);
-        }
-
-        footer {
-            background: var(--primary-muted);
-            padding: 28px 32px;
-            text-align: center;
-            color: var(--text-muted);
-            font-size: 0.9rem;
-            border-top: 1px solid var(--border);
-        }
-
-        footer p {
-            margin: 4px 0;
-        }
-
-        footer a {
-            color: var(--primary-dark);
-            text-decoration: none;
-            font-weight: 600;
-        }
-
-        footer a:hover {
-            text-decoration: underline;
-        }
-
-        @media (max-width: 640px) {
-            body {
-                padding: 16px 8px;
-            }
-
-            .content {
-                padding: 32px 20px;
-            }
-
-            header {
-                padding: 40px 20px 32px;
-            }
-        }
-    </style>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="description" content="A practical Tirumala Darshan planning guide and the official support site for TTD Autofill Assistant.">
+  <meta name="theme-color" content="#5b21b6">
+  <title>Tirumala Darshan Guide &amp; TTD Autofill Assistant</title>
+  <link rel="stylesheet" href="site.css">
+  <link rel="stylesheet" href="planning.css">
 </head>
-
 <body>
-    <div class="container">
-        <header>
-            <h1>⚡ TTD Autofill Extension</h1>
-            <p>Quick &amp; Easy Form Filling for TTD Booking</p>
-            <a href="https://chromewebstore.google.com/detail/ttd-autofill-assistant/piiegkjdfbbakjmjdckgdjbbohfjfolg"
-               target="_blank" rel="noopener noreferrer" class="cta-button">
-                <span>Add to Chrome</span>
-                <span class="cta-arrow">→</span>
-            </a>
-        </header>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <nav class="site-nav" aria-label="Main navigation">
+    <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a>
+    <div class="nav-links"><a href="#plan">Plan your visit</a><a href="guides.html">Guides</a><a href="#workflows">Product</a><a href="support.html">Support</a></div>
+  </nav>
+  <aside class="advisory-bar" aria-label="Information disclaimer"><strong>Information changes frequently.</strong> Timings, quotas, prices, counters, eligibility, routes and facilities may change. Confirm current information on the <a href="https://www.tirumala.org/" target="_blank" rel="noopener noreferrer">official TTD website ↗</a>, or ask experience-based questions in <a href="https://www.reddit.com/r/TirumalaDarshan/" target="_blank" rel="noopener noreferrer">r/TirumalaDarshan ↗</a>.</aside>
 
-        <div class="content">
-            <!-- Features Section -->
-            <section class="section">
-                <h2>✨ Features</h2>
-                <div class="feature-grid">
-                    <div class="feature-card">
-                        <h4>👥 Multiple Pilgrims</h4>
-                        <p>Save up to 6 pilgrim details and fill them instantly.</p>
-                    </div>
-                    <div class="feature-card">
-                        <h4>🛂 Passport Support</h4>
-                        <p>Full support for passport details including visa information.</p>
-                    </div>
-                    <div class="feature-card">
-                        <h4>💾 Auto-Save</h4>
-                        <p>Your data saves automatically and persists between sessions.</p>
-                    </div>
-                    <div class="feature-card">
-                        <h4>⚡ One-Click Fill</h4>
-                        <p>Fill all forms with a single click.</p>
-                    </div>
-                </div>
-            </section>
-
-            <!-- Installation Section -->
-            <section class="section">
-                <h2>📥 Installation</h2>
-
-                <div class="step">
-                    <span class="step-number">1</span>
-                    <strong>Open the Chrome Web Store listing</strong>
-                    <p>
-                        Visit
-                        <a href="https://chromewebstore.google.com/detail/ttd-autofill-assistant/piiegkjdfbbakjmjdckgdjbbohfjfolg"
-                           target="_blank" rel="noopener noreferrer">TTD Autofill Assistant on the Chrome Web Store</a>.
-                        Works in Chrome and any Chromium-based browser (Edge, Brave, Arc).
-                    </p>
-                </div>
-
-                <div class="step">
-                    <span class="step-number">2</span>
-                    <strong>Click "Add to Chrome"</strong>
-                    <p>Chrome will show a permission prompt — click "Add extension" to confirm.</p>
-                </div>
-
-                <div class="step">
-                    <span class="step-number">3</span>
-                    <strong>Pin the icon (recommended)</strong>
-                    <p>Click the puzzle piece 🧩 in your toolbar and pin TTD Autofill Assistant so it's always one
-                        click away.</p>
-                </div>
-
-                <div class="tip">
-                    <strong>✓ Success!</strong> The extension icon appears in your toolbar — click it to start saving
-                    pilgrim details.
-                </div>
-            </section>
-
-            <!-- Usage Section -->
-            <section class="section">
-                <h2>🚀 How to Use</h2>
-
-                <h3>Adding Pilgrim Details</h3>
-
-                <div class="step">
-                    <span class="step-number">1</span>
-                    <strong>Open Extension Popup</strong>
-                    <p>Click the extension icon in your Chrome toolbar.</p>
-                </div>
-
-                <div class="step">
-                    <span class="step-number">2</span>
-                    <strong>Fill Pilgrim Information</strong>
-                    <p>Enter the required details:</p>
-                    <ul>
-                        <li><strong>Name:</strong> Full name as per ID</li>
-                        <li><strong>Age:</strong> Current age</li>
-                        <li><strong>Gender:</strong> Male/Female</li>
-                        <li><strong>ID Proof:</strong> Select from dropdown (Aadhaar, PAN, Passport, etc.)</li>
-                        <li><strong>ID Number:</strong> Your ID proof number</li>
-                    </ul>
-                </div>
-
-                <div class="step">
-                    <span class="step-number">3</span>
-                    <strong>For Passport Holders (Additional Fields)</strong>
-                    <p>If you selected "Passport" as ID Proof, fill:</p>
-                    <ul>
-                        <li><strong>Country:</strong> Your passport country (e.g., USA, UK, India)</li>
-                        <li><strong>Visa/OCI Number:</strong> Your visa or OCI number</li>
-                        <li><strong>Type of Visa:</strong> Visa type (e.g., Tourist, Business)</li>
-                        <li><strong>Visa Validity Date:</strong> Format: DD/MM/YYYY</li>
-                    </ul>
-                </div>
-
-                <div class="step">
-                    <span class="step-number">4</span>
-                    <strong>Save Pilgrim</strong>
-                    <p>Click "Add Pilgrim" to save. Repeat for up to 6 pilgrims.</p>
-                </div>
-
-                <div class="warning">
-                    <strong>⚠ Important:</strong> You can add a maximum of 6 pilgrims. The extension will automatically
-                    fill only the available slots on the TTD page.
-                </div>
-
-                <h3>Adding Contact Details</h3>
-
-                <div class="step">
-                    <span class="step-number">1</span>
-                    <strong>Switch to Contact Tab</strong>
-                    <p>Click on "Contact Details" tab in the extension popup.</p>
-                </div>
-
-                <div class="step">
-                    <span class="step-number">2</span>
-                    <strong>Fill Contact Information</strong>
-                    <ul>
-                        <li><strong>Email:</strong> Your email address</li>
-                        <li><strong>City:</strong> Your city</li>
-                        <li><strong>State:</strong> Your state</li>
-                        <li><strong>Country:</strong> Your country</li>
-                        <li><strong>Pincode:</strong> Your postal code</li>
-                    </ul>
-                </div>
-
-                <div class="step">
-                    <span class="step-number">3</span>
-                    <strong>Save Contact Details</strong>
-                    <p>Click "Save Contact Details" button.</p>
-                </div>
-
-                <h3>Filling TTD Forms</h3>
-
-                <div class="step">
-                    <span class="step-number">1</span>
-                    <strong>Navigate to TTD Booking Page</strong>
-                    <p>Go to the TTD website and open the pilgrim details form.</p>
-                </div>
-
-                <div class="step">
-                    <span class="step-number">2</span>
-                    <strong>Open Extension</strong>
-                    <p>Click the extension icon to view your saved pilgrims.</p>
-                </div>
-
-                <div class="step">
-                    <span class="step-number">3</span>
-                    <strong>Choose Fill Option</strong>
-                    <p>You have three options:</p>
-                    <ul>
-                        <li><span class="button-example">⚡ Fill All Pilgrims</span> - Fills all saved pilgrims in
-                            available slots</li>
-                        <li><span class="button-example secondary">⚡ Fill</span> - Fills individual pilgrim (click next
-                            to specific pilgrim)</li>
-                        <li><span class="button-example secondary">⚡ Fill Contact Details</span> - Fills only general
-                            details section</li>
-                    </ul>
-                </div>
-
-                <div class="tip">
-                    <strong>💡 Smart Filling:</strong> If you have 6 pilgrims saved but the page only has 2 slots, the
-                    extension will fill only 2 pilgrims. It won't attempt to overfill!
-                </div>
-            </section>
-
-            <!-- Field Reference Section -->
-            <section class="section">
-                <h2>📋 Field Reference</h2>
-
-                <h3>ID Proof Types Supported</h3>
-                <table>
-                    <thead>
-                        <tr>
-                            <th>ID Type</th>
-                            <th>Additional Fields Required</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <tr>
-                            <td>Aadhaar Card</td>
-                            <td>None</td>
-                        </tr>
-                        <tr>
-                            <td>PAN Card</td>
-                            <td>None</td>
-                        </tr>
-                        <tr>
-                            <td>Driving License</td>
-                            <td>None</td>
-                        </tr>
-                        <tr>
-                            <td>Voter ID</td>
-                            <td>None</td>
-                        </tr>
-                        <tr>
-                            <td><strong>Passport</strong></td>
-                            <td><strong>Country, Visa Number, Visa Type, Visa Validity Date</strong></td>
-                        </tr>
-                    </tbody>
-                </table>
-
-                <h3>Date Format</h3>
-                <div class="tip">
-                    <strong>Visa Validity Date must be in DD/MM/YYYY format</strong>
-                    <p>Example: 15/03/2026 (15th March 2026)</p>
-                </div>
-            </section>
-
-            <!-- Tips & Tricks Section -->
-            <section class="section">
-                <h2>💡 Tips & Tricks</h2>
-
-                <div class="feature-card">
-                    <h4>✏️ Edit Saved Pilgrims</h4>
-                    <p>Click the Edit button next to any pilgrim to modify their details. Changes save automatically.
-                    </p>
-                </div>
-
-                <div class="feature-card">
-                    <h4>🗑️ Delete Pilgrims</h4>
-                    <p>Click the Delete button next to any pilgrim to remove them from your saved list.</p>
-                </div>
-
-                <div class="feature-card">
-                    <h4>🔄 Update Data</h4>
-                    <p>You can update pilgrim or contact details anytime. The extension always uses the latest saved
-                        data.</p>
-                </div>
-
-                <div class="feature-card">
-                    <h4>🔍 Check Console</h4>
-                    <p>Press F12 to open browser console and view detailed autofill logs if something doesn't work as
-                        expected.</p>
-                </div>
-            </section>
-
-            <!-- Troubleshooting Section -->
-            <section class="section">
-                <h2>🔧 Troubleshooting</h2>
-
-                <h3>Passport Popup Not Closing?</h3>
-                <p><strong>Solution:</strong> Make sure all required fields are filled:</p>
-                <ul>
-                    <li>Passport Number (same as ID Number)</li>
-                    <li>Country</li>
-                    <li>Visa/OCI Number</li>
-                    <li>Type of Visa</li>
-                    <li>Visa Validity Date</li>
-                </ul>
-
-                <h3>Some Fields Not Filling?</h3>
-                <p><strong>Solution:</strong> Check the browser console (F12) for error messages. Common issues:</p>
-                <ul>
-                    <li>Page structure might have changed</li>
-                    <li>Fields might be disabled or hidden</li>
-                    <li>Extension needs to be reloaded</li>
-                </ul>
-
-                <h3>Data Not Saving?</h3>
-                <p><strong>Solution:</strong> Ensure the extension has storage permissions. Go to
-                    <code>chrome://extensions/</code> and check extension permissions.
-                </p>
-
-                <h3>Extension Not Working After Chrome Update?</h3>
-                <p><strong>Solution:</strong> Reload the extension:</p>
-                <ol>
-                    <li>Go to <code>chrome://extensions/</code></li>
-                    <li>Find TTD Autofill Extension</li>
-                    <li>Click the reload icon 🔄</li>
-                </ol>
-            </section>
-
-            <!-- Privacy Section -->
-            <section class="section">
-                <h2>🔒 Privacy & Security</h2>
-
-                <div class="tip">
-                    <strong>Your data is safe!</strong>
-                    <ul>
-                        <li>All data is stored locally in your browser</li>
-                        <li>No data is sent to any server</li>
-                        <li>No tracking or analytics</li>
-                        <li>Data is only accessible by this extension on your computer</li>
-                    </ul>
-                </div>
-            </section>
-
-            <!-- Limitations Section -->
-            <section class="section">
-                <h2>⚠️ Limitations</h2>
-
-                <ul>
-                    <li><strong>Maximum 6 Pilgrims:</strong> You can save and autofill up to 6 pilgrims only</li>
-                    <li><strong>Chrome Only:</strong> Works only in Google Chrome and Edge browsers</li>
-                    <li><strong>TTD Page Changes:</strong> If TTD updates their website structure, the extension may
-                        need updates</li>
-                    <li><strong>No Auto-Submit:</strong> The extension fills forms but doesn't submit them - you must
-                        review and submit manually</li>
-                </ul>
-            </section>
+  <main id="main">
+    <section class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow"><span class="status-dot"></span> Practical guidance + autofill support</p>
+        <h1>Plan your Tirumala darshan with less confusion.</h1>
+        <p class="hero-lead">Understand tickets, tokens, accommodation, walking routes and temple essentials—then save time on supported TTD forms with the TTD Autofill Assistant.</p>
+        <div class="hero-actions">
+          <a class="button primary" href="#plan">Plan my visit</a>
+          <a class="button secondary" href="https://chromewebstore.google.com/detail/ttd-autofill-assistant/piiegkjdfbbakjmjdckgdjbbohfjfolg" target="_blank" rel="noopener noreferrer">Get the extension <span aria-hidden="true">↗</span></a>
         </div>
+        <p class="microcopy">Independent website. Not affiliated with TTD or r/TirumalaDarshan.</p>
+      </div>
+      <div class="hero-panel" role="img" aria-label="Illustration of the extension's four workflow tabs and Fill All Details action">
+        <div class="panel-top"><span class="window-dots" aria-hidden="true"><i></i><i></i><i></i></span><span>TTD Autofill Assistant</span><span class="theme-toggle" aria-hidden="true">◐</span></div>
+        <div class="tab-strip" aria-hidden="true"><span class="active">Pilgrims</span><span>Seva</span><span>Group</span><span>Srivani</span></div>
+        <div class="saved-card"><div><span class="avatar">VP</span><div><strong>Saved pilgrim</strong><small>Ready to fill</small></div></div><span class="ready">Ready</span></div>
+        <div class="form-lines" aria-hidden="true"><i></i><i></i><i></i></div>
+        <div class="mock-button">⚡ Fill All Details</div>
+      </div>
+    </section>
 
-        <footer>
-            <p><strong>TTD Autofill Extension</strong> — Making TTD bookings easier.</p>
-            <p>
-                <a href="support.html">Support &amp; Contact</a> ·
-                <a href="PRIVACY_POLICY.html">Privacy Policy</a>
-            </p>
-        </footer>
-    </div>
+    <section class="compliance-banner" aria-label="Product independence disclaimer">
+      <strong>TTD Autofill Assistant is an independent browser productivity tool and is not affiliated with or endorsed by TTD.</strong>
+      <span>It does not book tickets, bypass CAPTCHA, OTP, queues or payments, and provides no booking guarantee.</span>
+    </section>
+
+    <section class="trust-row" aria-label="Quick links">
+      <a href="guides.html#darshan"><strong>Darshan</strong><span>Compare ticket and token routes</span></a><a href="guides.html#stay"><strong>Stay</strong><span>Tirupati and Tirumala options</span></a><a href="guides.html#travel"><strong>Travel</strong><span>Road, bus and walking routes</span></a><a href="guides.html#essentials"><strong>Prepare</strong><span>Documents, dress and belongings</span></a>
+    </section>
+
+    <section class="section" id="plan">
+      <div class="section-heading"><p class="eyebrow">Start here</p><h2>Your Tirumala planning desk</h2><p>Choose the question closest to where you are in your journey. Each guide separates stable guidance from details that must be checked live.</p></div>
+      <div class="guide-grid">
+        <a class="guide-card guide-featured" href="guides.html#first-visit"><span class="guide-number">01</span><div><p class="card-kicker">First visit</p><h3>A calm, step-by-step Tirumala plan</h3><p>Choose a darshan route, decide where to stay, prepare documents and build a realistic day plan.</p><span class="text-link">Read the first-timer guide →</span></div></a>
+        <a class="guide-card" href="guides.html#darshan"><span class="guide-number">02</span><div><p class="card-kicker">Darshan choices</p><h3>₹300 SED, SSD, Sarva, Divya and Srivani</h3><p>Know what each route means, where it begins and what cannot be guaranteed.</p><span class="text-link">Compare options →</span></div></a>
+        <a class="guide-card" href="guides.html#booking"><span class="guide-number">03</span><div><p class="card-kicker">Online booking</p><h3>Quota releases without the panic</h3><p>Prepare profiles, watch official release notices and avoid payment-day mistakes.</p><span class="text-link">Prepare for release day →</span></div></a>
+        <a class="guide-card" href="guides.html#stay"><span class="guide-number">04</span><div><p class="card-kicker">Accommodation</p><h3>Where to stay and when to arrive</h3><p>Understand online rooms, CRO availability, PAC facilities and private stays.</p><span class="text-link">Plan your stay →</span></div></a>
+        <a class="guide-card" href="guides.html#travel"><span class="guide-number">05</span><div><p class="card-kicker">Travel &amp; walking</p><h3>Alipiri, Srivari Mettu and the hill road</h3><p>Compare footpaths, luggage handling and travel between Tirupati and Tirumala.</p><span class="text-link">Choose a route →</span></div></a>
+        <a class="guide-card" href="guides.html#essentials"><span class="guide-number">06</span><div><p class="card-kicker">Temple essentials</p><h3>Dress, phones, luggage, food and conduct</h3><p>Pack with fewer surprises and respect Tirumala's sacred environment.</p><span class="text-link">Use the checklist →</span></div></a>
+      </div>
+    </section>
+
+    <section class="section source-panel">
+      <div><p class="eyebrow">Live community knowledge</p><h2>Plans change. Ask people who are there.</h2><p>Daily crowds, token issue times, festival changes and offline room availability can shift quickly. For current experiences and questions, visit <strong>r/TirumalaDarshan</strong>.</p><p class="source-note">Credit: the topics and practical questions in these guides were informed by the community's pinned resources and devotee discussions. This website is independently owned and has no affiliation with, endorsement from or official relationship to the subreddit.</p></div>
+      <div class="source-actions"><a class="button reddit" href="https://www.reddit.com/r/TirumalaDarshan/" target="_blank" rel="noopener noreferrer">Visit r/TirumalaDarshan ↗</a><a class="text-link" href="https://www.reddit.com/r/TirumalaDarshan/wiki/index/" target="_blank" rel="noopener noreferrer">Open the community wiki ↗</a></div>
+    </section>
+
+    <section class="section" id="workflows">
+      <div class="section-heading"><p class="eyebrow">TTD Autofill Assistant · v6.5.1</p><h2>A productivity tool for faster form entry</h2><p>TTD Autofill Assistant is a Chrome extension that stores user-entered profiles locally and fills supported fields after the user clicks a fill action. It does not sell temple tickets, provide booking services or reserve inventory.</p></div>
+      <div class="workflow-grid">
+        <article class="workflow-card accent-violet"><span class="card-icon" aria-hidden="true">👥</span><p class="card-kicker">Pilgrim Booking</p><h3>Darshan, Seva and accommodation</h3><p>Save up to 6 pilgrims, including mixed Aadhaar and passport groups, plus general contact details.</p><ul class="check-list"><li>Smart slot detection</li><li>Passport and Visa/OCI popup handling</li><li>Email, location, pincode and Gothram</li></ul></article>
+        <article class="workflow-card accent-teal"><span class="card-icon" aria-hidden="true">🙏</span><p class="card-kicker">Srivari Seva</p><h3>Complete individual application</h3><p>Prepare identity, address, education, profession, experience and reference information in advance.</p><ul class="check-list"><li>Automatic age calculation</li><li>Photo and education document uploads</li><li>Country, state and district dropdowns</li></ul></article>
+        <article class="workflow-card accent-orange"><span class="card-icon" aria-hidden="true">🧑‍🤝‍🧑</span><p class="card-kicker">Group Seva</p><h3>Coordinate up to 15 members</h3><p>Manage a team leader and member profiles, then fill each matching accordion on the TTD application.</p><ul class="check-list"><li>Copy the leader's address</li><li>Shared nearest TTD temple</li><li>Auto-advance between members</li></ul></article>
+        <article class="workflow-card accent-blue"><span class="card-icon" aria-hidden="true">🎟️</span><p class="card-kicker">Srivani</p><h3>Fill the pilgrim table quickly</h3><p>Save up to 4 people for Srivani Trust current-day ticket booking and fill the table in order.</p><ul class="check-list"><li>Name, age and gender</li><li>Aadhaar or passport ID</li><li>One-click table filling</li></ul></article>
+      </div>
+    </section>
+
+    <section class="section" id="screenshots">
+      <div class="section-heading"><p class="eyebrow">Product screenshots</p><h2>See the extension before installing</h2><p>These screenshots show the actual interface published with the Chrome Web Store listing.</p></div>
+      <div class="screenshot-grid">
+        <figure><img src="assets/extension-seva.png" width="512" height="320" loading="lazy" decoding="async" alt="TTD Autofill Assistant pilgrim list with Fill All Details and individual fill actions"><figcaption>Pilgrim profiles and one-click filling</figcaption></figure>
+        <figure><img src="assets/extension-group.png" width="512" height="320" loading="lazy" decoding="async" alt="Add Pilgrim form with name, age, gender and ID proof fields"><figcaption>Structured pilgrim data entry</figcaption></figure>
+        <figure><img src="assets/extension-features.png" width="512" height="320" loading="lazy" decoding="async" alt="Group Seva screen showing member navigation and team leader details"><figcaption>Group Seva member workflow</figcaption></figure>
+        <figure><img src="assets/extension-pilgrims.png" width="512" height="320" loading="lazy" decoding="async" alt="Srivani tab showing two saved people and the Fill Srivani Form action"><figcaption>Srivani form preparation</figcaption></figure>
+      </div>
+      <p><a class="button primary store-button" href="https://chromewebstore.google.com/detail/ttd-autofill-assistant/piiegkjdfbbakjmjdckgdjbbohfjfolg" target="_blank" rel="noopener noreferrer">View on the Chrome Web Store ↗</a></p>
+    </section>
+
+    <section class="section" id="pricing" hidden>
+      <div class="section-heading"><p class="eyebrow">Licensing &amp; pricing</p><h2>Free for families. Professional plans coming soon.</h2><p>You pay for a software licence—not a temple ticket, reservation, priority queue, donation or booking service.</p></div>
+      <div class="pricing-grid">
+        <article class="price-card featured"><p class="card-kicker">Personal &amp; family</p><h3>Free</h3><p class="price-subtitle">For your own household's non-commercial use.</p><ul class="check-list"><li>Current extension workflows</li><li>Local profile storage</li><li>Community and email support</li><li>No ticket fee or commission</li></ul><a class="button primary" href="https://chromewebstore.google.com/detail/ttd-autofill-assistant/piiegkjdfbbakjmjdckgdjbbohfjfolg" target="_blank" rel="noopener noreferrer">Install free ↗</a></article>
+        <article class="price-card"><p class="card-kicker">Professional use</p><h3>Coming soon</h3><p class="price-subtitle">A paid pass will be required for agents, travel desks, coordinators and anyone using the software commercially or repeatedly for clients.</p><ul class="check-list"><li>Software-licence access only</li><li>Pricing shown before purchase</li><li>No ticket inventory or booking guarantee</li><li>Subject to TTD rules and our terms</li></ul><a class="button outline" href="mailto:ttdautofill@gmail.com?subject=Professional%20TTD%20Autofill%20plans">Ask about professional plans</a></article>
+      </div>
+      <div class="licence-clarity"><strong>What a professional pass covers:</strong> permission to use the extension software for professional workflows. It does not authorize the merchant to act for TTD, does not make the user an authorized TTD agent, and does not include tickets, donations, payments, queue access or any promise of a successful booking.</div>
+    </section>
+
+    <section class="section soft-section" id="guide">
+      <div class="section-heading"><p class="eyebrow">Quick start</p><h2>From install to filled form in four steps</h2></div>
+      <ol class="steps">
+        <li><span>1</span><div><strong>Install the extension</strong><p>Add TTD Autofill Assistant from the Chrome Web Store and pin it to your toolbar.</p></div></li>
+        <li><span>2</span><div><strong>Choose a workflow</strong><p>Open the extension and select Pilgrims, Seva, Group or Srivani.</p></div></li>
+        <li><span>3</span><div><strong>Save and review your details</strong><p>Enter the requested information carefully. It is saved locally as you work.</p></div></li>
+        <li><span>4</span><div><strong>Open the matching TTD form</strong><p>Review the page, click the relevant fill button, verify every field, then submit the form yourself.</p></div></li>
+      </ol>
+      <div class="notice"><strong>Important:</strong> Autofill helps with data entry only. It does not reserve tickets, bypass availability, solve CAPTCHA, make payments or submit a booking for you.</div>
+    </section>
+
+    <section class="section">
+      <div class="section-heading"><p class="eyebrow">Detailed guide</p><h2>Instructions for each tab</h2></div>
+      <div class="accordion-list">
+        <details open><summary><span><b>01</b> Pilgrim Booking</span><span class="plus" aria-hidden="true">+</span></summary><div class="details-body"><p>Add each pilgrim's name, age, gender, ID type and number. Passport holders can also save country, Visa/OCI number, visa type and validity date. Add your email, city, state, country, pincode and, where required, Gothram.</p><p>On the TTD pilgrim page, use <strong>Fill All Details</strong> for all available slots and contact fields, or <strong>Fill</strong> beside one saved pilgrim. The extension fills only the slots present on the page.</p></div></details>
+        <details><summary><span><b>02</b> Srivari Seva — Individual</span><span class="plus" aria-hidden="true">+</span></summary><div class="details-body"><p>Complete the identity, fitness, address, volunteer, education, profession, experience, language and reference sections. Select a photo and education document where required; supported uploads are JPEG or PNG, up to 1 MB each.</p><p>Open the individual Srivari Seva application and choose <strong>Apply to Form</strong>. Review dropdowns, uploaded files and every populated value before continuing.</p></div></details>
+        <details><summary><span><b>03</b> Srivari Seva — Group</span><span class="plus" aria-hidden="true">+</span></summary><div class="details-body"><p>Add up to 15 members. Member 1 is the team leader. Use <strong>Copy Address to All Members</strong> or <strong>Copy Address from Leader</strong> to reduce repeated entry; the leader's nearest TTD temple is shared with the group.</p><p>On the TTD group application, choose a member number and use <strong>Fill</strong> or <strong>Fill This Member</strong>. The extension moves to the next member after filling, but you should verify each accordion.</p></div></details>
+        <details><summary><span><b>04</b> Srivani</span><span class="plus" aria-hidden="true">+</span></summary><div class="details-body"><p>Add up to 4 people with name, age, gender, ID proof type and ID proof number. Open the Srivani Trust current-day ticket page and click <strong>Fill Srivani Form</strong> to populate the pilgrim table in saved order.</p></div></details>
+      </div>
+    </section>
+
+    <section class="section split-section">
+      <div><p class="eyebrow">Built for real booking flows</p><h2>Smart where it matters. Still under your control.</h2></div>
+      <div class="benefit-list">
+        <div><span aria-hidden="true">⚡</span><p><strong>Optimized filling</strong>Handles supported fields in parallel while respecting dependent dropdowns and popups.</p></div>
+        <div><span aria-hidden="true">◐</span><p><strong>Light and dark themes</strong>Your theme preference is remembered for the next session.</p></div>
+        <div><span aria-hidden="true">🔒</span><p><strong>Local by design</strong>The developer does not operate a backend for your saved information.</p></div>
+      </div>
+    </section>
+
+    <section class="section support-banner"><div><p class="eyebrow">Still have a Tirumala question?</p><h2>Continue the conversation on Reddit.</h2><p>Search existing posts first, then ask the r/TirumalaDarshan community for current, experience-based help. For extension bugs, use this site's support page.</p></div><div class="banner-actions"><a class="button light" href="https://www.reddit.com/r/TirumalaDarshan/" target="_blank" rel="noopener noreferrer">Ask the community ↗</a><a class="button secondary" href="support.html">Extension support</a></div></section>
+  </main>
+
+  <footer class="site-footer">
+    <div><a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a><p>An independent helper for TTD form entry.</p></div>
+    <div class="footer-links"><a href="guides.html">Guides</a><a href="support.html">Contact</a><a href="PRIVACY_POLICY.html">Privacy</a><a href="terms.html" hidden>Terms</a><a href="refund-policy.html" hidden>Refunds</a></div>
+    <p class="disclaimer"><span hidden><strong>Merchant: FireflyAI Softwares</strong><br></span>ttdautofill@gmail.com<br>TTD Autofill Assistant is an independent browser productivity tool and is not affiliated with or endorsed by TTD. It does not book tickets, bypass CAPTCHA, OTP, queues or payments, and provides no booking guarantee.</p>
+  </footer>
 </body>
-
 </html>
