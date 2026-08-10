@@ -1,0 +1,12 @@
+{
+  "name": "ttd-info",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "validate:dodo": "node scripts/validate-dodo-config.mjs"
+  },
+  "dependencies": {
+    "@vercel/firewall": "^1.2.4"
+  }
+}

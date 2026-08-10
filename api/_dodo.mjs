@@ -1,190 +1,221 @@
-// Shared server-side Dodo Payments helper. The API key lives only in Vercel env.
-const BASE = 'https://live.dodopayments.com';
-const KEY = process.env.DODO_API_KEY || '';
+import { createHash, timingSafeEqual } from 'node:crypto';
+
+const LIVE_BASE = 'https://live.dodopayments.com';
+const TEST_BASE = 'https://test.dodopayments.com';
+const REQUEST_TIMEOUT_MS = 8000;
 
 export const WEEKLY_PRODUCT_ID = 'pdt_0Nk4Gw67usedtjPoO6hX2';
 export const WEEKLY_ENTITLEMENT_ID = 'ent_0Nk4GugPIsPbnFf5dYYqC';
-// Attached to the Monthly Supporter product so every paid month issues a 1-month key.
-export const MONTHLY_ENTITLEMENT_ID = 'ent_0NktSBrbESJK6IQ99toyW';
+export const LEGACY_30_DAY_PRODUCT_ID = 'pdt_0NkvjEpCQNkDuaCT65cFV';
+export const LEGACY_90_DAY_PRODUCT_ID = 'pdt_0NkvjEr1l8rhSF6Ibxlj3';
+export const SUPPORTER_PRODUCT_ID = 'pdt_0NjbdVzVqfSrrofI36ENV';
+export const WEEKLY_PLAN = Object.freeze({
+  code: '7d',
+  product_id: WEEKLY_PRODUCT_ID,
+  entitlement_id: WEEKLY_ENTITLEMENT_ID,
+  currency: 'INR',
+  price: 9900,
+  days: 7,
+  activations: 1,
+  label: '7-day pass'
+});
 
-// One-time pass plans sold on the pass page. prices are in INR paise.
-export const PASS_PLANS = {
-  '7d': {
-    product_id: 'pdt_0Nk4Gw67usedtjPoO6hX2',
-    entitlement_id: 'ent_0Nk4GugPIsPbnFf5dYYqC',
-    days: 7,
-    price: 9900,
-    old_price: 19800,
-    label: '7-day pass'
-  },
-  '30d': {
-    product_id: 'pdt_0NkvjEpCQNkDuaCT65cFV',
-    entitlement_id: 'ent_0NkvjEit63fF12KazuaN1',
-    days: 30,
-    price: 29900,
-    old_price: null,
-    label: '30-day pass'
-  },
-  '90d': {
-    product_id: 'pdt_0NkvjEr1l8rhSF6Ibxlj3',
-    entitlement_id: 'ent_0NkvjEqEgOtu4zXZbpSnR',
-    days: 90,
-    price: 69900,
-    old_price: null,
-    label: '90-day pass'
+export class ProviderError extends Error {
+  constructor(status, code = null) {
+    super('Payment provider request failed');
+    this.status = status;
+    this.code = code;
   }
-};
-
-export function getPassPlan(code) {
-  return PASS_PLANS[String(code || '').trim()] || PASS_PLANS['7d'];
 }
 
-export async function dodo(path, opts = {}) {
-  if (!KEY) throw new Error('DODO_API_KEY is not configured');
-  // Hard 8s cap: a slow/hung Dodo request fails fast so a serverless
-  // function never burns compute waiting, and callers degrade gracefully
-  // instead of piling up requests.
-  const r = await fetch(BASE + path, {
-    method: opts.method || 'GET',
-    headers: {
-      Authorization: 'Bearer ' + KEY,
-      Accept: 'application/json',
-      ...(opts.body ? { 'Content-Type': 'application/json' } : {}),
-      ...(opts.headers || {})
-    },
-    body: opts.body ? JSON.stringify(opts.body) : undefined,
-    signal: AbortSignal.timeout(8000)
-  });
-  const text = await r.text();
-  let json;
-  try { json = text ? JSON.parse(text) : null; } catch { json = text; }
-  if (!r.ok) {
-    const detail = typeof json === 'string' ? json : JSON.stringify(json);
-    const err = new Error('Dodo ' + r.status + ': ' + String(detail).slice(0, 300));
-    err.status = r.status;
-    err.code = (json && json.code) || null;
-    throw err;
+export class ProviderConfigurationError extends Error {
+  constructor() {
+    super('Payment provider configuration is invalid');
+  }
+}
+
+function providerConfig() {
+  const production = process.env.VERCEL_ENV === 'production';
+  return {
+    base: String(process.env.DODO_API_BASE || (production ? LIVE_BASE : TEST_BASE)).replace(/\/$/, ''),
+    apiKey: String(process.env.DODO_API_KEY || '').trim(),
+    productId: String(process.env.DODO_PRODUCT_ID || WEEKLY_PRODUCT_ID).trim(),
+    entitlementId: String(process.env.DODO_ENTITLEMENT_ID || WEEKLY_ENTITLEMENT_ID).trim()
+  };
+}
+
+async function request(path, opts = {}) {
+  const config = providerConfig();
+  const authenticated = opts.authenticated !== false;
+  if (authenticated && !config.apiKey) throw new ProviderConfigurationError();
+
+  let response;
+  try {
+    response = await fetch(config.base + path, {
+      method: opts.method || 'GET',
+      headers: {
+        ...(authenticated ? { Authorization: 'Bearer ' + config.apiKey } : {}),
+        Accept: 'application/json',
+        ...(opts.body ? { 'Content-Type': 'application/json' } : {}),
+        ...(opts.headers || {})
+      },
+      body: opts.body ? JSON.stringify(opts.body) : undefined,
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    });
+  } catch {
+    throw new ProviderError(503);
+  }
+
+  const json = await response.json().catch(() => null);
+  if (!response.ok) {
+    const code = json && typeof json === 'object'
+      ? (json.code || (json.error && json.error.code) || null)
+      : null;
+    throw new ProviderError(response.status, code);
   }
   return json;
 }
 
-export async function findCustomerByEmail(email) {
-  const clean = String(email || '').trim().toLowerCase();
-  if (!clean) return null;
-  const customers = await dodo('/customers?email=' + encodeURIComponent(clean));
-  const customer = customers.items && customers.items[0];
-  return customer && customer.customer_id ? customer : null;
+export function logProviderFailure(operation, error) {
+  // Never log request bodies, licence keys, customer data, tokens, or provider
+  // responses. Status/code are sufficient for operational diagnosis.
+  console.error(JSON.stringify({
+    event: 'provider_failure',
+    operation,
+    status: Number(error && error.status) || null,
+    code: String(error && error.code || '').slice(0, 64) || null
+  }));
 }
 
-// All grants (and their license keys) for a customer across every entitlement.
-// Fair stacking: one-time passes add their remaining time to the pool; monthly
-// supporter grants contribute their own remaining months. Effective expiry is
-// now + the sum of all remaining time, capped by the farthest-expiring key.
-export async function resolveLicenseForEmail(email) {
-  const customer = await findCustomerByEmail(email);
-  if (!customer) return null;
-  return resolveLicenseForCustomer(customer.customer_id);
+export function dodo(path, opts = {}) {
+  return request(path, { ...opts, authenticated: true });
 }
 
-export async function resolveLicenseForCustomer(customerId) {
-  const entIds = [...new Set(
-    [WEEKLY_ENTITLEMENT_ID, MONTHLY_ENTITLEMENT_ID]
-      .concat(Object.values(PASS_PLANS).map((plan) => plan.entitlement_id))
-      .filter(Boolean)
-  )];
-  const now = Date.now();
-  let remainingMs = 0;
-  let best = null; // newest valid key, for display
-  let bestCreated = 0;
-  let keys = [];
-
-  for (const entId of entIds) {
-    let grants;
-    try {
-      grants = await dodo(`/entitlements/${entId}/grants?customer_id=${encodeURIComponent(customerId)}&limit=100`);
-    } catch { continue; /* entitlement not attached yet — skip */ }
-    for (const g of grants.items || []) {
-      const lic = g.license_key || g.license;
-      if (!lic || !lic.key) continue;
-      if (g.status && /revok|pending|failed|cancelled/i.test(String(g.status))) continue;
-      const exp = lic.expires_at ? Date.parse(lic.expires_at) : null;
-      if (exp) remainingMs += Math.max(0, exp - now);
-      const created = g.created_at ? Date.parse(g.created_at) : 0;
-      keys.push({ key: lic.key, expires_at: lic.expires_at || null });
-      if (created > bestCreated) {
-        bestCreated = created;
-        best = {
-          key: lic.key,
-          expires_at: lic.expires_at || null,
-          entitlement_id: entId,
-          grant_status: g.status,
-          activations_used: lic.activations_used,
-          activations_limit: lic.activations_limit
-        };
-      }
-    }
-  }
-
-  if (!best) return null;
-  const effectiveExpiresAt = new Date(now + remainingMs).toISOString();
-  return {
-    key: best.key,
-    // Effective (stacked) expiry for this customer, not the raw key expiry.
-    expires_at: effectiveExpiresAt,
-    raw_expires_at: best.expires_at,
-    effective_expires_at: effectiveExpiresAt,
-    remaining_ms: remainingMs,
-    keys,
-    entitlement_id: best.entitlement_id,
-    grant_status: best.grant_status,
-    activations_used: best.activations_used,
-    activations_limit: best.activations_limit
-  };
-}
-
-// Locate a license key record by its exact value (Dodo's /license_keys query
-// params ignore license_key=, so we page through and match exactly).
-export async function findLicenseKeyByValue(licenseKey) {
-  const clean = String(licenseKey || '').trim();
-  if (!clean) return null;
-  const PAGE_SIZE = 100;
-  for (let page = 0; page < 3; page++) {
-    const { items } = await dodo(`/license_keys?page_size=${PAGE_SIZE}&page_number=${page}`);
-    for (const item of items || []) {
-      if (item.key === clean) return item;
-    }
-  }
-  return null;
-}
-
-export async function activateLicenseKey(key, name) {
-  return dodo('/licenses/activate', {
+export function activateLicenseKey(key, name) {
+  return request('/licenses/activate', {
+    authenticated: false,
     method: 'POST',
-    body: { license_key: String(key).trim(), name: String(name || 'TTD Autofill - Chrome') }
+    body: { license_key: key, name }
   });
 }
 
-export async function deactivateLicenseKey(key, instanceId) {
-  return dodo('/licenses/deactivate', {
+export function validateLicenseKey(key, instanceId) {
+  return request('/licenses/validate', {
+    authenticated: false,
     method: 'POST',
-    body: { license_key: String(key).trim(), license_key_instance_id: String(instanceId) }
+    body: { license_key: key, license_key_instance_id: instanceId }
   });
 }
 
-// Robust body parser: Vercel may hand us a parsed object, a JSON string, or a Buffer.
-export function readBody(req) {
-  try {
-    if (req.body && typeof req.body === 'object' && !Buffer.isBuffer(req.body)) return req.body;
-    const raw = Buffer.isBuffer(req.body) ? req.body.toString('utf8') : String(req.body || '');
-    return raw ? JSON.parse(raw) : {};
-  } catch {
-    return {};
-  }
+export function deactivateLicenseKey(key, instanceId) {
+  return request('/licenses/deactivate', {
+    authenticated: false,
+    method: 'POST',
+    body: { license_key: key, license_key_instance_id: instanceId }
+  });
 }
 
-// Same-origin + extension CORS.
-export function cors(res) {
-  res.setHeader('Access-Control-Allow-Origin', '*');
-  res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
-  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+export function getLicenseKeyById(licenseKeyId) {
+  return dodo('/license_keys/' + encodeURIComponent(licenseKeyId));
+}
+
+export function getLicenseInstanceById(instanceId) {
+  return dodo('/license_key_instances/' + encodeURIComponent(instanceId));
+}
+
+export function getPaymentById(paymentId) {
+  return dodo('/payments/' + encodeURIComponent(paymentId));
+}
+
+export function getCheckoutById(sessionId) {
+  return dodo('/checkouts/' + encodeURIComponent(sessionId));
+}
+
+function exactSecretMatch(left, right) {
+  const a = createHash('sha256').update(String(left || ''), 'utf8').digest();
+  const b = createHash('sha256').update(String(right || ''), 'utf8').digest();
+  return timingSafeEqual(a, b);
+}
+
+function hasProductCart(payment, productId) {
+  const cart = Array.isArray(payment && payment.product_cart) ? payment.product_cart : [];
+  return cart.length === 1 && cart[0].product_id === productId && cart[0].quantity === 1;
+}
+
+export function acceptedProductIds() {
+  return new Set([
+    providerConfig().productId,
+    LEGACY_30_DAY_PRODUCT_ID,
+    LEGACY_90_DAY_PRODUCT_ID,
+    SUPPORTER_PRODUCT_ID
+  ]);
+}
+
+export function isAcceptedProduct(productId) {
+  return acceptedProductIds().has(String(productId || ''));
+}
+
+export async function inspectLicenseBinding({ licenseKey, licenseKeyId, instanceId, expectedProductId }) {
+  const [validation, instance, license] = await Promise.all([
+    validateLicenseKey(licenseKey, instanceId),
+    getLicenseInstanceById(instanceId),
+    getLicenseKeyById(licenseKeyId)
+  ]);
+
+  const expiresAt = license && license.expires_at ? Date.parse(license.expires_at) : null;
+  const productId = String(license && license.product_id || '');
+  const basicValid = validation && validation.valid === true &&
+    instance && instance.id === instanceId && instance.license_key_id === licenseKeyId &&
+    license && license.id === licenseKeyId && exactSecretMatch(license.key, licenseKey) &&
+    isAcceptedProduct(productId) && (!expectedProductId || productId === expectedProductId) &&
+    license.status === 'active' && license.activations_limit === WEEKLY_PLAN.activations &&
+    (!expiresAt || (Number.isFinite(expiresAt) && expiresAt > Date.now()));
+  if (!basicValid) return { valid: false, productId, license };
+
+  // Existing 30/90-day and supporter keys predate the weekly-only checkout.
+  // Dodo's public validation plus the direct key/instance records remain the
+  // authority for them. In particular, a no-expiry supporter key is accepted
+  // only while /licenses/validate reports it valid on this exact instance.
+  if (productId !== providerConfig().productId) {
+    return { valid: true, productId, license };
+  }
+
+  if (!license.payment_id) return { valid: false, productId, license };
+
+  const payment = await getPaymentById(license.payment_id);
+  const paymentValid = payment && payment.payment_id === license.payment_id &&
+    payment.status === 'succeeded' && payment.currency === WEEKLY_PLAN.currency &&
+    hasProductCart(payment, productId) && !!payment.checkout_session_id;
+  if (!paymentValid) return { valid: false, productId, license };
+
+  const checkout = await getCheckoutById(payment.checkout_session_id);
+  const checkoutValid = checkout && checkout.id === payment.checkout_session_id &&
+    checkout.payment_id === payment.payment_id && checkout.payment_status === 'succeeded';
+
+  return { valid: !!checkoutValid, productId, license };
+}
+
+export async function assertDodoConfiguration() {
+  const config = providerConfig();
+  const [product, entitlement] = await Promise.all([
+    dodo('/products/' + encodeURIComponent(config.productId)),
+    dodo('/entitlements/' + encodeURIComponent(config.entitlementId))
+  ]);
+  const price = product && product.price || {};
+  const integration = entitlement && entitlement.integration_config || {};
+  const attachedIds = new Set((product && product.entitlements || []).map((item) => String(item.entitlement_id || item.id || '')));
+  const valid = product && product.product_id === config.productId &&
+    product.is_recurring === false && price.currency === WEEKLY_PLAN.currency &&
+    price.price === WEEKLY_PLAN.price && price.pay_what_you_want !== true &&
+    entitlement && entitlement.id === config.entitlementId && entitlement.is_active === true &&
+    entitlement.integration_type === 'license_key' && integration.fulfillment_mode === 'auto' &&
+    integration.duration_count === WEEKLY_PLAN.days && integration.duration_interval === 'Day' &&
+    integration.activations_limit === WEEKLY_PLAN.activations &&
+    (attachedIds.size === 0 || attachedIds.has(config.entitlementId));
+  if (!valid) throw new ProviderConfigurationError();
+  return true;
+}
+
+export function createCheckoutIdempotencyKey(requestId) {
+  return 'pass-checkout-' + createHash('sha256').update(requestId, 'utf8').digest('hex');
 }

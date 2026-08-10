@@ -1,23 +1,44 @@
-import { cors, readBody, deactivateLicenseKey } from './_dodo.mjs';
+import { deactivateLicenseKey, logProviderFailure } from './_dodo.mjs';
+import { verifyEntitlement } from './_entitlement.mjs';
+import {
+  beginRequest,
+  boundedString,
+  handleRequestError,
+  MAX_INSTANCE_ID_LENGTH,
+  MAX_LICENSE_KEY_LENGTH,
+  MAX_TOKEN_LENGTH,
+  readJsonBody,
+  sendError
+} from './_http.mjs';
+import { enforceHashedKeyRateLimit } from './_rate-limit.mjs';
 
-// POST /api/license-deactivate  { license_key, instance_id } -> { ok }
-// Frees this browser's activation slot (used by the "remove pass" testing
-// helper so a key can be re-entered and re-activated for testing).
 export default async function handler(req, res) {
-  cors(res);
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+  if (!beginRequest(req, res, ['POST'])) return;
+  let licenseKey;
+  let instanceId;
+  let token;
+  try {
+    const body = readJsonBody(req);
+    licenseKey = boundedString(body.license_key, { field: 'license_key', max: MAX_LICENSE_KEY_LENGTH });
+    instanceId = boundedString(body.instance_id, { field: 'instance_id', max: MAX_INSTANCE_ID_LENGTH });
+    token = boundedString(body.entitlement_token, { field: 'entitlement_token', max: MAX_TOKEN_LENGTH });
+  } catch (error) {
+    return handleRequestError(res, error);
+  }
+  if (!await enforceHashedKeyRateLimit(res, licenseKey)) return;
 
-  const body = readBody(req);
-  const licenseKey = String(body.license_key || '').trim();
-  const instanceId = String(body.instance_id || '').trim();
-  if (!licenseKey || !instanceId) return res.status(400).json({ ok: false, error: 'license_key and instance_id required' });
+  try {
+    const claims = verifyEntitlement(token, { allowExpired: true });
+    if (claims.activation_instance_id !== instanceId) throw new Error('binding mismatch');
+  } catch {
+    return sendError(res, 401, 'invalid_entitlement', 'Entitlement is invalid.');
+  }
 
   try {
     await deactivateLicenseKey(licenseKey, instanceId);
     return res.status(200).json({ ok: true });
-  } catch (e) {
-    // Deactivation is best-effort (the key may already be expired/removed).
-    return res.status(200).json({ ok: true, warned: e.message });
+  } catch (error) {
+    logProviderFailure('license_deactivate', error);
+    return sendError(res, 502, 'provider_unavailable', 'Licence deactivation is temporarily unavailable.');
   }
 }

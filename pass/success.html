@@ -26,27 +26,27 @@
 
     <section class="pass-card" id="license-card" style="display:none">
       <h2>Your licence key</h2>
-      <p class="pass-muted" id="email-note">Also sent to your email.</p>
+      <p class="pass-muted" id="email-note">Also sent to the email used at checkout.</p>
       <div class="pass-key">
         <span id="license-key">…</span>
         <button id="copy-key" type="button">Copy</button>
       </div>
       <div class="pass-status" id="activation-status"></div>
-      <p class="pass-count" id="countdown">Valid until <b id="valid-until">…</b></p>
+      <p class="pass-count" id="countdown">Valid for <b>7 days</b> with one browser activation.</p>
       <button class="pass-btn" id="renew" type="button">Buy another pass</button>
+      <p class="pass-note">A new pass begins when purchased. We recommend buying after this pass expires.</p>
     </section>
 
     <section class="pass-card" id="waiting-card" style="display:none">
       <h2>Almost there</h2>
       <p class="pass-muted">If you've just paid, your key can take a few seconds to appear. Your licence key is also emailed to you automatically.</p>
-      <button class="pass-btn" id="retry" type="button">Check again</button>
-      <p class="pass-note"><a class="pass-link" href="/pass/status">Already have your key? Check its status →</a></p>
+      <p class="pass-note">Check the email used at checkout. You can paste the key into the extension if automatic activation does not complete.</p>
     </section>
 
     <section class="pass-card" id="error-card" style="display:none">
       <h2>Something went wrong</h2>
       <p class="pass-muted" id="error-msg">We couldn't confirm this payment. Your licence key is emailed to you automatically on success.</p>
-      <p class="pass-note"><a class="pass-link" href="/pass/status">Check your pass status →</a> · <a class="pass-link" href="/pass">Buy a pass →</a></p>
+      <p class="pass-note"><a class="pass-link" href="/pass">Return to the pass page →</a></p>
     </section>
   </main>
 
@@ -58,90 +58,48 @@
 
   <script>
     const params = new URLSearchParams(location.search);
-    const sessionId = (params.get('session_id') || params.get('id') || '').trim();
-    let extensionId = (params.get('extension_id') || '').trim();
-    const keyParam = (params.get('license_key') || '').trim();
-    const statusParam = (params.get('status') || '').trim();
+    const extensionIdParam = (params.get('extension_id') || '').trim();
+    const extensionId = /^[a-p]{32}$/.test(extensionIdParam) ? extensionIdParam : '';
+    const keyValue = (params.get('license_key') || '').trim();
+    const licenseKey = keyValue.length <= 128 && !/[\u0000-\u001f\u007f]/.test(keyValue) ? keyValue : '';
+    const paymentStatus = (params.get('status') || '').trim();
+    // Dodo includes payment, email and key data in its redirect. Capture the
+    // minimum needed in memory, then remove every query parameter immediately.
+    if (location.search) history.replaceState(null, '', location.pathname + location.hash);
     const heading = document.getElementById('heading');
     const subline = document.getElementById('subline');
     const keyCard = document.getElementById('license-card');
     const waitingCard = document.getElementById('waiting-card');
     const errorCard = document.getElementById('error-card');
-    let pendingLicense = null;
 
     function showEl(el) { [keyCard, waitingCard, errorCard].forEach(x => x.style.display = x === el ? 'block' : 'none'); }
-    function fmtCountdown(ms) {
-      const total = Math.max(0, Math.floor(ms / 1000));
-      const d = Math.floor(total / 86400), h = Math.floor((total % 86400) / 3600), m = Math.floor((total % 3600) / 60);
-      const s = total % 60;
-      if (d > 0) return d + ' day' + (d === 1 ? '' : 's') + ' ' + h + 'h';
-      if (h > 0) return h + 'h ' + m + 'm';
-      if (m > 0) return m + ' minute' + (m === 1 ? '' : 's');
-      return s + ' second' + (s === 1 ? '' : 's');
-    }
 
-    let productDays = null;
-    function showLicense(lic, email) {
+    function showLicense(key) {
       heading.textContent = 'Your pass is ready';
-      const daysLabel = productDays ? productDays + '-day' : 'Professional';
-      subline.textContent = daysLabel + ' Access for TTD Autofill Assistant.';
-      document.getElementById('license-key').textContent = lic.key;
-      if (lic.expires_at) {
-        const expiry = new Date(lic.expires_at).toLocaleDateString(undefined, { day: 'numeric', month: 'short', year: 'numeric' });
-        document.getElementById('valid-until').textContent = expiry;
-        document.getElementById('countdown').innerHTML = 'Valid for <b>' + fmtCountdown(Date.parse(lic.expires_at) - Date.now()) + '</b> · expires <b>' + expiry + '</b>';
-      } else {
-        document.getElementById('countdown').textContent = productDays ? ('Valid ' + productDays + ' days from purchase.') : 'Valid from purchase.';
-      }
-      if (email) document.getElementById('email-note').textContent = 'Also sent to ' + email + '.';
+      subline.textContent = '7-day Access for TTD Autofill Assistant.';
+      document.getElementById('license-key').textContent = key;
       showEl(keyCard);
-      deliverToExtension(lic);
+      deliverToExtension(key);
     }
 
-    async function load() {
-      try {
-        // Dodo appends license_key + status + email to the return URL — show the
-        // key immediately while the session poll fills in the expiry.
-        if (keyParam && !sessionId) {
-          pendingLicense = { key: keyParam };
-          showLicense(pendingLicense, params.get('email') || '');
-          return;
-        }
-        if (!sessionId) {
-          heading.textContent = 'Payment confirmed?';
-          subline.textContent = 'No session was found in this link. Your key is emailed to you — or check your pass status below.';
-          showEl(errorCard);
-          return;
-        }
-        const res = await fetch('/api/session?session_id=' + encodeURIComponent(sessionId), { signal: AbortSignal.timeout(8000) });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Could not load your licence.');
-        const paid = data.paid || statusParam === 'succeeded' || statusParam === 'active';
-        if (!paid) {
-          heading.textContent = 'Payment not confirmed yet';
-          subline.textContent = 'Your key will appear here (and arrive by email) as soon as the payment clears.';
-          showEl(waitingCard);
-          return;
-        }
-        if (data.extension_id) extensionId = data.extension_id;
-        if (data.product_days) productDays = data.product_days;
-        const lic = data.license;
-        if (!lic || !lic.key) {
-          heading.textContent = 'Payment received';
-          subline.textContent = 'Your licence key is on its way — check your email, or refresh in a few seconds.';
-          showEl(waitingCard);
-          return;
-        }
-        showLicense(lic, data.email);
-      } catch (e) {
-        heading.textContent = 'Something went wrong';
-        subline.textContent = e.message;
+    function load() {
+      if (paymentStatus !== 'succeeded') {
+        heading.textContent = 'Payment not confirmed';
+        subline.textContent = 'Access is granted only after the payment provider reports a successful payment.';
         showEl(errorCard);
+        return;
       }
+      if (!licenseKey) {
+        heading.textContent = 'Payment received';
+        subline.textContent = 'Your licence key is being delivered by email.';
+        showEl(waitingCard);
+        return;
+      }
+      showLicense(licenseKey);
     }
 
     // Auto-activation: hand the key to the extension that opened this page.
-    function deliverToExtension(lic) {
+    function deliverToExtension(key) {
       const statusEl = document.getElementById('activation-status');
       const target = extensionId && window.chrome && window.chrome.runtime && window.chrome.runtime.sendMessage ? extensionId : null;
       if (!target) {
@@ -152,15 +110,17 @@
       try {
         window.chrome.runtime.sendMessage(target, {
           type: 'TTDAF_LICENSE',
-          license_key: lic.key,
-          expires_at: lic.expires_at
-        }, () => {
+          license_key: key
+        }, (response) => {
           if (window.chrome.runtime.lastError) {
             statusEl.className = 'pass-status warn';
             statusEl.textContent = 'Could not reach the extension — copy your key and paste it in the extension popup.';
-          } else {
+          } else if (response && response.ok) {
             statusEl.className = 'pass-status ok';
             statusEl.textContent = '✓ Activated on this browser. Open the extension to see your countdown.';
+          } else {
+            statusEl.className = 'pass-status warn';
+            statusEl.textContent = (response && response.error) || 'Activation failed — copy your key and paste it in the extension popup.';
           }
         });
       } catch (e) {
@@ -176,20 +136,11 @@
       btn.textContent = 'Copied ✓';
       setTimeout(() => btn.textContent = 'Copy', 1600);
     });
-    document.getElementById('retry').addEventListener('click', load);
     document.getElementById('renew').addEventListener('click', () => {
       location.href = '/pass' + (extensionId ? '?extension_id=' + encodeURIComponent(extensionId) + '&activate=1' : '');
     });
 
     load();
-    // Poll a few times for webhook/session latency.
-    let attempts = 0;
-    const poll = setInterval(() => {
-      attempts++;
-      if (attempts > 8) { clearInterval(poll); return; }
-      if (keyCard.style.display === 'block') { clearInterval(poll); return; }
-      load();
-    }, 4000);
   </script>
 </body>
 </html>

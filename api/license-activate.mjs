@@ -1,60 +1,96 @@
-import { cors, readBody, findLicenseKeyByValue, resolveLicenseForCustomer, activateLicenseKey } from './_dodo.mjs';
+import {
+  activateLicenseKey,
+  deactivateLicenseKey,
+  inspectLicenseBinding,
+  isAcceptedProduct,
+  logProviderFailure
+} from './_dodo.mjs';
+import { isInstallationUuid, issueEntitlement } from './_entitlement.mjs';
+import {
+  beginRequest,
+  boundedString,
+  handleRequestError,
+  MAX_LICENSE_KEY_LENGTH,
+  MAX_NAME_LENGTH,
+  readJsonBody,
+  sendError
+} from './_http.mjs';
+import { enforceHashedKeyRateLimit } from './_rate-limit.mjs';
 
-// POST /api/license-activate  { license_key, name? } -> { ok, key, expires_at, instance_id, ... }
-// Claims a license key for this browser (Dodo enforces activations_limit, so a
-// key already activated on another browser fails with LICENSE_KEY_LIMIT_REACHED).
 export default async function handler(req, res) {
-  cors(res);
-  if (req.method === 'OPTIONS') return res.status(204).end();
-  if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+  if (!beginRequest(req, res, ['POST'])) return;
+  let body;
+  let licenseKey;
+  let installationUuid;
+  let deviceLabel;
+  try {
+    body = readJsonBody(req);
+    licenseKey = boundedString(body.license_key, { field: 'license_key', max: MAX_LICENSE_KEY_LENGTH });
+    installationUuid = boundedString(body.installation_uuid, { field: 'installation_uuid', max: 36 }).toLowerCase();
+    if (!isInstallationUuid(installationUuid)) return sendError(res, 400, 'invalid_request', 'installation_uuid is invalid.');
+    deviceLabel = boundedString(body.device_label || 'TTD Autofill - Chrome', {
+      field: 'device_label',
+      max: MAX_NAME_LENGTH,
+      pattern: /^[^\u0000-\u001f\u007f]+$/
+    });
+  } catch (error) {
+    return handleRequestError(res, error);
+  }
+  if (!await enforceHashedKeyRateLimit(res, licenseKey)) return;
 
-  const body = readBody(req);
-  const licenseKey = String(body.license_key || '').trim();
-  if (!licenseKey) return res.status(400).json({ error: 'license_key required' });
+  let activation;
+  try {
+    activation = await activateLicenseKey(licenseKey, deviceLabel);
+  } catch (error) {
+    if (error.status === 403 || error.status === 404) {
+      return sendError(res, 400, 'licence_invalid', 'This licence cannot be activated.');
+    }
+    if (error.status === 409 || error.status === 422 || error.code === 'LICENSE_KEY_LIMIT_REACHED') {
+      return sendError(res, 409, 'activation_limit_reached', 'This licence is already activated.');
+    }
+    logProviderFailure('license_activate', error);
+    return sendError(res, 502, 'provider_unavailable', 'Licence activation is temporarily unavailable.');
+  }
+
+  const instanceId = String(activation && activation.id || '');
+  const licenseKeyId = String(activation && activation.license_key_id || '');
+  const activationProductId = String(activation && activation.product && activation.product.product_id || '');
+  if (!instanceId || !licenseKeyId || !isAcceptedProduct(activationProductId)) {
+    if (instanceId) await deactivateLicenseKey(licenseKey, instanceId).catch(() => {});
+    return sendError(res, 400, 'licence_invalid', 'This licence is not valid for TTD Autofill.');
+  }
 
   try {
-    const lic = await findLicenseKeyByValue(licenseKey);
-    if (!lic) return res.status(404).json({ ok: false, error: 'License key not found. Check and try again.' });
-    const expired = !!lic.expires_at && Date.parse(lic.expires_at) <= Date.now();
-    if (lic.status !== 'active' || expired) {
-      return res.status(200).json({ ok: false, error: 'This licence key has expired and can no longer be activated.' });
+    const state = await inspectLicenseBinding({
+      licenseKey,
+      licenseKeyId,
+      instanceId,
+      expectedProductId: activationProductId
+    });
+    if (!state.valid) {
+      await deactivateLicenseKey(licenseKey, instanceId).catch(() => {});
+      return sendError(res, 400, 'licence_invalid', 'This licence is expired, disabled, unpaid, or invalid.');
     }
-
-    let activation;
-    try {
-      activation = await activateLicenseKey(licenseKey, String(body.name || 'TTD Autofill - Chrome').slice(0, 64));
-    } catch (e) {
-      if (e.code === 'LICENSE_KEY_LIMIT_REACHED') {
-        return res.status(200).json({ ok: false, error: 'This key is already activated on another browser. A pass works on one browser at a time — use the key on the browser where it was first activated.' });
-      }
-      throw e;
-    }
-
-    let expires_at = null;
-    let effective_expires_at = null;
-    let raw_expires_at = lic.expires_at || null;
-    if (lic.customer_id) {
-      try {
-        const resolved = await resolveLicenseForCustomer(lic.customer_id);
-        if (resolved) {
-          effective_expires_at = resolved.effective_expires_at;
-          raw_expires_at = resolved.raw_expires_at || raw_expires_at;
-        }
-      } catch { /* keep raw */ }
-    }
-    expires_at = effective_expires_at || raw_expires_at;
-
+    const entitlement = issueEntitlement({
+      productId: state.productId,
+      licenseKeyId,
+      installationUuid,
+      activationInstanceId: instanceId,
+      providerExpiry: state.license.expires_at || null
+    });
     return res.status(200).json({
       ok: true,
-      key: lic.key,
-      expires_at,
-      effective_expires_at,
-      instance_id: activation.id || null,
-      license_key_id: activation.license_key_id || lic.id || null,
-      customer_id: lic.customer_id || null,
-      product_name: (activation.product && activation.product.name) || null
+      instance_id: instanceId,
+      license_key_id: licenseKeyId,
+      product_id: state.productId,
+      provider_status: 'active',
+      provider_expires_at: state.license.expires_at || null,
+      entitlement_token: entitlement.token,
+      token_expires_at: entitlement.expires_at
     });
-  } catch (e) {
-    return res.status(502).json({ ok: false, error: e.message });
+  } catch (error) {
+    await deactivateLicenseKey(licenseKey, instanceId).catch(() => {});
+    logProviderFailure('license_activate_verify', error);
+    return sendError(res, 502, 'provider_unavailable', 'Licence activation is temporarily unavailable.');
   }
 }
