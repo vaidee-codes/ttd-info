@@ -38,3 +38,11 @@ The independent companion website for TTD Autofill Assistant. It combines practi
 This is an unofficial browser extension and independent website. Neither is affiliated with or endorsed by Tirumala Tirupati Devasthanams (TTD), Reddit, or r/TirumalaDarshan.
 
 TTD Autofill Assistant is an independent browser productivity tool and is not affiliated with or endorsed by TTD. It does not book tickets, bypass CAPTCHA, OTP, queues or payments, and provides no booking guarantee.
+
+## Production containment
+
+- New checkout creation is fail-closed unless the server-only Vercel variable `PASS_SALES_ENABLED` is exactly `true`. Production is intentionally set to `false`.
+- Existing Dodo licence-key validation, activation and deactivation routes remain available while sales are paused.
+- Public email-based licence lookup is retired; customers must use their licence key.
+- Hosted checkouts do not accept discount codes even if sales are re-enabled.
+- The sanitized Dodo purchase and entitlement baseline is stored in `ops/dodo-inventory-2026-08-10.json`. It contains no customer, payment, refund or licence-key identifiers.
