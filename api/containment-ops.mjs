@@ -78,8 +78,15 @@ function buildInventory(state) {
     license.key,
     { status: String(license.status || 'unknown'), expires_at: license.expires_at || null }
   ]));
+  const licensesByCustomer = new Map();
+  for (const license of state.licenseKeys) {
+    const licenses = licensesByCustomer.get(license.customer_id) || [];
+    licenses.push(license);
+    licensesByCustomer.set(license.customer_id, licenses);
+  }
   const grantsByPayment = new Map();
   const grantsBySubscription = new Map();
+  const grantsByCustomer = new Map();
   for (const group of state.grantGroups) {
     for (const grant of group.grants) {
       const normalized = {
@@ -101,6 +108,11 @@ function buildInventory(state) {
         const grants = grantsBySubscription.get(grant.subscription_id) || [];
         grants.push(normalized);
         grantsBySubscription.set(grant.subscription_id, grants);
+      }
+      if (grant.customer_id) {
+        const grants = grantsByCustomer.get(grant.customer_id) || [];
+        grants.push(normalized);
+        grantsByCustomer.set(grant.customer_id, grants);
       }
     }
   }
@@ -126,6 +138,9 @@ function buildInventory(state) {
     const subscription = payment.subscription_id
       ? subscriptionById.get(payment.subscription_id)
       : null;
+    const customerId = (payment.customer && payment.customer.customer_id) ||
+      (detail && detail.customer && detail.customer.customer_id) ||
+      null;
     const productIds = [...new Set([
       ...(detail && detail.product_cart || []).map((item) => item.product_id),
       subscription && subscription.product_id
@@ -139,9 +154,15 @@ function buildInventory(state) {
         expected_entitlement_id: plan ? plan.entitlement_id : null
       };
     });
-    const grants = grantsByPayment.get(payment.payment_id) ||
+    let grants = grantsByPayment.get(payment.payment_id) ||
       (payment.subscription_id ? grantsBySubscription.get(payment.subscription_id) : null) ||
       [];
+    if (!grants.length && customerId) {
+      const expectedEntitlements = new Set(products.map((product) => product.expected_entitlement_id));
+      grants = (grantsByCustomer.get(customerId) || [])
+        .filter((grant) => expectedEntitlements.has(grant.entitlement_id))
+        .map((grant) => ({ ...grant, status: `${grant.status} (canonical customer grant)` }));
+    }
     const grantKeys = grants.map((grant) => grant.key).filter(Boolean);
     const entitlements = grants.length
       ? grants.map(({ entitlement_id, status }) => ({ entitlement_id, status }))
@@ -149,9 +170,18 @@ function buildInventory(state) {
           entitlement_id: product.expected_entitlement_id,
           status: payment.status === 'succeeded' ? 'not_granted' : 'not_applicable'
         }));
-    const keys = grantKeys.length
+    let keys = grantKeys.length
       ? grantKeys
       : (keysByPayment.get(payment.payment_id) || []);
+    if (!keys.length && customerId) {
+      const productSet = new Set(products.map((product) => product.product_id));
+      keys = (licensesByCustomer.get(customerId) || [])
+        .filter((license) => productSet.has(license.product_id))
+        .map((license) => ({
+          status: String(license.status || 'unknown'),
+          expires_at: license.expires_at || null
+        }));
+    }
     return {
       record: `purchase-${String(index + 1).padStart(3, '0')}`,
       products,
