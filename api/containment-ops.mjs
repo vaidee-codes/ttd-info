@@ -8,6 +8,7 @@ import {
 } from './_dodo.mjs';
 
 const PAGE_SIZE = 100;
+const SUPPORTER_PRODUCT_ID = 'pdt_0NjbdVzVqfSrrofI36ENV';
 
 function authorized(req) {
   const expected = Buffer.from(String(process.env.CONTAINMENT_OPS_TOKEN || ''));
@@ -29,8 +30,13 @@ async function list(path) {
 
 const planByProduct = new Map(Object.entries(PASS_PLANS).map(([code, plan]) => [
   plan.product_id,
-  { code, label: plan.label }
+  { code, label: plan.label, entitlement_id: plan.entitlement_id }
 ]));
+planByProduct.set(SUPPORTER_PRODUCT_ID, {
+  code: 'supporter-monthly',
+  label: 'Monthly supporter',
+  entitlement_id: MONTHLY_ENTITLEMENT_ID
+});
 
 async function loadState() {
   const entitlementIds = [...new Set([
@@ -129,23 +135,35 @@ function buildInventory(state) {
       return {
         product_id: productId,
         plan: plan ? plan.code : 'unmapped',
-        label: plan ? plan.label : 'Unmapped Dodo product'
+        label: plan ? plan.label : 'Unmapped Dodo product',
+        expected_entitlement_id: plan ? plan.entitlement_id : null
       };
     });
     const grants = grantsByPayment.get(payment.payment_id) ||
       (payment.subscription_id ? grantsBySubscription.get(payment.subscription_id) : null) ||
       [];
     const grantKeys = grants.map((grant) => grant.key).filter(Boolean);
+    const entitlements = grants.length
+      ? grants.map(({ entitlement_id, status }) => ({ entitlement_id, status }))
+      : products.map((product) => ({
+          entitlement_id: product.expected_entitlement_id,
+          status: payment.status === 'succeeded' ? 'not_granted' : 'not_applicable'
+        }));
+    const keys = grantKeys.length
+      ? grantKeys
+      : (keysByPayment.get(payment.payment_id) || []);
     return {
       record: `purchase-${String(index + 1).padStart(3, '0')}`,
       products,
-      entitlements: grants.map(({ entitlement_id, status }) => ({ entitlement_id, status })),
+      entitlements,
       payment: {
         status: String(payment.status || 'unknown'),
+        amount: payment.total_amount == null ? null : payment.total_amount,
+        currency: payment.currency || null,
         refund_status: payment.refund_status || null,
         refunds: refundByPayment.get(payment.payment_id) || []
       },
-      keys: grantKeys.length ? grantKeys : (keysByPayment.get(payment.payment_id) || [])
+      keys: keys.length ? keys : [{ status: 'not_issued', expires_at: null }]
     };
   });
 
