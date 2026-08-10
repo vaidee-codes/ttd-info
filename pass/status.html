@@ -21,22 +21,11 @@
     <header class="pass-hero">
       <p class="eyebrow">Licence status</p>
       <h1>How much time is left on your pass?</h1>
-      <p>Look up by email or paste your licence key.</p>
+      <p>Paste your licence key to check its status.</p>
     </header>
 
     <section class="pass-card">
-      <div class="pass-tabs">
-        <button class="pass-tab active" id="tab-email" type="button">By email</button>
-        <button class="pass-tab" id="tab-key" type="button">By licence key</button>
-      </div>
-
-      <div class="pass-tabpane active" id="pane-email">
-        <p class="pass-muted">Use the email you paid with — works for passes and supporter subscriptions.</p>
-        <input class="pass-field" id="lookup-email" type="email" placeholder="you@example.com">
-        <button class="pass-btn" id="btn-email" type="button">Check my pass</button>
-      </div>
-
-      <div class="pass-tabpane" id="pane-key">
+      <div class="pass-tabpane active" id="pane-key">
         <p class="pass-muted">Paste the licence key from your email or the success page.</p>
         <input class="pass-field" id="lookup-key" type="text" placeholder="xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx">
         <button class="pass-btn" id="btn-key" type="button">Validate key</button>
@@ -57,7 +46,6 @@
   <script>
     const errorEl = document.getElementById('error');
     const resultEl = document.getElementById('result');
-    const tabs = { email: document.getElementById('pane-email'), key: document.getElementById('pane-key') };
 
     function showError(msg) { errorEl.textContent = msg; errorEl.classList.add('show'); }
     function clearError() { errorEl.classList.remove('show'); }
@@ -86,29 +74,6 @@
         setTimeout(() => copyBtn.textContent = 'Copy', 1600);
       });
     }
-
-    document.getElementById('tab-email').addEventListener('click', () => switchTab('email'));
-    document.getElementById('tab-key').addEventListener('click', () => switchTab('key'));
-    function switchTab(name) {
-      document.querySelectorAll('.pass-tab').forEach(b => b.classList.toggle('active', b.id === 'tab-' + name));
-      document.querySelectorAll('.pass-tabpane').forEach(p => p.classList.toggle('active', p.id === 'pane-' + name));
-    }
-
-    document.getElementById('btn-email').addEventListener('click', async () => {
-      clearError(); resultEl.innerHTML = '';
-      const email = document.getElementById('lookup-email').value.trim();
-      if (!email) return showError('Enter your email.');
-      try {
-        const res = await fetch('/api/license-lookup', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email }), signal: AbortSignal.timeout(8000) });
-        const data = await res.json();
-        if (!res.ok) throw new Error(data.error || 'Lookup failed.');
-        if (!data.found || !data.license) {
-          resultEl.innerHTML = '<div class="pass-status warn">No active pass found for this email. <a class="pass-link" href="/pass">Get a pass →</a></div>';
-          return;
-        }
-        render(data.license);
-      } catch (e) { showError(e.message); }
-    });
 
     document.getElementById('btn-key').addEventListener('click', async () => {
       clearError(); resultEl.innerHTML = '';

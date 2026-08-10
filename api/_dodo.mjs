@@ -35,6 +35,10 @@ export const PASS_PLANS = {
   }
 };
 
+export function isPassSalesEnabled() {
+  return String(process.env.PASS_SALES_ENABLED || '').trim().toLowerCase() === 'true';
+}
+
 export function getPassPlan(code) {
   return PASS_PLANS[String(code || '').trim()] || PASS_PLANS['7d'];
 }
@@ -68,32 +72,16 @@ export async function dodo(path, opts = {}) {
   return json;
 }
 
-export async function findCustomerByEmail(email) {
-  const clean = String(email || '').trim().toLowerCase();
-  if (!clean) return null;
-  const customers = await dodo('/customers?email=' + encodeURIComponent(clean));
-  const customer = customers.items && customers.items[0];
-  return customer && customer.customer_id ? customer : null;
-}
-
 // All grants (and their license keys) for a customer across every entitlement.
-// Fair stacking: one-time passes add their remaining time to the pool; monthly
-// supporter grants contribute their own remaining months. Effective expiry is
-// now + the sum of all remaining time, capped by the farthest-expiring key.
-export async function resolveLicenseForEmail(email) {
-  const customer = await findCustomerByEmail(email);
-  if (!customer) return null;
-  return resolveLicenseForCustomer(customer.customer_id);
-}
-
+// Any promised stacking is normalized operationally onto one canonical Dodo
+// key, so the effective expiry is the farthest provider expiry.
 export async function resolveLicenseForCustomer(customerId) {
   const entIds = [...new Set(
     [WEEKLY_ENTITLEMENT_ID, MONTHLY_ENTITLEMENT_ID]
       .concat(Object.values(PASS_PLANS).map((plan) => plan.entitlement_id))
       .filter(Boolean)
   )];
-  const now = Date.now();
-  let remainingMs = 0;
+  let effectiveExpiry = 0;
   let best = null; // newest valid key, for display
   let bestCreated = 0;
   let keys = [];
@@ -108,7 +96,7 @@ export async function resolveLicenseForCustomer(customerId) {
       if (!lic || !lic.key) continue;
       if (g.status && /revok|pending|failed|cancelled/i.test(String(g.status))) continue;
       const exp = lic.expires_at ? Date.parse(lic.expires_at) : null;
-      if (exp) remainingMs += Math.max(0, exp - now);
+      if (exp) effectiveExpiry = Math.max(effectiveExpiry, exp);
       const created = g.created_at ? Date.parse(g.created_at) : 0;
       keys.push({ key: lic.key, expires_at: lic.expires_at || null });
       if (created > bestCreated) {
@@ -126,14 +114,15 @@ export async function resolveLicenseForCustomer(customerId) {
   }
 
   if (!best) return null;
-  const effectiveExpiresAt = new Date(now + remainingMs).toISOString();
+  const effectiveExpiresAt = effectiveExpiry
+    ? new Date(effectiveExpiry).toISOString()
+    : best.expires_at;
   return {
     key: best.key,
-    // Effective (stacked) expiry for this customer, not the raw key expiry.
+    // Effective expiry after operational stacking normalization.
     expires_at: effectiveExpiresAt,
     raw_expires_at: best.expires_at,
     effective_expires_at: effectiveExpiresAt,
-    remaining_ms: remainingMs,
     keys,
     entitlement_id: best.entitlement_id,
     grant_status: best.grant_status,

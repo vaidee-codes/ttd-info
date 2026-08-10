@@ -1,4 +1,4 @@
-import { dodo, cors, readBody, getPassPlan } from './_dodo.mjs';
+import { dodo, cors, readBody, getPassPlan, isPassSalesEnabled } from './_dodo.mjs';
 
 // POST /api/checkout  { email?, pincode?, product?, activate, extension_id? }
 //   -> { checkout_url, session_id }
@@ -9,6 +9,12 @@ export default async function handler(req, res) {
   cors(res);
   if (req.method === 'OPTIONS') return res.status(204).end();
   if (req.method !== 'POST') return res.status(405).json({ error: 'POST only' });
+  if (!isPassSalesEnabled()) {
+    return res.status(503).json({
+      code: 'PASS_SALES_PAUSED',
+      error: 'New pass sales are temporarily paused. Existing licence keys continue to work.'
+    });
+  }
 
   const body = readBody(req);
   const email = String(body.email || '').trim();
@@ -35,9 +41,7 @@ export default async function handler(req, res) {
           allow_customer_editing_state: false,
           allow_customer_editing_country: false,
           allow_tax_id: false,
-          // Offer/discount codes enabled for now (end-to-end testing with a
-          // 100%-off code). Disable before launch.
-          allow_discount_code: true,
+          allow_discount_code: false,
           allow_phone_number_collection: false
         },
         return_url: returnUrl,
