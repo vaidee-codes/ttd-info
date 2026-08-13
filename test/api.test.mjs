@@ -327,6 +327,37 @@ test('a valid no-expiry supporter key receives only a short-lived token', async 
   assert.equal(payload.exp - payload.iat, 8 * 3600);
 });
 
+test('a complimentary pass-tier key expires its tier length from activation', async (t) => {
+  const key = 'DONOR-30DAY-KEY-0000001';
+  const instanceId = 'lki_donor_30';
+  const licenseKeyId = 'lic_donor_30';
+  const productId = 'pdt_0NkvjEpCQNkDuaCT65cFV'; // 30-day pass
+  const activatedAt = new Date().toISOString();
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    const path = new URL(String(url)).pathname;
+    if (path === '/licenses/activate') return jsonResponse({ id: instanceId, license_key_id: licenseKeyId, product: { product_id: productId } }, 201);
+    if (path === '/licenses/validate') return jsonResponse({ valid: true });
+    // Donor key: created with NO expiry; activation timestamp drives expiry.
+    if (path === '/license_key_instances/' + instanceId) return jsonResponse({ id: instanceId, license_key_id: licenseKeyId, created_at: activatedAt });
+    if (path === '/license_keys/' + licenseKeyId) return jsonResponse({ id: licenseKeyId, key, product_id: productId, status: 'active', activations_limit: 1, expires_at: null });
+    throw new Error('unexpected request ' + path);
+  });
+
+  const res = response();
+  await activateHandler(request({ body: {
+    license_key: key,
+    installation_uuid: '55555555-5555-4555-8555-555555555555',
+    device_label: 'TTD Autofill - Donor'
+  } }), res);
+  assert.equal(res.statusCode, 200);
+  const providerExpiry = Date.parse(res.body.provider_expires_at);
+  const expected = Date.parse(activatedAt) + 30 * 86400000;
+  assert.ok(Math.abs(providerExpiry - expected) < 5000, 'provider expiry ~= activation + 30 days');
+  // The signed token still carries the 30-day provider expiry as its cap.
+  const payload = JSON.parse(Buffer.from(res.body.entitlement_token.split('.')[1], 'base64url').toString('utf8'));
+  assert.equal(payload.provider_expiry, res.body.provider_expires_at);
+});
+
 test('activation requires checkout payment_status to be exactly succeeded', async (t) => {
   const key = '7DAY-LICENCE-KEY-654321';
   const instanceId = 'lki_instance_456';

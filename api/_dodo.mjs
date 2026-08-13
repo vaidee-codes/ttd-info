@@ -184,37 +184,59 @@ export async function inspectLicenseBinding({ licenseKey, licenseKeyId, instance
     getLicenseKeyById(licenseKeyId)
   ]);
 
-  const expiresAt = license && license.expires_at ? Date.parse(license.expires_at) : null;
   const productId = String(license && license.product_id || '');
+  const plan = planByProductId(productId);
+
+  // Effective expiry. Purchased keys carry a fixed expires_at set at issuance.
+  // Donor / complimentary keys are created with NO expiry on a pass-tier product;
+  // for those the pass runs its full tier length from the ACTIVATION timestamp
+  // (Dodo's license_key_instance.created_at). This is how we honour
+  // activation-based expiry, which Dodo itself does not support. Supporter /
+  // subscription keys keep an open expiry (validity follows the subscription).
+  const effectiveExpiry = computeEffectiveExpiry(license, instance, plan);
+  const effectiveExpiryMs = effectiveExpiry ? Date.parse(effectiveExpiry) : null;
+
   const basicValid = validation && validation.valid === true &&
     instance && instance.id === instanceId && instance.license_key_id === licenseKeyId &&
     license && license.id === licenseKeyId && exactSecretMatch(license.key, licenseKey) &&
     isAcceptedProduct(productId) && (!expectedProductId || productId === expectedProductId) &&
     license.status === 'active' && license.activations_limit === 1 &&
-    (!expiresAt || (Number.isFinite(expiresAt) && expiresAt > Date.now()));
-  if (!basicValid) return { valid: false, productId, license };
+    (!effectiveExpiryMs || (Number.isFinite(effectiveExpiryMs) && effectiveExpiryMs > Date.now()));
+  if (!basicValid) return { valid: false, productId, license, effectiveExpiry };
 
-  const plan = planByProductId(productId);
   // Imported grants (donor thank-you keys and any manually issued key) carry no
   // payment record, and the recurring supporter product is not a one-time pass
   // tier. For both, Dodo's /licenses/validate plus the direct key/instance
   // records are the authority. Only a one-time purchasable tier (7/30/90-day)
   // backed by a real payment gets the full payment + checkout cross-check.
   if (!plan || !license.payment_id) {
-    return { valid: true, productId, license };
+    return { valid: true, productId, license, effectiveExpiry };
   }
 
   const payment = await getPaymentById(license.payment_id);
   const paymentValid = payment && payment.payment_id === license.payment_id &&
     payment.status === 'succeeded' && payment.currency === plan.currency &&
     hasProductCart(payment, productId) && !!payment.checkout_session_id;
-  if (!paymentValid) return { valid: false, productId, license };
+  if (!paymentValid) return { valid: false, productId, license, effectiveExpiry };
 
   const checkout = await getCheckoutById(payment.checkout_session_id);
   const checkoutValid = checkout && checkout.id === payment.checkout_session_id &&
     checkout.payment_id === payment.payment_id && checkout.payment_status === 'succeeded';
 
-  return { valid: !!checkoutValid, productId, license };
+  return { valid: !!checkoutValid, productId, license, effectiveExpiry };
+}
+
+// A pass-tier key with no fixed expiry expires plan.days after its activation
+// timestamp; anything else keeps its own expires_at (or none).
+export function computeEffectiveExpiry(license, instance, plan) {
+  if (license && license.expires_at) return license.expires_at;
+  if (plan && instance && instance.created_at) {
+    const activatedAt = Date.parse(instance.created_at);
+    if (Number.isFinite(activatedAt)) {
+      return new Date(activatedAt + plan.days * 86400_000).toISOString();
+    }
+  }
+  return null;
 }
 
 export async function assertPlanConfiguration(planCode) {

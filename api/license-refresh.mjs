@@ -55,7 +55,7 @@ export default async function handler(req, res) {
       licenseKeyId: claims.license_key_id,
       installationUuid,
       activationInstanceId: instanceId,
-      providerExpiry: state.license.expires_at || null
+      providerExpiry: state.effectiveExpiry || null
     });
     return res.status(200).json({
       ok: true,
@@ -63,7 +63,7 @@ export default async function handler(req, res) {
       license_key_id: claims.license_key_id,
       product_id: state.productId,
       provider_status: 'active',
-      provider_expires_at: state.license.expires_at || null,
+      provider_expires_at: state.effectiveExpiry || null,
       entitlement_token: entitlement.token,
       token_expires_at: entitlement.expires_at
     });
