@@ -22,21 +22,31 @@
     <header class="pass-hero">
       <p class="eyebrow">Professional Access</p>
       <h1>Unlock pilgrim booking autofill.</h1>
-      <p>One payment, one browser, one 7-day licence key. Personal and family use of the rest of the extension stays free.</p>
+      <p>One payment, one browser, one licence key. Personal and family use of the rest of the extension stays free.</p>
       <div class="pass-price-row" id="price-row">
-        <span class="pass-price">₹99 <small>one-time</small></span>
-        <span class="pass-price-old">₹198</span>
+        <span class="pass-price" id="hero-price">₹99 <small>one-time</small></span>
+        <span class="pass-price-old" id="hero-price-old">₹198</span>
       </div>
     </header>
 
     <section class="pass-card">
-      <h2>7-day pass</h2>
+      <h2>Choose your pass</h2>
       <div class="pass-plans" id="plans">
-        <label class="pass-plan active">
+        <label class="pass-plan active" data-plan="7d">
           <input type="radio" name="plan" value="7d" checked>
           <span class="pass-plan-name">7 days</span>
           <span class="pass-plan-price">₹99</span>
           <span class="pass-plan-old">₹198</span>
+        </label>
+        <label class="pass-plan" data-plan="30d">
+          <input type="radio" name="plan" value="30d">
+          <span class="pass-plan-name">30 days</span>
+          <span class="pass-plan-price">₹299</span>
+        </label>
+        <label class="pass-plan" data-plan="90d">
+          <input type="radio" name="plan" value="90d">
+          <span class="pass-plan-name">90 days</span>
+          <span class="pass-plan-price">₹699</span>
         </label>
       </div>
 
@@ -44,7 +54,7 @@
       <ul class="pass-feature-list">
         <li><span aria-hidden="true">⚡</span><span><b>Pilgrim booking autofill</b> on the official TTD pilgrim booking portal (<code>ttdevasthanams.ap.gov.in</code>) — the floating fill button and the Pilgrim tab.</span></li>
         <li><span aria-hidden="true">🔑</span><span><b>Licence key delivered instantly</b> by email and on the success page — valid <b id="feat-days">7 days</b>, 1 browser activation.</span></li>
-        <li><span aria-hidden="true">🕒</span><span><b>Renew after your current pass expires.</b> A new 7-day pass begins when it is purchased; it does not add time to an active pass.</span></li>
+        <li><span aria-hidden="true">🕒</span><span><b>Renew after your current pass expires.</b> A new pass begins when it is purchased; it does not add time to an active pass.</span></li>
       </ul>
 
       <div class="pass-check">
@@ -79,6 +89,36 @@
     const errorEl = document.getElementById('error');
     const btn = document.getElementById('get-pass');
 
+    // Plan metadata for the UI. The amount actually charged is fixed by Dodo;
+    // /api/config is the source of truth and overrides these on load.
+    const PLAN_META = {
+      '7d': { label: '7-day pass', price: '₹99', old: '₹198', days: '7 days' },
+      '30d': { label: '30-day pass', price: '₹299', old: '', days: '30 days' },
+      '90d': { label: '90-day pass', price: '₹699', old: '', days: '90 days' }
+    };
+    let selectedPlan = '7d';
+
+    const heroPrice = document.getElementById('hero-price');
+    const heroOld = document.getElementById('hero-price-old');
+    const featDays = document.getElementById('feat-days');
+
+    function renderPlan(code) {
+      const meta = PLAN_META[code] || PLAN_META['7d'];
+      selectedPlan = code;
+      heroPrice.innerHTML = meta.price + ' <small>one-time</small>';
+      heroOld.textContent = meta.old;
+      heroOld.style.display = meta.old ? '' : 'none';
+      if (featDays) featDays.textContent = meta.days;
+      document.querySelectorAll('.pass-plan').forEach((el) => {
+        el.classList.toggle('active', el.dataset.plan === code);
+      });
+      if (!btn.disabled) btn.textContent = 'Get ' + meta.label + ' · ' + meta.price;
+    }
+
+    document.querySelectorAll('input[name="plan"]').forEach((input) => {
+      input.addEventListener('change', () => renderPlan(input.value));
+    });
+
     // From the extension link -> activate by default (still user-toggleable).
     if (activateParam === '0' || !extensionId) activateBox.checked = false;
 
@@ -92,14 +132,29 @@
       return value;
     }
 
+    function inr(paise) { return '₹' + Math.round(Number(paise) / 100); }
+
     async function loadConfig() {
       try {
-        const response = await fetch('/api/config', { cache: 'no-store', signal: AbortSignal.timeout(5000) });
+        const response = await fetch('/api/config', { signal: AbortSignal.timeout(5000) });
         const config = await response.json();
-        if (!response.ok || config.sales_enabled !== true || config.plan?.code !== '7d') {
+        if (!response.ok || config.sales_enabled !== true || !Array.isArray(config.plans) || !config.plans.length) {
           btn.disabled = true;
           btn.textContent = 'Pass sales are temporarily unavailable';
+          return;
         }
+        // Sync displayed prices/labels to the server's source of truth.
+        for (const p of config.plans) {
+          if (!PLAN_META[p.code]) continue;
+          PLAN_META[p.code].price = inr(p.amount);
+          PLAN_META[p.code].old = p.list_amount && p.list_amount !== p.amount ? inr(p.list_amount) : '';
+          PLAN_META[p.code].days = p.duration_days + (p.duration_days === 1 ? ' day' : ' days');
+          const priceEl = document.querySelector('.pass-plan[data-plan="' + p.code + '"] .pass-plan-price');
+          const oldEl = document.querySelector('.pass-plan[data-plan="' + p.code + '"] .pass-plan-old');
+          if (priceEl) priceEl.textContent = PLAN_META[p.code].price;
+          if (oldEl) oldEl.textContent = PLAN_META[p.code].old;
+        }
+        renderPlan(selectedPlan);
       } catch {
         btn.disabled = true;
         btn.textContent = 'Pass sales are temporarily unavailable';
@@ -115,7 +170,7 @@
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
-            plan: '7d',
+            plan: selectedPlan,
             request_id: requestId(),
             activate: activateBox.checked,
             extension_id: activateBox.checked ? extensionId : ''
@@ -128,7 +183,7 @@
         errorEl.textContent = e.message;
         errorEl.classList.add('show');
         btn.disabled = false;
-        btn.textContent = 'Get 7-day pass · ₹99';
+        renderPlan(selectedPlan);
       }
     });
 

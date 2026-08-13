@@ -12,7 +12,7 @@ delete process.env.VERCEL_ENV;
 const checkoutHandler = (await import('../api/checkout.mjs')).default;
 const activateHandler = (await import('../api/license-activate.mjs')).default;
 const configHandler = (await import('../api/config.mjs')).default;
-const { isAcceptedProduct } = await import('../api/_dodo.mjs');
+const { isAcceptedProduct, assertPlanConfiguration } = await import('../api/_dodo.mjs');
 
 function request({ method = 'POST', body = {}, origin = 'https://ttd-info.vercel.app', host = 'evil.example' } = {}) {
   return {
@@ -56,14 +56,18 @@ function jsonResponse(value, status = 200) {
   });
 }
 
-test('config uses exact CORS and security/no-store headers', async () => {
+test('config uses exact CORS/security headers and is edge-cacheable', async () => {
   process.env.PASS_SALES_ENABLED = 'true';
   process.env.PASS_GATE_ENABLED = 'false';
   const res = response();
   await configHandler(request({ method: 'GET', body: undefined, origin: 'chrome-extension://piiegkjdfbbakjmjdckgdjbbohfjfolg' }), res);
   assert.equal(res.statusCode, 200);
   assert.equal(res.headers['access-control-allow-origin'], 'chrome-extension://piiegkjdfbbakjmjdckgdjbbohfjfolg');
-  assert.equal(res.headers['cache-control'], 'private, no-store');
+  // Public gate flags only — intentionally cacheable at the edge so a 50k
+  // simultaneous open does not become 50k origin invocations. `Vary: Origin`
+  // keeps allowed origins on separate cache entries.
+  assert.equal(res.headers['cache-control'], 'public, s-maxage=60, stale-while-revalidate=300');
+  assert.equal(res.headers['vary'], 'Origin');
   assert.match(res.headers['content-security-policy'], /frame-ancestors 'none'/);
   assert.equal(res.headers['x-content-type-options'], 'nosniff');
   assert.equal(res.body.plan.amount, 9900);
@@ -95,12 +99,19 @@ test('test origins are accepted only in Preview', async () => {
   delete process.env.PASS_PREVIEW_ORIGINS;
 });
 
-test('checkout accepts only 7d and enforces the body limit', async () => {
+test('checkout rejects unknown plans and enforces the body limit', async () => {
   process.env.PASS_SALES_ENABLED = 'true';
+  // 7d, 30d, and 90d are the only accepted plans; anything else is rejected
+  // before any provider call.
   const wrong = response();
-  await checkoutHandler(request({ body: { plan: '30d' } }), wrong);
+  await checkoutHandler(request({ body: { plan: '365d' } }), wrong);
   assert.equal(wrong.statusCode, 400);
   assert.equal(wrong.body.error, 'invalid_plan');
+
+  const missing = response();
+  await checkoutHandler(request({ body: {} }), missing);
+  assert.equal(missing.statusCode, 400);
+  assert.equal(missing.body.error, 'invalid_plan');
 
   const largeReq = request({ body: { plan: '7d', padding: 'x'.repeat(5000) } });
   const large = response();
@@ -166,6 +177,60 @@ test('checkout verifies provider configuration and sends hardened creation optio
   assert.equal('session_id' in res.body, false);
 });
 
+test('checkout creates a 30-day session against the 30-day product', async (t) => {
+  process.env.PASS_SALES_ENABLED = 'true';
+  const calls = [];
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    calls.push({ url: String(url) });
+    if (String(url).includes('/products/')) {
+      return jsonResponse({
+        product_id: 'pdt_0NkvjEpCQNkDuaCT65cFV',
+        is_recurring: false,
+        price: { currency: 'INR', price: 29900, discount: 0, pay_what_you_want: false },
+        entitlements: [{ entitlement_id: 'ent_0NkvjEit63fF12KazuaN1' }]
+      });
+    }
+    if (String(url).includes('/entitlements/')) {
+      return jsonResponse({
+        id: 'ent_0NkvjEit63fF12KazuaN1',
+        is_active: true,
+        integration_type: 'license_key',
+        integration_config: { fulfillment_mode: 'auto', duration_count: 30, duration_interval: 'Day', activations_limit: 1 }
+      });
+    }
+    return jsonResponse({ checkout_url: 'https://checkout.dodopayments.com/session/d30' });
+  });
+
+  const res = response();
+  await checkoutHandler(request({ body: { plan: '30d', request_id: '22222222-2222-4222-8222-222222222222', activate: false } }), res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.checkout_url, 'https://checkout.dodopayments.com/session/d30');
+  const createCall = calls.find((c) => c.url.endsWith('/checkouts'));
+  assert.ok(createCall, 'a checkout session was created against the 30-day product');
+});
+
+test('weekly config guard accepts the live list price minus its discount', async (t) => {
+  // The live 7-day product is ₹198 with a 50% discount = ₹99 net. The guard
+  // must accept that, not require a flat 9900 list price.
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    if (String(url).includes('/products/')) {
+      return jsonResponse({
+        product_id: 'pdt_0Nk4Gw67usedtjPoO6hX2',
+        is_recurring: false,
+        price: { currency: 'INR', price: 19800, discount: 50, pay_what_you_want: false },
+        entitlements: [{ entitlement_id: 'ent_0Nk4GugPIsPbnFf5dYYqC' }]
+      });
+    }
+    return jsonResponse({
+      id: 'ent_0Nk4GugPIsPbnFf5dYYqC',
+      is_active: true,
+      integration_type: 'license_key',
+      integration_config: { fulfillment_mode: 'auto', duration_count: 7, duration_interval: 'Day', activations_limit: 1 }
+    });
+  });
+  await assert.doesNotReject(assertPlanConfiguration('7d'));
+});
+
 test('activation projects only a signed browser-bound entitlement', async (t) => {
   const key = '7DAY-LICENCE-KEY-123456';
   const instanceId = 'lki_instance_123';
@@ -221,7 +286,7 @@ test('activation projects only a signed browser-bound entitlement', async (t) =>
   assert.equal(calls.some((url) => /customers/.test(url)), false);
 });
 
-test('a valid no-expiry supporter key receives only a one-hour token', async (t) => {
+test('a valid no-expiry supporter key receives only a short-lived token', async (t) => {
   const key = 'SUPPORTER-LICENCE-KEY-123456';
   const instanceId = 'lki_supporter_123';
   const licenseKeyId = 'lic_supporter_123';
@@ -259,7 +324,7 @@ test('a valid no-expiry supporter key receives only a one-hour token', async (t)
   const payload = JSON.parse(Buffer.from(res.body.entitlement_token.split('.')[1], 'base64url').toString('utf8'));
   assert.equal(payload.product_id, productId);
   assert.equal(payload.provider_expiry, null);
-  assert.equal(payload.exp - payload.iat, 3600);
+  assert.equal(payload.exp - payload.iat, 8 * 3600);
 });
 
 test('activation requires checkout payment_status to be exactly succeeded', async (t) => {

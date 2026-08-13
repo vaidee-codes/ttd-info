@@ -1,9 +1,9 @@
 import {
-  assertDodoConfiguration,
+  assertPlanConfiguration,
   createCheckoutIdempotencyKey,
   dodo,
   logProviderFailure,
-  WEEKLY_PLAN
+  planByCode
 } from './_dodo.mjs';
 import {
   beginRequest,
@@ -26,9 +26,11 @@ export default async function handler(req, res) {
   }
 
   let body;
+  let plan;
   try {
     body = readJsonBody(req);
-    if (body.plan !== '7d') return sendError(res, 400, 'invalid_plan', 'Only the 7-day pass is available.');
+    plan = planByCode(body.plan);
+    if (!plan) return sendError(res, 400, 'invalid_plan', 'Choose a 7-day, 30-day, or 90-day pass.');
   } catch (error) {
     return handleRequestError(res, error);
   }
@@ -49,14 +51,14 @@ export default async function handler(req, res) {
     (extensionId ? '?extension_id=' + encodeURIComponent(extensionId) + '&activate=1' : '');
 
   try {
-    // Fail closed if the live provider drifts from INR 99, one-time, seven
-    // days, automatic fulfilment, or one activation.
-    await assertDodoConfiguration();
+    // Fail closed if the live provider drifts from the selected plan's price,
+    // one-time billing, duration, automatic fulfilment, or one activation.
+    await assertPlanConfiguration(plan.code);
     const session = await dodo('/checkouts', {
       method: 'POST',
       headers: { 'Idempotency-Key': createCheckoutIdempotencyKey(requestId) },
       body: {
-        product_cart: [{ product_id: WEEKLY_PLAN.product_id, quantity: 1 }],
+        product_cart: [{ product_id: plan.product_id, quantity: 1 }],
         minimal_address: true,
         feature_flags: {
           allow_customer_editing_street: false,
@@ -69,7 +71,7 @@ export default async function handler(req, res) {
         },
         return_url: returnUrl,
         metadata: {
-          plan: '7d',
+          plan: plan.code,
           activate: extensionId ? 'true' : 'false',
           ...(extensionId ? { extension_id: extensionId } : {})
         }

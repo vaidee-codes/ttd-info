@@ -3,7 +3,12 @@ import { createPrivateKey, createPublicKey, createSign, createVerify, randomUUID
 const ISSUER = 'https://ttd-info.vercel.app';
 const AUDIENCE = 'ttd-autofill-extension';
 const KEY_ID = 'ttdaf-es256-2026-08-r3';
-const TOKEN_SECONDS = 60 * 60;
+// 8-hour entitlement token. Cuts background refresh volume ~8x versus the
+// original 1h (each active passholder now re-validates against Dodo ~once per
+// 8h of use instead of hourly). Trade-off: a provider-side revocation/refund
+// takes up to 8h to lock a client out. `exp` is still capped at the provider
+// expiry below, so this never extends a pass past its real end date.
+const TOKEN_SECONDS = 8 * 60 * 60;
 let privateKey;
 let publicKey;
 
