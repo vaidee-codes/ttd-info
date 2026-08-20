@@ -170,8 +170,9 @@ test('checkout verifies provider configuration and sends hardened creation optio
   assert.deepEqual(res.body, { ok: true, checkout_url: 'https://checkout.dodopayments.com/session/abc' });
   const create = calls.at(-1);
   const providerBody = JSON.parse(create.options.body);
-  assert.equal(providerBody.return_url, 'https://ttd-info.vercel.app/pass/success?extension_id=piiegkjdfbbakjmjdckgdjbbohfjfolg&activate=1');
+  assert.equal(providerBody.return_url, 'https://ttd-info.vercel.app/pass/success?plan=7d&extension_id=piiegkjdfbbakjmjdckgdjbbohfjfolg&activate=1');
   assert.equal(providerBody.feature_flags.allow_discount_code, false);
+  assert.equal(providerBody.feature_flags.redirect_immediately, true);
   assert.deepEqual(providerBody.product_cart, [{ product_id: 'pdt_0Nk4Gw67usedtjPoO6hX2', quantity: 1 }]);
   assert.match(create.options.headers['Idempotency-Key'], /^pass-checkout-[0-9a-f]{64}$/);
   assert.equal('session_id' in res.body, false);
@@ -284,6 +285,33 @@ test('activation projects only a signed browser-bound entitlement', async (t) =>
   assert.doesNotMatch(serialized, /private@example|cus_private|7DAY-LICENCE/);
   assert.equal(calls.some((url) => /license_keys\?(|.*page)/.test(url)), false);
   assert.equal(calls.some((url) => /customers/.test(url)), false);
+});
+
+test('activation accepts a foreign-currency payment for the same weekly product', async (t) => {
+  const key = '7DAY-LICENCE-KEY-USD-789';
+  const instanceId = 'lki_instance_789';
+  const licenseKeyId = 'lic_key_789';
+  const expiresAt = new Date(Date.now() + 6 * 86400_000).toISOString();
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    const path = new URL(String(url)).pathname;
+    if (path === '/licenses/activate') return jsonResponse({ id: instanceId, license_key_id: licenseKeyId, product: { product_id: 'pdt_0Nk4Gw67usedtjPoO6hX2' } }, 201);
+    if (path === '/licenses/validate') return jsonResponse({ valid: true });
+    if (path === '/license_key_instances/' + instanceId) return jsonResponse({ id: instanceId, license_key_id: licenseKeyId });
+    if (path === '/license_keys/' + licenseKeyId) return jsonResponse({ id: licenseKeyId, key, product_id: 'pdt_0Nk4Gw67usedtjPoO6hX2', payment_id: 'pay_789', status: 'active', activations_limit: 1, expires_at: expiresAt });
+    // Same weekly product, but Dodo settled the charge in USD for a foreign buyer.
+    if (path === '/payments/pay_789') return jsonResponse({ payment_id: 'pay_789', status: 'succeeded', currency: 'USD', checkout_session_id: 'cks_789', product_cart: [{ product_id: 'pdt_0Nk4Gw67usedtjPoO6hX2', quantity: 1 }] });
+    if (path === '/checkouts/cks_789') return jsonResponse({ id: 'cks_789', payment_id: 'pay_789', payment_status: 'succeeded' });
+    throw new Error('unexpected request ' + path);
+  });
+  const res = response();
+  await activateHandler(request({ body: {
+    license_key: key,
+    installation_uuid: '77777777-7777-4777-8777-777777777777',
+    device_label: 'TTD Autofill - Foreign'
+  } }), res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.instance_id, instanceId);
 });
 
 test('a valid no-expiry supporter key receives only a short-lived token', async (t) => {

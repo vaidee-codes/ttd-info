@@ -214,8 +214,14 @@ export async function inspectLicenseBinding({ licenseKey, licenseKeyId, instance
   }
 
   const payment = await getPaymentById(license.payment_id);
+  // Do not require a specific settlement currency. The product is configured in
+  // plan.currency (INR), but Dodo charges foreign buyers in their own
+  // presentment currency (USD, etc.), so payment.currency legitimately differs
+  // for the same weekly product. Identity is proven by the product_cart match
+  // and the checkout-session linkage below, not by the currency; the amount is
+  // never cross-checked here in the first place. Only require a real currency.
   const paymentValid = payment && payment.payment_id === license.payment_id &&
-    payment.status === 'succeeded' && payment.currency === plan.currency &&
+    payment.status === 'succeeded' && typeof payment.currency === 'string' && payment.currency.length > 0 &&
     hasProductCart(payment, productId) && !!payment.checkout_session_id;
   if (!paymentValid) return { valid: false, productId, license, effectiveExpiry };
 
