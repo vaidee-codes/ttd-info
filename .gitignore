@@ -2,3 +2,5 @@
 .env*
 !.env.example
 node_modules/
+ops/personalized-email-drafts-private.md
+ops/personalized-cashfree-donor-email-drafts-private.md

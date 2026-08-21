@@ -1,6 +1,6 @@
 # Privacy Policy for TTD Autofill Assistant
 
-**Last Updated:** August 10, 2026
+**Last Updated:** August 15, 2026
 
 The **TTD Autofill Assistant** ("we", "our", or "us") is a Chrome Extension designed to assist users in autofilling pilgrim, contact, and Srivari Seva forms on the official Tirumala Tirupati Devasthanams (TTD) booking websites. We are committed to protecting your privacy and handling your data with transparency.
 
@@ -28,7 +28,7 @@ The information you save is used exclusively for the Single Purpose of autofilli
 
 ## 3. Weekly Pass and Payment Data
 
-Pilgrim-booking autofill can be unlocked with an optional seven-day pass. When you activate, verify, refresh, or move a pass, the extension sends the following to our licence API at `ttd-info.vercel.app`:
+Pilgrim-booking autofill can be unlocked with an optional pass. When you activate, verify, or refresh a pass, the extension sends the following to our licence API at `ttd-info.vercel.app`:
 
 - the pass licence key;
 - a randomly generated installation identifier;
@@ -36,7 +36,7 @@ Pilgrim-booking autofill can be unlocked with an optional seven-day pass. When y
 - the payment provider's activation-instance identifier; and
 - a short-lived signed entitlement token.
 
-Our API uses this information only to validate the pass, enforce its device limit, issue a signed entitlement, and release an activation when you choose **Move pass**. It communicates with Dodo Payments for licence and purchase status. Card and billing details are entered on Dodo Payments' checkout and are not available to the extension. The extension contains no advertising or behavioural analytics.
+Our API uses this information only to validate the pass, enforce its single-browser activation and issue a signed entitlement. It communicates with Dodo Payments for licence and purchase status. Card and billing details are entered on Dodo Payments' checkout and are not available to the extension. The extension contains no advertising or behavioural analytics.
 
 ## 4. Third-Party Links
 
@@ -54,8 +54,7 @@ You retain full ownership and control over your data:
 
 - **View/Edit:** You can view or update your saved data at any time via the extension's popup interface.
 - **Delete saved data:** The Trust Center removes saved pilgrims, sets, contact details, Seva/Srivani drafts, legacy backups, and preferences. It deliberately keeps an active pass so its one-device activation is not stranded.
-- **Move a pass:** Use **Move pass** in the popup to ask the licence service to release this browser, then activate the pass on another device.
-- **Uninstall:** Removing the extension from Chrome deletes its local data. Release an active pass first if you intend to reuse it elsewhere.
+- **Uninstall:** Removing the extension from Chrome deletes its local data. A pass remains limited to the browser where it was first activated.
 
 ## 7. Changes to This Policy
 
@@ -64,4 +63,3 @@ We may update our Privacy Policy from time to time. We will notify you of any ch
 ## 8. Contact Us
 
 If you have any questions about this Privacy Policy, please contact us at **ttdautofill@gmail.com** or via the Chrome Web Store support page.
-

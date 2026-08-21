@@ -12,14 +12,14 @@
 <body>
   <a class="skip-link" href="#main">Skip to content</a>
   <nav class="site-nav" aria-label="Main navigation">
-    <a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a>
-    <div class="nav-links"><a href="index.html">Home</a><a href="guides.html">Tirumala guides</a><a href="#fixes">Troubleshooting</a><a href="PRIVACY_POLICY.html">Privacy</a></div>
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a>
+    <div class="nav-links"><a href="/">Home</a><a class="nav-pass" href="/pass">Pass</a><a href="/demos">Demos</a><a href="/guides">Guides</a><a href="/support" aria-current="page">Support</a></div>
   </nav>
   <aside class="advisory-bar" aria-label="Information disclaimer"><strong>TTD information changes frequently.</strong> For current tickets, tokens, timings, eligibility and facilities, check the <a href="https://www.tirumala.org/" target="_blank" rel="noopener noreferrer">official TTD website ↗</a> or ask in <a href="https://www.reddit.com/r/TirumalaDarshan/" target="_blank" rel="noopener noreferrer">r/TirumalaDarshan ↗</a>. This page supports only the extension.</aside>
 
   <main id="main" class="inner-main">
     <header class="inner-hero">
-      <p class="eyebrow">Extension support · v6.8.0</p>
+      <p class="eyebrow">Extension support · v7.0.0</p>
       <h1>Let’s get your autofill working.</h1>
       <p>Try the quick checks below. If the TTD page has changed or a supported field still fails, send a useful, privacy-safe report.</p>
     </header>
@@ -27,7 +27,7 @@
     <section class="inner-section" id="fixes">
       <div class="section-heading"><p class="eyebrow">Start here</p><h2>Five checks solve most issues</h2></div>
       <div class="info-grid">
-        <article class="info-card"><h3>1. Update the extension</h3><p>Open <code>chrome://extensions</code>, enable Developer mode and choose Update. The current published version is 6.8.0.</p></article>
+        <article class="info-card"><h3>1. Update the extension</h3><p>Open <code>chrome://extensions</code>, enable Developer mode and choose Update. The current published version is 7.0.0.</p></article>
         <article class="info-card"><h3>2. Use the matching tab</h3><p>Choose Pilgrims, individual Seva, Group Seva or Srivani to match the TTD page you opened.</p></article>
         <article class="info-card"><h3>3. Wait for the page</h3><p>Let the TTD form and its dropdowns finish loading, then open the extension and click the relevant fill action.</p></article>
         <article class="info-card"><h3>4. Refresh after an update</h3><p>Reload the TTD tab after Chrome updates or after installing a new extension version.</p></article>
@@ -49,13 +49,13 @@
     </section>
 
     <section class="inner-section" id="passes">
-      <div class="section-heading"><p class="eyebrow">Passes &amp; payments</p><h2>How the Professional Pass works</h2></div>
+      <div class="section-heading"><p class="eyebrow">Passes &amp; payments</p><h2>How passes work</h2></div>
       <div class="info-grid">
-        <article class="info-card"><h3>What the pass covers</h3><p>The pass unlocks one-click autofilling of the TTD pilgrim-booking form. Srivani and other saved details remain free. The pass currently sold is 7 days for ₹99 at <a href="/pass">ttd-info.vercel.app/pass</a>. Existing 7/30/90-day and supporter keys remain accepted.</p></article>
-        <article class="info-card"><h3>One browser at a time</h3><p>Each pass key activates on a single browser. A key that is already active on another browser can't be activated again — use it where it was first activated, or remove the pass there first.</p></article>
+        <article class="info-card"><h3>What the pass covers</h3><p>A pass unlocks one-click autofilling of the TTD pilgrim-booking form. Srivani and other saved details remain free. Choose a one-time 7-day pass for ₹99, 30-day pass for ₹299 or 90-day pass for ₹699 at <a href="/pass">ttd-info.vercel.app/pass</a>. Existing supporter keys remain accepted.</p></article>
+        <article class="info-card"><h3>One browser at a time</h3><p>Each pass key activates on a single browser and cannot be transferred after activation. Use it in the browser where it was first activated.</p></article>
         <article class="info-card"><h3>When to renew</h3><p>A new pass begins when it is purchased and does not add time to an active pass. We recommend buying the next pass after the current one expires.</p></article>
         <article class="info-card"><h3>Automatic activation</h3><p>Open the pass page from the extension and, after a successful payment, the pass activates in that browser automatically. You can also copy and paste the pass key into the extension at any time.</p></article>
-        <article class="info-card"><h3>Refunds &amp; returns</h3><p>Digital pass keys are non-returnable once used. If you haven't used a pass, request a refund within 24 hours of purchase and it will be returned to your original payment method. See <a href="refund-policy.html">Refund Policy</a>.</p></article>
+        <article class="info-card"><h3>Refunds &amp; returns</h3><p>Digital pass keys are non-returnable once used. If you haven't used a pass, request a refund within 24 hours of purchase and it will be returned to your original payment method. See <a href="/refund-policy">Refund Policy</a>.</p></article>
         <article class="info-card"><h3>Payment trouble</h3><p>Payments are processed by Dodo Payments. For a failed payment, a missing key, or a receipt, email <a href="mailto:ttdautofill@gmail.com">ttdautofill@gmail.com</a> with the order reference and we'll sort it out.</p></article>
       </div>
     </section>
@@ -67,7 +67,7 @@
         <div class="info-card"><h3>What to remove</h3><ul><li>Aadhaar, passport or Visa/OCI numbers</li><li>Names, dates of birth and phone numbers</li><li>Booking IDs, payment references and QR codes</li><li>Photos, certificates and address documents</li><li>Passwords, OTPs and CAPTCHA content</li></ul></div>
       </div>
       <div class="info-grid contact-grid-spaced">
-        <a href="mailto:ttdautofill@gmail.com?subject=TTD%20Autofill%20v6.8.0%20support" class="contact-card"><span class="contact-icon" aria-hidden="true">✉️</span><span><small>Email support</small><strong>ttdautofill@gmail.com</strong></span></a>
+        <a href="mailto:ttdautofill@gmail.com?subject=TTD%20Autofill%20v7.0.0%20support" class="contact-card"><span class="contact-icon" aria-hidden="true">✉️</span><span><small>Email support</small><strong>ttdautofill@gmail.com</strong></span></a>
         <a href="https://www.reddit.com/user/Logical-Delivery6183/" target="_blank" rel="noopener noreferrer" class="contact-card"><span class="contact-icon" aria-hidden="true">🟠</span><span><small>Developer on Reddit</small><strong>u/Logical-Delivery6183</strong></span></a>
       </div>
       <div class="safe-note"><strong>We will never ask for your password, OTP or complete identity documents.</strong> Please redact personal data before sharing a screenshot or recording.</div>
@@ -75,14 +75,14 @@
 
     <section class="inner-section source-panel">
       <div><p class="eyebrow">Tirumala questions</p><h2>Extension support and travel advice are different.</h2><p>For live questions about crowds, tokens, rooms, dress or travel, search and ask the independent r/TirumalaDarshan community. For a broken autofill field, contact us above.</p><p class="source-note">This website and extension are not owned, sponsored or endorsed by the subreddit.</p></div>
-      <div class="source-actions"><a class="button reddit" href="https://www.reddit.com/r/TirumalaDarshan/" target="_blank" rel="noopener noreferrer">Visit the community ↗</a><a class="text-link" href="guides.html">Read our Tirumala guides →</a></div>
+      <div class="source-actions"><a class="button reddit" href="https://www.reddit.com/r/TirumalaDarshan/" target="_blank" rel="noopener noreferrer">Visit the community ↗</a><a class="text-link" href="/guides">Read our Tirumala guides →</a></div>
     </section>
   </main>
 
   <footer class="site-footer">
-    <div><a class="brand" href="index.html"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a><p>Support for TTD Autofill Assistant.</p></div>
-    <div class="footer-links"><a href="index.html">Product</a><a href="guides.html">Guides</a><a href="PRIVACY_POLICY.html">Privacy</a><a href="terms.html">Terms</a><a href="refund-policy.html">Refunds</a></div>
-    <p class="disclaimer"><span hidden><strong>Merchant: FireflyAI Softwares</strong><br></span>ttdautofill@gmail.com<br>TTD Autofill Assistant is an independent browser productivity tool and is not affiliated with or endorsed by TTD. It does not book tickets, bypass CAPTCHA, OTP, queues or payments, and provides no booking guarantee.</p>
+    <div><a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a><p>Form-entry help, demos and pass support.</p></div>
+    <div class="footer-stack"><div class="footer-links"><a href="/pass">Pass</a><a href="/demos">Demos</a><a href="/guides">Guides</a><a href="/support">Support</a></div><div class="footer-legal"><a href="/PRIVACY_POLICY">Privacy</a><a href="/terms">Terms</a><a href="/refund-policy">Refunds</a><a href="mailto:ttdautofill@gmail.com">Email</a></div></div>
+    <p class="disclaimer">TTD Autofill Assistant is an independent browser productivity tool and is not affiliated with or endorsed by TTD. It does not book tickets, bypass CAPTCHA, OTP, queues or payments, and provides no booking guarantee.</p>
   </footer>
 </body>
 </html>

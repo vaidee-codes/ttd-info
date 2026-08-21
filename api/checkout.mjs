@@ -47,8 +47,12 @@ export default async function handler(req, res) {
     return handleRequestError(res, error);
   }
 
-  const returnUrl = CANONICAL_ORIGIN + '/pass/success' +
-    (extensionId ? '?extension_id=' + encodeURIComponent(extensionId) + '&activate=1' : '');
+  const returnParams = new URLSearchParams({ plan: plan.code });
+  if (extensionId) {
+    returnParams.set('extension_id', extensionId);
+    returnParams.set('activate', '1');
+  }
+  const returnUrl = CANONICAL_ORIGIN + '/pass/success?' + returnParams;
 
   try {
     // Fail closed if the live provider drifts from the selected plan's price,
@@ -67,7 +71,8 @@ export default async function handler(req, res) {
           allow_customer_editing_country: false,
           allow_tax_id: false,
           allow_discount_code: false,
-          allow_phone_number_collection: false
+          allow_phone_number_collection: false,
+          redirect_immediately: true
         },
         return_url: returnUrl,
         metadata: {

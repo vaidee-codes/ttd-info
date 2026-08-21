@@ -31,6 +31,7 @@
 .pass-status{display:flex;gap:10px;align-items:center;margin-top:18px;padding:13px 15px;border-radius:12px;font-size:.95rem;font-weight:600}
 .pass-status.ok{color:#14532d;background:#f0fdf4;border:1px solid #bbf7d0}
 .pass-status.warn{color:#78350f;background:#fffbeb;border:1px solid #fde68a}
+.pass-status.info{color:#4c1d95;background:#f5f3ff;border:1px solid #ddd6fe}
 .pass-count{margin-top:10px;color:var(--muted);font-size:.9rem}
 .pass-count b{color:var(--ink)}
 .pass-tabs{display:flex;gap:8px;margin-bottom:18px}
