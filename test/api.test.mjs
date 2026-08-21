@@ -298,9 +298,11 @@ test('activation accepts a foreign-currency payment for the same weekly product'
     if (path === '/licenses/validate') return jsonResponse({ valid: true });
     if (path === '/license_key_instances/' + instanceId) return jsonResponse({ id: instanceId, license_key_id: licenseKeyId });
     if (path === '/license_keys/' + licenseKeyId) return jsonResponse({ id: licenseKeyId, key, product_id: 'pdt_0Nk4Gw67usedtjPoO6hX2', payment_id: 'pay_789', status: 'active', activations_limit: 1, expires_at: expiresAt });
-    // Same weekly product, but Dodo settled the charge in USD for a foreign buyer.
-    if (path === '/payments/pay_789') return jsonResponse({ payment_id: 'pay_789', status: 'succeeded', currency: 'USD', checkout_session_id: 'cks_789', product_cart: [{ product_id: 'pdt_0Nk4Gw67usedtjPoO6hX2', quantity: 1 }] });
-    if (path === '/checkouts/cks_789') return jsonResponse({ id: 'cks_789', payment_id: 'pay_789', payment_status: 'succeeded' });
+    // Same weekly product, foreign buyer: Dodo settled in GBP and routed the
+    // international payment WITHOUT a checkout_session_id / matching product_cart.
+    // The old domestic-shaped cross-check rejected this; the succeeded payment
+    // plus the validated active license is enough.
+    if (path === '/payments/pay_789') return jsonResponse({ payment_id: 'pay_789', status: 'succeeded', currency: 'GBP' });
     throw new Error('unexpected request ' + path);
   });
   const res = response();
@@ -386,7 +388,7 @@ test('a complimentary pass-tier key expires its tier length from activation', as
   assert.equal(payload.provider_expiry, res.body.provider_expires_at);
 });
 
-test('activation requires checkout payment_status to be exactly succeeded', async (t) => {
+test('activation rejects a purchasable key whose backing payment did not succeed', async (t) => {
   const key = '7DAY-LICENCE-KEY-654321';
   const instanceId = 'lki_instance_456';
   const licenseKeyId = 'lic_key_456';
@@ -396,8 +398,9 @@ test('activation requires checkout payment_status to be exactly succeeded', asyn
     if (path === '/licenses/validate') return jsonResponse({ valid: true });
     if (path === '/license_key_instances/' + instanceId) return jsonResponse({ id: instanceId, license_key_id: licenseKeyId });
     if (path === '/license_keys/' + licenseKeyId) return jsonResponse({ id: licenseKeyId, key, product_id: 'pdt_0Nk4Gw67usedtjPoO6hX2', payment_id: 'pay_456', status: 'active', activations_limit: 1, expires_at: new Date(Date.now() + 86400_000).toISOString() });
-    if (path === '/payments/pay_456') return jsonResponse({ payment_id: 'pay_456', status: 'succeeded', currency: 'INR', checkout_session_id: 'cks_456', product_cart: [{ product_id: 'pdt_0Nk4Gw67usedtjPoO6hX2', quantity: 1 }] });
-    if (path === '/checkouts/cks_456') return jsonResponse({ id: 'cks_456', payment_id: 'pay_456', payment_status: 'processing' });
+    // Backing payment not fulfilled -> must still be rejected (guards keys left
+    // behind by unfulfilled/failed payments), regardless of currency/checkout.
+    if (path === '/payments/pay_456') return jsonResponse({ payment_id: 'pay_456', status: 'processing', currency: 'INR' });
     if (path === '/licenses/deactivate') return jsonResponse({});
     throw new Error('unexpected request ' + path);
   });

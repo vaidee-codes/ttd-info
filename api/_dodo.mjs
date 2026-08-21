@@ -213,23 +213,35 @@ export async function inspectLicenseBinding({ licenseKey, licenseKeyId, instance
     return { valid: true, productId, license, effectiveExpiry };
   }
 
+  // A purchasable-tier key backed by a payment record. The purchase is already
+  // proven by Dodo's /licenses/validate + the license record checked above
+  // (active, single-activation, accepted product, key secret match). We add ONE
+  // guard here: the backing payment must have succeeded, which rejects keys left
+  // behind by unfulfilled/failed payments.
+  //
+  // We deliberately do NOT match the settlement currency, the product_cart shape,
+  // or require a linked checkout session. Those were domestic-INR-shaped
+  // assumptions: Dodo settles foreign buyers in their own presentment currency
+  // (GBP/USD) and routes some international payments without the same
+  // product_cart/checkout records, so they rejected legitimate foreign weekly
+  // passes with "licence invalid". Domestic INR payments still pass unchanged
+  // (they satisfy payment.status === 'succeeded' just as before).
   const payment = await getPaymentById(license.payment_id);
-  // Do not require a specific settlement currency. The product is configured in
-  // plan.currency (INR), but Dodo charges foreign buyers in their own
-  // presentment currency (USD, etc.), so payment.currency legitimately differs
-  // for the same weekly product. Identity is proven by the product_cart match
-  // and the checkout-session linkage below, not by the currency; the amount is
-  // never cross-checked here in the first place. Only require a real currency.
   const paymentValid = payment && payment.payment_id === license.payment_id &&
-    payment.status === 'succeeded' && typeof payment.currency === 'string' && payment.currency.length > 0 &&
-    hasProductCart(payment, productId) && !!payment.checkout_session_id;
-  if (!paymentValid) return { valid: false, productId, license, effectiveExpiry };
+    payment.status === 'succeeded';
 
-  const checkout = await getCheckoutById(payment.checkout_session_id);
-  const checkoutValid = checkout && checkout.id === payment.checkout_session_id &&
-    checkout.payment_id === payment.payment_id && checkout.payment_status === 'succeeded';
+  // Non-PII diagnostic so the logs confirm exactly which legacy checks the old
+  // code would have failed for foreign payments. Safe to remove once verified.
+  console.log(JSON.stringify({
+    event: 'license_binding_inspect',
+    plan: plan.code,
+    payment_succeeded: !!(payment && payment.status === 'succeeded'),
+    currency: (payment && typeof payment.currency === 'string') ? payment.currency : null,
+    legacy_cart_match: !!(payment && hasProductCart(payment, productId)),
+    has_checkout_session: !!(payment && payment.checkout_session_id)
+  }));
 
-  return { valid: !!checkoutValid, productId, license, effectiveExpiry };
+  return { valid: !!paymentValid, productId, license, effectiveExpiry };
 }
 
 // A pass-tier key with no fixed expiry expires plan.days after its activation
