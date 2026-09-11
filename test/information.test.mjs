@@ -35,9 +35,8 @@ test('guide anchors remain and static content is available without scripts',()=>
  assert.match(outputs.get('tokens.html'),/src="\/token-status\.js"/);
  assert.doesNotMatch(outputs.get('tokens.html'),/fetch\(|setInterval\(|tokens remaining/i);
  assert.match(outputs.get('tokens.html'),/www\.tirumala\.org\/Home\.aspx/);
- assert.match(outputs.get('tokens.html'),/t\.me\/LaxmiTeluguTechChannel/);
+ assert.doesNotMatch(outputs.get('tokens.html'),/telegram|t\.me\//i);
  assert.match(outputs.get('tokens.html'),/Open official TTD status/);
- assert.match(outputs.get('tokens.html'),/Open Telegram reports/);
 });
 test('seva records carry reviewed clock windows and the weekday timetable',()=>{
  assert.equal(dailyTimings.length,6);

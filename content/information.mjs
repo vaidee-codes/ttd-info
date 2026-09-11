@@ -12,7 +12,6 @@ export const sources = {
   padma: {title:'TTD · Tiruchanoor September festivals',url:'https://news.tirumala.org/%E0%B0%B8%E0%B1%86%E0%B0%AA%E0%B1%8D%E0%B0%9F%E0%B1%86%E0%B0%82%E0%B0%AC%E0%B0%B0%E0%B1%81%E0%B0%B2%E0%B1%8B-%E0%B0%B6%E0%B1%8D%E0%B0%B0%E0%B1%80-%E0%B0%AA%E0%B0%A6%E0%B1%8D%E0%B0%AE%E0%B0%BE%E0%B0%B5/',kind:'Official announcement'},
   booking: {title:'Official TTD booking portal',url:'https://ttdevasthanams.ap.gov.in/',kind:'Official booking and ticket instructions'},
   liveOfficial: {title:'TTD homepage · current SSD status',url:'https://www.tirumala.org/Home.aspx',kind:'Official SSD slot, date and balance'},
-  communityTelegram: {title:'LaxmiTeluguTech · Telegram token reports',url:'https://t.me/LaxmiTeluguTechChannel',kind:'Independent public channel; DD reports are not official TTD data'},
   liveCommunity: {title:'Tirumala Info · community live status',url:'https://tirumalainfo.com/tirumala-live-status.php',kind:'Independent community report (verify on the ground)'}
 };
 export const temples = [
