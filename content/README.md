@@ -28,6 +28,14 @@ The daily timetable reproduces the weekday clock windows published by TTD's Dail
 
 ## Release boundary
 
+### SSD dashboard editorial workflow
+
+`ssd.mjs` stores practical guidance, source-review decisions and reviewed ground observations. A report must identify SSD explicitly, the counter, collection date, darshan date, observation time, publication time, review time and an internal source reference. Rendered reports are historical observations; they never override the live official balance. No outside observations currently meet publication requirements. The investigated source is held because its release times conflict and its scope is unclear.
+
+The dashboard keeps token-collection waits separate from post-reporting darshan waits. Unknown counter states and issuance times stay “Not reported”. It does not infer quota, tokens issued, closure times or future releases from a zero balance. Historical collection and automatic outside ingestion remain deferred.
+
+Official snapshots expire after seven minutes or when their darshan date is before today's India date. `checkedAt` records our fetch time, not TTD's publication time. A background tab rechecks snapshot freshness when brought forward. Current counts are hidden on refresh, timeout or expiry.
+
 Only stage the generated six HTML pages, sitemap, information styles/scripts, content directory, generator and information/navigation tests for this change. Existing API, README, package and environment edits predate this work and must not be included. Pass files, demos, shared CSS and deployment configuration must remain byte-for-byte unchanged from the working-tree baseline.
 
 Preview locally with clean-URL support, inspect mobile and desktop layouts and run the existing repository deployment gate before any production release. No production deployment is part of the local implementation. A rollback reverts only these information files. Vercel CLI reported 59.1.3 during inspection; upgrade with `npm i -g vercel@latest` before deployment work for compatibility with the current CLI.

@@ -1,3 +1,4 @@
+import { statusFreshness } from './ssd-status-model.mjs';
 const panel = document.querySelector('[data-ssd-live]');
 
 if (panel) {
@@ -9,6 +10,14 @@ if (panel) {
   const balance = panel.querySelector('[data-ssd-balance]');
   const checked = panel.querySelector('[data-ssd-checked]');
   const refresh = panel.querySelector('[data-ssd-refresh]');
+  let expiryTimer;
+  let lastSnapshot;
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden && lastSnapshot && statusFreshness(lastSnapshot) !== 'fresh') {
+      showUnavailable();
+      heading.textContent = 'Refresh for current SSD status';
+    }
+  });
 
   const formatNumber = new Intl.NumberFormat('en-IN');
   const formatDate = new Intl.DateTimeFormat('en-IN', {
@@ -37,6 +46,9 @@ if (panel) {
   }
 
   async function loadStatus() {
+    clearTimeout(expiryTimer);
+    details.hidden = true;
+    panel.dataset.state = 'unavailable';
     panel.setAttribute('aria-busy', 'true');
     refresh.disabled = true;
     heading.textContent = 'Checking official SSD status…';
@@ -53,6 +65,13 @@ if (panel) {
       if (!response.ok) throw new Error('Status request failed');
       const data = await response.json();
       if (!validStatus(data)) throw new Error('Status response was invalid');
+      lastSnapshot = data;
+      if (statusFreshness(data) !== 'fresh') {
+        showUnavailable();
+        heading.textContent = 'Official snapshot is out of date';
+        checked.textContent = 'Refresh or check TTD directly. An old balance is not current availability.';
+        return;
+      }
 
       panel.dataset.state = data.balance > 0 ? 'available' : 'empty';
       heading.textContent = data.balance > 0
@@ -65,7 +84,11 @@ if (panel) {
       date.textContent = formatDate.format(new Date(`${data.darshanDate}T00:00:00+05:30`));
       balance.textContent = formatNumber.format(data.balance);
       details.hidden = false;
-      checked.textContent = `Checked ${formatCheckedAt.format(new Date(data.checkedAt))} IST · Availability can change before you reach a counter.`;
+      checked.textContent = `Checked ${formatCheckedAt.format(new Date(data.checkedAt))} IST · TTD’s own publication time is not supplied. Availability can change before you reach a counter.`;
+      expiryTimer = setTimeout(() => {
+        showUnavailable();
+        heading.textContent = 'Refresh for current SSD status';
+      }, Math.max(0, 7 * 60 * 1000 - (Date.now() - Date.parse(data.checkedAt))));
     } catch {
       showUnavailable();
     } finally {
