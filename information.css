@@ -17,6 +17,8 @@
 .info-site .nav-links .nav-pass{color:var(--violet-dark);border-color:#d9c7ff;background:var(--violet-soft)}
 .info-site .button{border-radius:12px;background:var(--violet-dark);box-shadow:0 8px 18px rgba(76,29,149,.18)}
 .info-site .button.secondary{color:var(--violet-dark);border-color:#d9c7ff;background:#fff}
+.info-site .extension-panel .button{color:var(--violet-dark);border-color:#fff;background:#fff;box-shadow:0 12px 28px rgba(0,0,0,.24)}
+.info-site .extension-panel .button:hover{color:#fff;border-color:var(--violet);background:var(--violet)}
 .info-site .section-nav{border-color:var(--line);background:rgba(255,255,255,.8)}
 .daily-timetable{margin-top:36px;padding:28px;border:1px solid var(--line);border-radius:18px;background:#fff}
 .daily-timetable>p{color:var(--muted)}
