@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { statusFreshness } from '../ssd-status-model.mjs';
+import { statusFreshness } from '../ssd-status-model.js';
 import { validateObservation } from '../content/ssd.mjs';
 import { ssdSection } from '../scripts/ssd-section.mjs';
 test('freshness rejects old and future snapshots and prior India dates',()=>{

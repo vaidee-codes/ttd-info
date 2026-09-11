@@ -1,4 +1,4 @@
-import { statusFreshness } from './ssd-status-model.mjs';
+import { statusFreshness } from './ssd-status-model.js';
 const panel = document.querySelector('[data-ssd-live]');
 
 if (panel) {
