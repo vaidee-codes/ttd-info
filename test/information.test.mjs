@@ -30,11 +30,14 @@ test('guide anchors remain and static content is available without scripts',()=>
   assert.match(outputs.get(file),/<(?:article|a)[^>]*data-search-item/);
   assert.match(outputs.get(file),/data-controls hidden/);
  }
- assert.match(outputs.get('tokens.html'),/Live updates unavailable/);
+ assert.match(outputs.get('tokens.html'),/Official SSD status needs an online check/);
+ assert.match(outputs.get('tokens.html'),/DD live updates unavailable/);
+ assert.match(outputs.get('tokens.html'),/src="\/token-status\.js"/);
  assert.doesNotMatch(outputs.get('tokens.html'),/fetch\(|setInterval\(|tokens remaining/i);
- assert.match(outputs.get('tokens.html'),/tirumala\.org\/|tirumalainfo\.com/);
- assert.match(outputs.get('tokens.html'),/Open TTD live status/);
- assert.match(outputs.get('tokens.html'),/Open community SSD \/ DD status/);
+ assert.match(outputs.get('tokens.html'),/www\.tirumala\.org\/Home\.aspx/);
+ assert.match(outputs.get('tokens.html'),/t\.me\/LaxmiTeluguTechChannel/);
+ assert.match(outputs.get('tokens.html'),/Open official TTD status/);
+ assert.match(outputs.get('tokens.html'),/Open Telegram reports/);
 });
 test('seva records carry reviewed clock windows and the weekday timetable',()=>{
  assert.equal(dailyTimings.length,6);
@@ -57,7 +60,7 @@ test('information pages use the shared branded mark and support keeps shared sty
 test('new styles and scripts cannot be loaded by revenue pages',()=>{
  for(const file of ['demos.html','pass/index.html','pass/status.html','pass/success.html']){
   const html=readFileSync(new URL(file,root),'utf8');
-  assert.doesNotMatch(html,/information(?:-filters)?\.(?:css|js|mjs)/);
+  assert.doesNotMatch(html,/information(?:-filters)?\.(?:css|js|mjs)|token-status\.js/);
  }
  for(const [file,html] of outputs) if(file.endsWith('.html')) assert.doesNotMatch(html,/href="\/?(?:site|planning)\.css"/);
 });

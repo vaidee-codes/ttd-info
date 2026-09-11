@@ -10,7 +10,7 @@ Run `node scripts/build-information.mjs` after editing content, then `node scrip
 | --- | --- | --- | --- |
 | Events | https://thetirumalaverse.in/ | Date-led agenda, temple taxonomy, Brahmotsavam topics, Tiruchanoor processions | 16 entries from linked official TTD announcements: September annual festival, October Navarathri range, September Tiruchanoor processions. Other reference dates and recurring events omitted until officially verified. Selecting other temples explicitly shows no published entries. |
 | Sevas | https://thetirumalaverse.in/sevas | Daily sequence, weekday timetable, weekly and periodical groupings | Daily and weekly content checked against TTD DailySevas.aspx and WeeklySevas.aspx. Do not treat these reference schedules as today's operations. The weekday timetable follows the published TTD clock windows; unresolved public-booking status is called out. |
-| Tokens | https://thetirumalaverse.in/tokens | SSD/DD distinction, identification, counter locations, walking and reporting considerations | TTD's homepage is linked for its current SSD slot/balance notice. Tirumala Info's independent SSD/DD status page is linked as a live community report. TTD Info displays neither feed's counts; verify both sources and with staff before travelling. |
+| Tokens | https://thetirumalaverse.in/tokens | SSD/DD distinction, identification, counter locations, walking and reporting considerations | TTD Info reads only the SSD slot, darshan date and balance fields from TTD's official homepage. DD remains unavailable because TTD exposes no separate public DD balance. Independent Telegram and community reports are linked but not ingested. |
 | Glossary | https://thetirumalaverse.in/glossary | 29 short definitions covering planning, rituals, processions and festivals | Original concise explanations; source per entry. Does not reproduce the reference's long historical essays, religious narratives, images, claimed magazine quotations, or full 81-entry encyclopedia. |
 
 Exact official source URLs are stored alongside `sources` in `information.mjs` and rendered beside the relevant entries. Review dates describe an editorial review, not a guarantee of current operations. The production origin `https://ttd-info.vercel.app` was confirmed against the existing API canonical-origin constant and the live homepage's HTTP 200 response.
@@ -22,8 +22,9 @@ The daily timetable reproduces the weekday clock windows published by TTD's Dail
 - Add only sourced civil dates (`YYYY-MM-DD`) in Asia/Kolkata. Do not generate annual recurrences from last year's dates. Optional `endDate` must be on or after the start date.
 - Keep stable IDs for incoming links. Update source links and the review date only after review. Add a dated official notice for schedule changes; exclude unresolved event dates.
 - Update the events coverage note when adding new months or temples. The interactive view defaults to the visitor's current India month; Show all dates reveals the archive. Without JavaScript, all dated entries remain readable.
-- Search and filtering are local only. No analytics, external scripts, new backend, notifications, API keys or scraper is installed.
-- If enabling live data later, design and verify that integration separately. Missing observations must never imply availability or zero tokens.
+- Search and filtering are local only. No analytics, external scripts, notifications, API keys or scheduled scraper is installed.
+- `/api/ttd-ssd` reads three public fields from TTD's official homepage on demand and caches valid responses briefly. It fails closed if TTD is unavailable or changes its markup. Missing or malformed fields never imply availability or zero tokens.
+- The public LaxmiTeluguTech Telegram channel is an independent source used by TirumalaVerse's private ingestion pipeline. TTD Info links to the channel but does not scrape it or depend on TirumalaVerse's undocumented Supabase tables.
 
 ## Release boundary
 

@@ -29,4 +29,30 @@
 .daily-timetable th{width:145px;color:var(--muted);font-weight:650;white-space:nowrap}
 .live-source-panel{padding:30px;border:1px solid #ded0ff;border-radius:18px;background:linear-gradient(135deg,#fff,#f7f1ff)}
 .live-source-panel h2{margin:.25rem 0 .5rem;color:var(--violet-dark)}
+.token-live-panel{margin-top:22px;padding:30px;border:1px solid #ded0ff;border-radius:20px;background:linear-gradient(145deg,#fff 0%,#f7f2ff 100%)}
+.token-live-heading{display:flex;align-items:end;justify-content:space-between;gap:32px;margin-bottom:22px}
+.token-live-heading h2{font-size:clamp(1.85rem,3vw,2.8rem);margin-bottom:0;color:var(--violet-dark)}
+.token-live-heading>p{max-width:390px;margin:0;color:var(--muted);font-size:.88rem}
+.token-live-grid{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.token-status-card{position:relative;overflow:hidden;padding:26px;border:1px solid var(--line);border-radius:16px;background:#fff}
+.token-status-card::before{content:'';position:absolute;inset:0 auto 0 0;width:4px;background:#b8afc2}
+.token-status-card[data-state=available]::before{background:#21845a}
+.token-status-card[data-state=empty]::before{background:#b86a23}
+.token-status-card[aria-busy=true]{cursor:progress}
+.token-status-top{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:25px}
+.token-status-name{font:44px Georgia,'Times New Roman',serif;line-height:1;color:var(--violet-dark)}
+.source-badge{display:inline-flex;align-items:center;min-height:30px;padding:6px 10px;border-radius:999px;font-size:.66rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase}
+.source-badge.official{color:#245d48;background:#e7f5ee;border:1px solid #b8ddcd}
+.source-badge.community{color:#795021;background:#fbf1e4;border:1px solid #e7ceb0}
+.token-status-card h3{margin-bottom:9px;font-size:1.22rem}
+.token-status-card>p{color:var(--muted);font-size:.87rem}
+.token-status-details{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:22px 0 16px}
+.token-status-details>div{padding:13px 12px;border:1px solid #eee8f4;border-radius:10px;background:#faf8fc}
+.token-status-details dt{margin-bottom:6px;color:var(--muted);font-size:.64rem;font-weight:750;text-transform:uppercase;letter-spacing:.06em}
+.token-status-details dd{margin:0;color:var(--ink);font-size:.9rem;font-weight:800;overflow-wrap:anywhere}
+.token-status-meta{min-height:42px;margin:18px 0 0;padding-top:14px;border-top:1px solid var(--line);font-size:.75rem!important;line-height:1.65}
+.token-status-actions{display:flex;align-items:center;gap:15px;flex-wrap:wrap;margin-top:16px}
+.token-status-actions .button{min-height:44px;padding:10px 15px;font-size:.76rem}
+.token-refresh:disabled{cursor:wait;opacity:.62}
+@media(max-width:760px){.token-live-panel{padding:22px 18px}.token-live-heading{display:block}.token-live-heading>p{margin-top:12px}.token-live-grid{grid-template-columns:1fr}.token-status-card{padding:22px}.token-status-details{grid-template-columns:1fr 1fr}.token-status-details>div:last-child{grid-column:1/-1}}
 @media(max-width:620px){.daily-timetable{padding:20px 16px}.daily-timetable th{width:112px;font-size:.85rem}.daily-timetable td{font-size:.9rem}}
