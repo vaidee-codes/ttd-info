@@ -1,4 +1,4 @@
-import { inspectLicenseBinding, logProviderFailure } from './_dodo.mjs';
+import { inspectLicenseBinding, isProviderNotFound, logProviderFailure } from './_dodo.mjs';
 import { isInstallationUuid, issueEntitlement, verifyEntitlement } from './_entitlement.mjs';
 import {
   beginRequest,
@@ -28,7 +28,7 @@ export default async function handler(req, res) {
   } catch (error) {
     return handleRequestError(res, error);
   }
-  if (!await enforceHashedKeyRateLimit(res, licenseKey)) return;
+  if (!await enforceHashedKeyRateLimit(req, res, licenseKey)) return;
 
   let claims;
   try {
@@ -68,7 +68,18 @@ export default async function handler(req, res) {
       token_expires_at: entitlement.expires_at
     });
   } catch (error) {
-    logProviderFailure('license_refresh', error);
+    if (isProviderNotFound(error)) {
+      // This response is deliberately terminal. The extension recognises
+      // provider_status "invalid", clears its cached licence, and stops the
+      // periodic refresh loop. Do not log it as a provider failure: a missing
+      // licence is not a Vercel or Dodo availability incident.
+      return res.status(401).json({ ok: false, error: 'licence_invalid', provider_status: 'invalid' });
+    }
+    logProviderFailure('license_refresh', error, {
+      licenseKeyId: claims && claims.license_key_id,
+      instanceId,
+      installationUuid
+    });
     return sendError(res, 502, 'provider_unavailable', 'Licence refresh is temporarily unavailable.');
   }
 }

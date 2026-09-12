@@ -25,7 +25,7 @@ export default async function handler(req, res) {
   } catch (error) {
     return handleRequestError(res, error);
   }
-  if (!await enforceHashedKeyRateLimit(res, licenseKey)) return;
+  if (!await enforceHashedKeyRateLimit(req, res, licenseKey)) return;
 
   let claims;
   try {
@@ -44,7 +44,11 @@ export default async function handler(req, res) {
     });
     return res.status(200).json({ ok: true, valid: state.valid === true });
   } catch (error) {
-    logProviderFailure('license_validate', error);
+    logProviderFailure('license_validate', error, {
+      licenseKeyId: claims && claims.license_key_id,
+      instanceId,
+      installationUuid: claims && claims.installation_uuid
+    });
     return sendError(res, 502, 'provider_unavailable', 'Licence validation is temporarily unavailable.');
   }
 }

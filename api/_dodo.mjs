@@ -1,4 +1,5 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
+export { logProviderFailure } from './_diagnostics.mjs';
 
 const LIVE_BASE = 'https://live.dodopayments.com';
 const TEST_BASE = 'https://test.dodopayments.com';
@@ -56,6 +57,13 @@ export class ProviderConfigurationError extends Error {
   }
 }
 
+// A Dodo 404 means the licence, activation instance, or its backing record no
+// longer exists. Retrying cannot restore it, so callers must treat it as a
+// terminal licence rejection rather than a temporary provider outage.
+export function isProviderNotFound(error) {
+  return error instanceof ProviderError && error.status === 404;
+}
+
 function providerConfig() {
   const production = process.env.VERCEL_ENV === 'production';
   return {
@@ -96,17 +104,6 @@ async function request(path, opts = {}) {
     throw new ProviderError(response.status, code);
   }
   return json;
-}
-
-export function logProviderFailure(operation, error) {
-  // Never log request bodies, licence keys, customer data, tokens, or provider
-  // responses. Status/code are sufficient for operational diagnosis.
-  console.error(JSON.stringify({
-    event: 'provider_failure',
-    operation,
-    status: Number(error && error.status) || null,
-    code: String(error && error.code || '').slice(0, 64) || null
-  }));
 }
 
 export function dodo(path, opts = {}) {

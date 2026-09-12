@@ -12,7 +12,9 @@ delete process.env.VERCEL_ENV;
 const checkoutHandler = (await import('../api/checkout.mjs')).default;
 const activateHandler = (await import('../api/license-activate.mjs')).default;
 const configHandler = (await import('../api/config.mjs')).default;
+const refreshHandler = (await import('../api/license-refresh.mjs')).default;
 const { isAcceptedProduct, assertPlanConfiguration } = await import('../api/_dodo.mjs');
+const { issueEntitlement } = await import('../api/_entitlement.mjs');
 
 function request({ method = 'POST', body = {}, origin = 'https://ttd-info.vercel.app', host = 'evil.example' } = {}) {
   return {
@@ -430,6 +432,32 @@ test('provider failures never expose provider bodies or customer data', async (t
   const serialized = JSON.stringify(res.body);
   assert.doesNotMatch(serialized, /private@example|7DAY-SECRET|customer_record|UPSTREAM_FAILURE/);
   assert.equal(res.body.error, 'provider_unavailable');
+});
+
+test('refresh treats a missing Dodo licence as terminal instead of a provider outage', async (t) => {
+  const installationUuid = '66666666-6666-4666-8666-666666666666';
+  const instanceId = 'lki_missing_123';
+  const licenseKeyId = 'lic_missing_123';
+  const token = issueEntitlement({
+    productId: 'pdt_0Nk4Gw67usedtjPoO6hX2',
+    licenseKeyId,
+    installationUuid,
+    activationInstanceId: instanceId
+  }).token;
+  t.mock.method(console, 'error', () => {
+    throw new Error('a terminal missing licence must not be logged as a provider outage');
+  });
+  t.mock.method(globalThis, 'fetch', async () => jsonResponse({ code: 'NOT_FOUND' }, 404));
+
+  const res = response();
+  await refreshHandler(request({ body: {
+    license_key: 'MISSING-LICENCE-KEY-123',
+    installation_uuid: installationUuid,
+    instance_id: instanceId,
+    entitlement_token: token
+  } }), res);
+  assert.equal(res.statusCode, 401);
+  assert.deepEqual(res.body, { ok: false, error: 'licence_invalid', provider_status: 'invalid' });
 });
 
 test('removed discovery routes and enumeration code are absent', () => {

@@ -36,7 +36,7 @@ export default async function handler(req, res) {
   } catch (error) {
     return handleRequestError(res, error);
   }
-  if (!await enforceHashedKeyRateLimit(res, licenseKey)) return;
+  if (!await enforceHashedKeyRateLimit(req, res, licenseKey)) return;
 
   let activation;
   try {
@@ -48,7 +48,7 @@ export default async function handler(req, res) {
     if (error.status === 409 || error.status === 422 || error.code === 'LICENSE_KEY_LIMIT_REACHED') {
       return sendError(res, 409, 'activation_limit_reached', 'This licence is already activated.');
     }
-    logProviderFailure('license_activate', error);
+    logProviderFailure('license_activate', error, { installationUuid });
     return sendError(res, 502, 'provider_unavailable', 'Licence activation is temporarily unavailable.');
   }
 
@@ -90,7 +90,11 @@ export default async function handler(req, res) {
     });
   } catch (error) {
     await deactivateLicenseKey(licenseKey, instanceId).catch(() => {});
-    logProviderFailure('license_activate_verify', error);
+    logProviderFailure('license_activate_verify', error, {
+      licenseKeyId,
+      instanceId,
+      installationUuid
+    });
     return sendError(res, 502, 'provider_unavailable', 'Licence activation is temporarily unavailable.');
   }
 }

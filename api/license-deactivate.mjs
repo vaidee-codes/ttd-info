@@ -25,10 +25,11 @@ export default async function handler(req, res) {
   } catch (error) {
     return handleRequestError(res, error);
   }
-  if (!await enforceHashedKeyRateLimit(res, licenseKey)) return;
+  if (!await enforceHashedKeyRateLimit(req, res, licenseKey)) return;
 
+  let claims;
   try {
-    const claims = verifyEntitlement(token, { allowExpired: true });
+    claims = verifyEntitlement(token, { allowExpired: true });
     if (claims.activation_instance_id !== instanceId) throw new Error('binding mismatch');
   } catch {
     return sendError(res, 401, 'invalid_entitlement', 'Entitlement is invalid.');
@@ -38,7 +39,11 @@ export default async function handler(req, res) {
     await deactivateLicenseKey(licenseKey, instanceId);
     return res.status(200).json({ ok: true });
   } catch (error) {
-    logProviderFailure('license_deactivate', error);
+    logProviderFailure('license_deactivate', error, {
+      licenseKeyId: claims && claims.license_key_id,
+      instanceId,
+      installationUuid: claims && claims.installation_uuid
+    });
     return sendError(res, 502, 'provider_unavailable', 'Licence deactivation is temporarily unavailable.');
   }
 }
