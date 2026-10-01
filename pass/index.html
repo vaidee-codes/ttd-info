@@ -93,11 +93,6 @@
         </div>
       </div>
 
-      <div id="email-row" hidden style="margin-top:22px">
-        <label for="email" style="font-weight:700;color:var(--ink)">Email for your licence key and receipt</label>
-        <input class="pass-field" id="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com" style="margin-top:8px">
-      </div>
-
       <button class="pass-btn" id="get-pass">Get 7-day pass · ₹99</button>
       <p class="pass-note" id="checkout-note">You'll enter your email and payment details on the secure checkout page.</p>
       <div class="pass-error" id="error"></div>
@@ -297,8 +292,6 @@
     function inr(paise) { return '₹' + Math.round(Number(paise) / 100); }
 
     let paymentProvider = 'dodo';
-    const emailRow = document.getElementById('email-row');
-    const emailInput = document.getElementById('email');
 
     function loadRazorpayScript() {
       if (window.Razorpay) return Promise.resolve();
@@ -332,15 +325,12 @@
     }
 
     async function razorpayFlow(autoActivate) {
-      const email = emailInput.value.trim();
-      if (!email || !emailInput.checkValidity()) {
-        emailInput.focus();
-        throw new Error('Enter your email address. Your licence key is sent there, and you need it to recover the key later.');
-      }
+      // Razorpay Checkout collects the buyer's email (account setting); the
+      // backend takes it from the verified payment.
       await loadRazorpayScript();
       const multi = selectedPlan === 'multi' ? multiPrice() : null;
       const planCode = multi ? multiPlan.value : selectedPlan;
-      const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), email, activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
+      const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
       let { res, data } = await startCheckout(body);
       if (res.status === 409 && data.error === 'request_conflict') {
         sessionStorage.removeItem('ttdafCheckoutRequestId');
@@ -357,8 +347,6 @@
           name: 'TTD Autofill',
           description: (data.quantity > 1 ? data.quantity + ' × ' : '') + PLAN_META[planCode].days + ' pass' + (data.quantity > 1 ? 'es (one key)' : ''),
           image: location.origin + '/assets/logo-128.png',
-          prefill: { email: data.email },
-          readonly: { email: true },
           theme: { color: '#5b21b6' },
           // UPI first; cards, netbanking and wallets stay available below it.
           // EMI and pay-later make no sense for a ₹99–₹699 pass.
@@ -422,9 +410,8 @@
           }).join(' · ');
         }
         if (paymentProvider === 'razorpay') {
-          emailRow.hidden = false;
           const note = document.getElementById('checkout-note');
-          if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Your licence key appears here right after payment and is also emailed to you.';
+          if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Enter your email on the checkout — your licence key appears here right after payment and is also emailed to you.';
         }
         // Sync displayed prices/labels to the server's source of truth.
         for (const p of config.plans) {

@@ -192,12 +192,35 @@ test('the same request_id re-uses its order; a different plan is refused', async
   assert.equal(d.statusCode, 409);
 });
 
-test('checkout requires a valid email', async (t) => {
+test('checkout: email is optional (Razorpay collects it); a malformed one is still refused', async (t) => {
   quiet(t);
   const w = world(t);
   assert.equal((await start('7d', randomUUID(), 'not-an-email')).statusCode, 400);
-  assert.equal((await post(checkout, { plan: '7d', request_id: randomUUID(), activate: false })).statusCode, 400);
   assert.equal(w.tables.orders.length, 0);
+  const r = await post(checkout, { plan: '7d', request_id: randomUUID(), activate: false });
+  assert.equal(r.statusCode, 200);
+  assert.equal(w.tables.orders[0].email, null);
+});
+
+test('the email entered in Razorpay Checkout receives the licence; the "no email" placeholder never does', async (t) => {
+  quiet(t);
+  process.env.RESEND_API_KEY = 're_test'; process.env.RESEND_FROM = 'TTD Autofill <keys@example.com>';
+  try {
+    const w = world(t);
+    const c = (await post(checkout, { plan: '30d', request_id: randomUUID(), activate: false })).body;
+    const { payment, signature } = w.pay(c.razorpay_order_id, { email: 'Pilgrim@Example.COM' });
+    const r = await post(confirm, { razorpay_order_id: c.razorpay_order_id, razorpay_payment_id: payment.id, razorpay_signature: signature, purchase_token: c.purchase_token });
+    assert.equal(r.statusCode, 200);
+    assert.equal(w.tables.orders[0].email, 'Pilgrim@example.com');
+    assert.equal(w.emails.length, 1);
+    assert.deepEqual(w.emails[0].body.to, ['Pilgrim@example.com']);
+
+    const c2 = (await post(checkout, { plan: '7d', request_id: randomUUID(), activate: false })).body;
+    const p2 = w.pay(c2.razorpay_order_id, { email: 'void@razorpay.com' });
+    const r2 = await post(confirm, { razorpay_order_id: c2.razorpay_order_id, razorpay_payment_id: p2.payment.id, razorpay_signature: p2.signature, purchase_token: c2.purchase_token });
+    assert.equal(r2.statusCode, 200, 'the key is still shown on the page');
+    assert.equal(w.emails.length, 1, 'nothing sent to the placeholder');
+  } finally { delete process.env.RESEND_API_KEY; delete process.env.RESEND_FROM; }
 });
 
 // ---- confirm --------------------------------------------------------------

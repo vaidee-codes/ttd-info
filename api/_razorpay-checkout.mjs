@@ -9,11 +9,13 @@ const EMAIL = /^[^\s@<>()[\]\\,;:"]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-
 
 // POST /api/checkout { plan, request_id, email, quantity?, activate?, extension_id? } with PAYMENT_PROVIDER=razorpay.
 // Creates (or re-uses, for the same request_id) a server-priced Razorpay order.
-// Razorpay Checkout does not require an email, so we collect it here and prefill it.
+// The buyer's email is collected by Razorpay Checkout (account setting) and read
+// from the verified payment. An email sent here (older page) is still validated and used.
 export async function razorpayCheckout(res, { plan, body, requestId, extensionId }) {
   let email;
   try {
-    email = normaliseEmail(boundedString(body.email, { field: 'email', max: 254, pattern: EMAIL }));
+    const given = boundedString(body.email, { field: 'email', max: 254, pattern: EMAIL, required: false });
+    email = given ? normaliseEmail(given) : null;
   } catch (error) {
     return handleRequestError(res, error);
   }
