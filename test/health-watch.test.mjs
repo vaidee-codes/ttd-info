@@ -6,6 +6,7 @@ process.env.TTD_LEDGER_SECRET_KEY = 'ledger-secret';
 process.env.KEYGEN_API_URL = 'https://keygen.test';
 process.env.KEYGEN_ACCOUNT_ID = 'acct-1';
 process.env.CRON_SECRET = 'cron-secret';
+process.env.HEALTH_RECHECK_MS = '0';
 process.env.RESEND_API_KEY = 're_test';
 process.env.RESEND_FROM = 'TTD Autofill <alerts@example.com>';
 process.env.ALERT_EMAIL = 'owner@example.com';
@@ -130,4 +131,21 @@ test('supabase self-heal: a paused project is restored when a token is configure
     assert.ok(calls.includes('POST https://api.supabase.com/v1/projects/refpaused/restore'));
     assert.ok(!calls.some((c) => c.includes('refok/restore')));
   } finally { delete process.env.SUPABASE_ACCESS_TOKEN; delete process.env.SUPABASE_PROJECT_REFS; }
+});
+
+test('a single failed check (one dropped request) is rechecked and does not alert; two failures do', async () => {
+  const { runCheck } = await import('../api/health-watch.mjs');
+  let calls = 0;
+  const blip = async () => { calls++; if (calls === 1) throw Object.assign(new Error('x'), { code: 'LEDGER_UNAVAILABLE' }); return { ok: true }; };
+  assert.deepEqual(await runCheck('backup', blip), { ok: true });
+  assert.equal(calls, 2);
+  const down = async () => { throw Object.assign(new Error('x'), { code: 'LEDGER_UNAVAILABLE' }); };
+  const r = await runCheck('backup', down);
+  assert.equal(r.ok, false);
+  assert.match(r.detail, /LEDGER_UNAVAILABLE/);
+});
+
+test('alert times are shown in IST', async () => {
+  const { ist } = await import('../api/health-watch.mjs');
+  assert.equal(ist('2026-10-01T14:00:15.667Z'), '1 Oct 2026, 7:30:15 pm IST');
 });

@@ -3,6 +3,34 @@ import { sendEmail } from './_email.mjs';
 import { insertOne, selectMany, selectOne, updateWhere } from './_ledger.mjs';
 
 const REMIND_EVERY_MS = 6 * 3600e3;
+// A check must fail twice, this far apart, before it counts: one dropped
+// request (a Supabase or network blip) should not page anyone.
+const RECHECK_DELAY_MS = Number(process.env.HEALTH_RECHECK_MS ?? 2000);
+
+// Alert emails show India time, e.g. "1 Oct 2026, 7:30:15 pm IST".
+export function ist(ts) {
+  return new Date(ts).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', day: 'numeric', month: 'short', year: 'numeric',
+    hour: 'numeric', minute: '2-digit', second: '2-digit', hour12: true }) + ' IST';
+}
+
+async function runOnce(name, check) {
+  try {
+    return await check();
+  } catch (error) {
+    const code = String(error && (error.code || error.status || error.name) || 'error').slice(0, 60);
+    console.error(JSON.stringify({ event: 'health_check_error', check: name, code }));
+    return { ok: false, detail: `The check itself failed (${code}); the ledger or a provider did not answer.` };
+  }
+}
+
+export async function runCheck(name, check) {
+  const first = await runOnce(name, check);
+  if (!first || first.ok) return first;
+  await new Promise((r) => setTimeout(r, RECHECK_DELAY_MS));
+  const second = await runOnce(name, check);
+  if (second && second.ok) console.log(JSON.stringify({ event: 'health_check_flap', check: name, first: first.detail }));
+  return second;
+}
 const BACKUP_MAX_AGE_MS = 26 * 3600e3;
 
 async function checkKeygen() {
@@ -126,13 +154,7 @@ export default async function handler(req, res) {
     return res.status(200).json({ ok: false, alerts: ['ledger'] });
   }
   const results = {};
-  for (const [name, check] of Object.entries(CHECKS)) {
-    try {
-      results[name] = await check();
-    } catch {
-      results[name] = { ok: false, detail: 'The check itself failed (ledger unreachable?)' };
-    }
-  }
+  await Promise.all(Object.entries(CHECKS).map(async ([name, check]) => { results[name] = await runCheck(name, check); }));
 
   if (results.keygen_db && !results.keygen_db.ok) {
     const healed = await restorePausedSupabase();
@@ -148,14 +170,14 @@ export default async function handler(req, res) {
       if (!result.ok) {
         const remind = !state.failing || !state.last_sent_at || now - Date.parse(state.last_sent_at) > REMIND_EVERY_MS;
         let sent = false;
-        if (remind) sent = await notify(`[TTD Autofill] ALERT: ${name.replace('_', ' ')}`, [result.detail, '', `Failing since ${state.failing ? state.since : now.toISOString()}.`]);
+        if (remind) sent = await notify(`[TTD Autofill] ALERT: ${name.replace('_', ' ')}`, [result.detail, '', `Failing since ${ist(state.failing ? state.since : now)}.`]);
         await updateWhere('alert_state', { check_name: name }, {
           failing: true, since: state.failing ? state.since : now.toISOString(), detail: result.detail,
           ...(sent ? { last_sent_at: now.toISOString() } : {}), updated_at: now.toISOString()
         });
         alerts.push(name);
       } else if (state.failing) {
-        await notify(`[TTD Autofill] RECOVERED: ${name.replace('_', ' ')}`, [`Recovered at ${now.toISOString()}.`, `Was failing since ${state.since}: ${state.detail}`]);
+        await notify(`[TTD Autofill] RECOVERED: ${name.replace('_', ' ')}`, [`Recovered at ${ist(now)}.`, `Was failing since ${ist(state.since)}: ${state.detail}`]);
         await updateWhere('alert_state', { check_name: name }, { failing: false, since: null, detail: null, updated_at: now.toISOString() });
       }
     } catch {

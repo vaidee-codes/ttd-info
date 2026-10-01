@@ -14,7 +14,7 @@
       "maxDuration": 60
     },
     "api/health-watch.mjs": {
-      "maxDuration": 30
+      "maxDuration": 60
     }
   },
   "headers": [
