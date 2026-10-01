@@ -385,10 +385,13 @@ test('email: the licence key is emailed once, with an idempotency key, after ful
     assert.equal(w.tables.invoices.length, 1);
     assert.match(w.tables.invoices[0].number, /^TTDA\/\d{4}-\d{2}\/0001$/);
     assert.equal(w.tables.invoices[0].amount_paise, 29900);
-    assert.equal(w.emails[0].body.attachments.length, 1);
-    assert.match(w.emails[0].body.attachments[0].filename, /^invoice-TTDA-.*\.pdf$/);
-    assert.equal(Buffer.from(w.emails[0].body.attachments[0].content, 'base64').subarray(0, 5).toString(), '%PDF-');
-    assert.match(w.emails[0].body.text, /invoice TTDA\//);
+    // One email: key + purchase summary, no attachment (Razorpay sends its own receipt).
+    assert.equal(w.emails[0].body.attachments, undefined);
+    assert.match(w.emails[0].body.text, /Paid: ₹299\.00/);
+    assert.match(w.emails[0].body.text, /Invoice no\.: TTDA\//);
+    assert.match(w.emails[0].body.html, /Your licence key is ready to use\./);
+    assert.match(w.emails[0].body.html, /Payment details/);
+    assert.match(w.emails[0].body.html, new RegExp(r.body.license_key));
     assert.equal(w.tables.email_outbox[0].status, 'sent');
     await paidOrder(w).catch(() => {});
     const cron = res();

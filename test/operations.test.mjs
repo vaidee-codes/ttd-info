@@ -354,7 +354,7 @@ test('ops: an offline sale sends nothing unless asked, but a paid one is always 
   assert.equal(w.tables.invoices.length, 1);
 });
 
-test('ops: with "email the key" ticked, a paid sale emails the key with its invoice; a grant without one', async (t) => {
+test('ops: with "email the key" ticked, a sale emails the key and its payment summary (one email, no attachment); a grant has no payment section', async (t) => {
   quiet(t);
   const w = world(t);
   const paid = await call(offlineSale, sale({ reference: 'UTR-mail', activations: 6, send_email: true }));
@@ -362,12 +362,16 @@ test('ops: with "email the key" ticked, a paid sale emails the key with its invo
   assert.deepEqual(w.emails[0].to, ['Walkin@example.com']);
   assert.match(w.emails[0].text, new RegExp(paid.body.license_key));
   assert.match(w.emails[0].text, /6 browsers/);
-  assert.equal(w.emails[0].attachments.length, 1);
-  assert.equal(Buffer.from(w.emails[0].attachments[0].content, 'base64').subarray(0, 5).toString(), '%PDF-');
+  assert.equal(w.emails[0].attachments, undefined, 'one email, no attachment');
+  assert.match(w.emails[0].text, /Payment method: UPI/);
+  assert.match(w.emails[0].text, /Invoice no\.: TTDA\//);
   const grant = await call(offlineSale, sale({ kind: 'grant', method: 'other', reference: 'gift-1', amount_inr: 0, send_email: true }));
   assert.equal(grant.body.email_sent, true);
   assert.equal(grant.body.invoice_number, null);
   assert.equal(w.emails[1].attachments, undefined);
+  assert.match(w.emails[1].html, /Complimentary pass/);
+  assert.doesNotMatch(w.emails[1].html, /Payment details/);
+  assert.match(w.emails[1].text, /30 days from first activation/);
   assert.equal((await call(offlineSale, sale({ reference: 'no-addr', email: '', send_email: true }))).statusCode, 400);
 });
 

@@ -1,5 +1,7 @@
 import { PLANS } from './_dodo.mjs';
-import { ensureOfflineInvoice, ensureOrderInvoice, renderInvoicePdf } from './_invoice.mjs';
+import { ensureOfflineInvoice, ensureOrderInvoice } from './_invoice.mjs';
+import { getLicense } from './_keygen.mjs';
+import { getPayment } from './_razorpay.mjs';
 import { openSecret, selectMany, selectOne, updateWhere } from './_ledger.mjs';
 
 // Outbox retry: 5 min, 10 min, 20 min … capped at 3 h between tries, for up to
@@ -16,37 +18,110 @@ function escapeHtml(value) {
   return String(value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
 
-export function licenceEmail({ licenseKey, plan, invoiceNumber, activations = 1 }) {
+const METHOD_LABELS = { upi: 'UPI', card: 'Card', netbanking: 'Netbanking', wallet: 'Wallet', emi: 'EMI', paylater: 'Pay later', bank: 'Bank transfer', cash: 'Cash', other: 'Other' };
+const rupees = (paise) => '₹' + (Number(paise) / 100).toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+const istDate = (ts, withTime = false) => new Date(ts).toLocaleString('en-IN', {
+  day: 'numeric', month: 'short', year: 'numeric', timeZone: 'Asia/Kolkata', ...(withTime ? { hour: 'numeric', minute: '2-digit', hour12: true } : {})
+}) + (withTime ? ' IST' : '');
+
+function siteUrl() {
+  const host = String(process.env.PUBLIC_SITE_HOST || process.env.VERCEL_PROJECT_PRODUCTION_URL || 'ttd-info.vercel.app').trim();
+  return 'https://' + host.replace(/^https?:\/\//, '').replace(/\/$/, '');
+}
+
+// The one email a buyer gets from us: the licence key and the purchase summary
+// together (Razorpay sends its own payment receipt). No attachment.
+//   payment: { amountPaise, unitPaise, quantity, discountPct, paidAt, paymentId, method, invoiceNumber } | null (grant)
+export function licenceEmail({ licenseKey, plan, activations = 1, expiry = null, startsOnActivation = false, payment = null }) {
   const days = PLANS[plan] ? PLANS[plan].days : null;
-  const label = days ? `${days}-day pass` : 'pass';
-  const subject = `Your TTD Autofill ${label} licence key`;
-  const browsers = activations > 1 ? `${activations} browsers` : 'one browser';
-  const validity = days ? `The pass is valid for ${days} days on ${browsers}.` : `The pass works on ${browsers}.`;
-  const invoiceLine = invoiceNumber ? `Your invoice ${invoiceNumber} is attached.` : '';
+  const product = days ? `TTD Autofill – ${days} Day Pass` : 'TTD Autofill Pass';
+  const qty = payment && payment.quantity > 1 ? payment.quantity : 1;
+  const browsers = activations > 1 ? `${activations} browsers` : '1 browser';
+  const expiryText = expiry ? istDate(expiry, true) : startsOnActivation && days ? `${days} days from first activation` : '—';
+  const subject = `Your TTD Autofill licence key is ready – ${days ? days + '-day pass' : 'pass'}`;
+  const site = siteUrl();
+  const findKey = site + '/pass/find-key';
+
   const text = [
-    `Thank you for buying a TTD Autofill ${label}.`,
+    'Your licence key is ready to use.',
     '',
-    `Your licence key: ${licenseKey}`,
+    `Licence key: ${licenseKey}`,
+    `Product: ${product}${qty > 1 ? ' × ' + qty : ''}`,
+    `Activation limit: ${browsers}`,
+    `Expires on: ${expiryText}`,
     '',
-    'To activate: open the TTD Autofill extension, choose "Enter licence key", and paste the key.',
-    validity,
-    ...(invoiceLine ? ['', invoiceLine] : []),
+    'To activate: open the TTD Autofill extension, choose "Enter licence key", and paste the key.' + (activations > 1 ? ` The same key works on ${browsers}.` : ''),
+    ...(payment ? [
+      '',
+      `Paid: ${rupees(payment.amountPaise)} on ${istDate(payment.paidAt)}`,
+      ...(payment.paymentId ? [`Payment ID: ${payment.paymentId}`] : []),
+      ...(payment.method ? [`Payment method: ${payment.method}`] : []),
+      ...(payment.discountPct ? [`Includes a ${payment.discountPct}% multi-pass discount.`] : []),
+      ...(payment.invoiceNumber ? [`Invoice no.: ${payment.invoiceNumber}`] : []),
+      'No GST charged (supplier not registered under GST).'
+    ] : []),
     '',
-    `Questions or a problem with activation? Reply to this email or write to ${SUPPORT_EMAIL}.`,
+    `Lost this email? Find your key any time: ${findKey}`,
+    `Questions? Reply to this email or write to ${SUPPORT_EMAIL}.`,
     '',
     'Crimson',
     'TTD Autofill'
   ].join('\n');
-  const html = `<div style="font-family:system-ui,-apple-system,Segoe UI,Roboto,sans-serif;font-size:15px;line-height:1.5;color:#1f2937;max-width:520px">
-<p>Thank you for buying a TTD Autofill ${escapeHtml(label)}.</p>
-<p style="margin:20px 0 6px;color:#6b7280;font-size:13px">Your licence key</p>
-<p style="margin:0 0 20px;padding:12px 14px;border:1px solid #e5e7eb;border-radius:10px;font-family:ui-monospace,Menlo,monospace;font-size:16px;letter-spacing:.5px">${escapeHtml(licenseKey)}</p>
-<p>To activate: open the TTD Autofill extension, choose <b>Enter licence key</b>, and paste the key.</p>
-<p>${escapeHtml(validity)}</p>
-${invoiceLine ? `<p>${escapeHtml(invoiceLine)}</p>` : ''}
-<p>Questions or a problem with activation? Reply to this email or write to <a href="mailto:${SUPPORT_EMAIL}">${SUPPORT_EMAIL}</a>.</p>
-<p>Crimson<br>TTD Autofill</p>
-</div>`;
+
+  const e = escapeHtml;
+  const row = (label, value, opts = {}) => `<tr><td style="padding:6px 0;color:#6b7280;font-size:13px;vertical-align:top">${e(label)}</td><td style="padding:6px 0;text-align:right;font-size:13px;color:#111827;${opts.mono ? 'font-family:ui-monospace,Menlo,Consolas,monospace;font-weight:700;letter-spacing:.3px;word-break:break-all;' : ''}${opts.bold ? 'font-weight:700;' : ''}">${e(value)}</td></tr>`;
+  const pill = (t) => `<span style="display:inline-block;padding:2px 10px;border:1px solid #86efac;border-radius:6px;background:#f0fdf4;color:#15803d;font-size:12px;font-weight:600">${e(t)}</span>`;
+  const card = (inner) => `<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="border:1px solid #e5e7eb;border-radius:12px;border-collapse:separate"><tr><td style="padding:18px 18px">${inner}</td></tr></table>`;
+  const subtotal = payment ? Number(payment.unitPaise || 0) * qty : 0;
+  const keyCard = card(`
+    ${payment ? `<div style="font-size:28px;font-weight:800;color:#111827">${e(rupees(payment.amountPaise))}</div>` : `<div style="font-size:22px;font-weight:800;color:#111827">Complimentary pass</div>`}
+    <div style="font-size:13px;color:#374151;margin:4px 0 14px">Thank you for your purchase!</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0"><tr><td style="font-size:13px;color:#6b7280">Status</td><td style="text-align:right">${pill('Fulfilled')}</td></tr></table>
+    <div style="border-top:1px solid #e5e7eb;margin:14px -18px"></div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      ${row('Product', product + (qty > 1 ? ' × ' + qty : ''))}
+      ${row('Licence key', licenseKey, { mono: true })}
+      ${row('Activation limit', browsers)}
+      ${row('Expires on', expiryText)}
+    </table>
+    <div style="font-size:13px;color:#374151;margin-top:14px;line-height:1.6">
+      <div style="font-weight:600;margin-bottom:2px">Activation instructions:</div>
+      1. Open the TTD Autofill extension.<br>2. Choose <b>Enter licence key</b>.<br>3. Paste the key above${activations > 1 ? ` — the same key works on ${e(browsers)}` : ''}.
+    </div>`);
+  const payCard = payment ? card(`
+    <div style="font-size:15px;font-weight:700;color:#111827;margin-bottom:8px">Payment details</div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      ${row('Paid', istDate(payment.paidAt))}
+      ${payment.paymentId ? row('Payment ID', payment.paymentId) : ''}
+      ${payment.method ? row('Payment method', payment.method) : ''}
+    </table>
+    <div style="border-top:1px solid #e5e7eb;margin:10px 0"></div>
+    <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
+      ${row(product + ' × ' + qty, rupees(subtotal || payment.amountPaise))}
+      ${payment.discountPct && subtotal > payment.amountPaise ? row(`Multi-pass discount (${payment.discountPct}%)`, '−' + rupees(subtotal - payment.amountPaise)) : ''}
+      ${row('Total', rupees(payment.amountPaise), { bold: true })}
+    </table>
+    <div style="font-size:12px;color:#6b7280;margin-top:8px">No GST charged (supplier not registered under GST).${payment.invoiceNumber ? ' Invoice no. ' + e(payment.invoiceNumber) + '.' : ''}</div>`) : '';
+
+  const html = `<!doctype html><html><body style="margin:0;padding:0;background:#f3f4f6">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6"><tr><td align="center" style="padding:24px 12px">
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:560px;background:#ffffff;border-top:4px solid #7c3aed;font-family:-apple-system,Segoe UI,Roboto,Helvetica,Arial,sans-serif;color:#111827">
+<tr><td style="padding:24px 24px 4px">
+  <table role="presentation" cellpadding="0" cellspacing="0"><tr>
+    <td style="vertical-align:middle"><img src="${site}/assets/logo-128.png" width="28" height="28" alt="" style="display:block;border-radius:6px"></td>
+    <td style="vertical-align:middle;padding-left:10px;font-size:20px;font-weight:800">TTD Autofill</td></tr></table>
+  <h1 style="font-size:22px;margin:22px 0 16px;font-weight:800">Your licence key is ready to use.</h1>
+</td></tr>
+<tr><td style="padding:0 24px">${keyCard}</td></tr>
+${payCard ? `<tr><td style="padding:14px 24px 0">${payCard}</td></tr>` : ''}
+<tr><td style="padding:20px 24px 4px;font-size:14px;line-height:1.6;color:#374151">
+  <p style="margin:0 0 10px">Keep this email handy — the key, expiry and activation limit are all listed above.</p>
+  <p style="margin:0 0 16px">If you need help, reply to this email or write to <a href="mailto:${SUPPORT_EMAIL}" style="color:#6d28d9">${SUPPORT_EMAIL}</a>.</p>
+  <a href="${findKey}" style="display:inline-block;background:#1f2937;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:11px 18px;border-radius:8px">Find my licence key</a>
+  <p style="margin:18px 0 0">Crimson<br>TTD Autofill</p>
+</td></tr>
+<tr><td style="padding:20px 24px;border-top:1px solid #f3f4f6;font-size:11px;color:#9ca3af;text-align:center">FireflyAI Softwares · Bangalore 560035 · Not affiliated with TTD</td></tr>
+</table></td></tr></table></body></html>`;
   return { subject, text, html };
 }
 
@@ -196,32 +271,70 @@ export async function sendEmail(message) {
   return { ok: false, retry, error: errors.join(';').slice(0, 300) };
 }
 
+async function paymentMethod(paymentId) {
+  if (!paymentId) return null;
+  try {
+    const payment = await getPayment(paymentId);
+    return METHOD_LABELS[payment && payment.method] || (payment && payment.method) || null;
+  } catch {
+    return null;
+  }
+}
+
+async function licenceExpiry(keygenLicenseId) {
+  if (!keygenLicenseId) return null;
+  try {
+    const license = await getLicense(keygenLicenseId);
+    return license && license.attributes && license.attributes.expiry || null;
+  } catch {
+    return null;
+  }
+}
+
+// The email for a Razorpay order (with its payment summary).
+export async function orderEmail(order, fulfilment) {
+  const invoice = await ensureOrderInvoice(order).catch(() => null);
+  const [method, expiry] = await Promise.all([paymentMethod(order.razorpay_payment_id), licenceExpiry(fulfilment.keygen_license_id)]);
+  const quantity = Number(order.quantity || 1);
+  return licenceEmail({
+    licenseKey: openSecret(fulfilment.license_key_enc), plan: order.plan, activations: quantity, expiry,
+    payment: { amountPaise: order.amount_paise, unitPaise: PLANS[order.plan] && PLANS[order.plan].net, quantity, discountPct: Number(order.discount_pct || 0),
+      paidAt: order.paid_at || order.fulfilled_at || new Date().toISOString(), paymentId: order.razorpay_payment_id, method, invoiceNumber: invoice && invoice.number }
+  });
+}
+
+// The email for an offline sale (paid) or a grant (complimentary).
+export async function offlineEmail(sale) {
+  const invoice = sale.kind === 'paid' ? await ensureOfflineInvoice(sale).catch(() => null) : null;
+  const expiry = await licenceExpiry(sale.keygen_license_id);
+  return licenceEmail({
+    licenseKey: openSecret(sale.license_key_enc), plan: sale.plan, activations: Number(sale.activations || 1), expiry,
+    startsOnActivation: sale.kind === 'grant' && !expiry,
+    payment: sale.kind === 'paid' ? { amountPaise: sale.amount_inr * 100, unitPaise: sale.amount_inr * 100, quantity: 1, discountPct: 0,
+      paidAt: sale.provisioned_at || sale.created_at, paymentId: sale.reference, method: METHOD_LABELS[sale.method] || sale.method, invoiceNumber: invoice && invoice.number } : null
+  });
+}
+
 // Sends one queued outbox row. Safe to call repeatedly: a sent row is skipped,
 // and Resend's idempotency key suppresses a duplicate send within 24 h.
 export async function deliverOutboxRow(row) {
   if (!row || row.status !== 'queued') return false;
   let message;
-  let invoice = null;
   if (row.kind === 'licence_key') {
     const [order, fulfilment] = await Promise.all([
       selectOne('orders', { id: row.order_id }),
       selectOne('fulfilments', { order_id: row.order_id })
     ]);
     if (!order || !fulfilment || fulfilment.status !== 'provisioned') return false;
-    invoice = await ensureOrderInvoice(order);
-    message = licenceEmail({ licenseKey: openSecret(fulfilment.license_key_enc), plan: order.plan, invoiceNumber: invoice && invoice.number, activations: Number(order.quantity || 1) });
+    message = await orderEmail(order, fulfilment);
   } else if (row.kind === 'licence_key_offline') {
     const sale = await selectOne('offline_sales', { id: row.offline_sale_id });
     if (!sale || sale.status !== 'provisioned') return false;
-    if (sale.kind === 'paid') invoice = await ensureOfflineInvoice(sale);
-    message = licenceEmail({ licenseKey: openSecret(sale.license_key_enc), plan: sale.plan, invoiceNumber: invoice && invoice.number, activations: Number(sale.activations || 1) });
+    message = await offlineEmail(sale);
   } else {
     return false;
   }
-  const attachments = invoice
-    ? [{ filename: `invoice-${invoice.number.replace(/\//g, '-')}.pdf`, content: (await renderInvoicePdf(invoice)).toString('base64') }]
-    : [];
-  const result = await sendEmail({ to: row.to_email, ...message, attachments, idempotencyKey: `${row.kind}/${row.order_id || row.offline_sale_id}` });
+  const result = await sendEmail({ to: row.to_email, ...message, idempotencyKey: `${row.kind}/${row.order_id || row.offline_sale_id}` });
   if (result.error === 'email_not_configured') return false;
   const attempts = Number(row.attempts || 0) + 1;
   if (result.ok) {
@@ -244,31 +357,27 @@ export async function resendLicenceEmail(license, { to } = {}) {
   const attributes = license.attributes || {};
   const metadata = attributes.metadata || {};
   let message;
-  let invoice = null;
   let recipient = to || null;
   if (metadata.orderId) {
     const [order, fulfilment] = await Promise.all([selectOne('orders', { id: metadata.orderId }), selectOne('fulfilments', { order_id: metadata.orderId })]);
     if (order && fulfilment && fulfilment.status === 'provisioned') {
-      invoice = await ensureOrderInvoice(order);
       recipient = recipient || order.email;
-      message = licenceEmail({ licenseKey: openSecret(fulfilment.license_key_enc), plan: order.plan, invoiceNumber: invoice && invoice.number, activations: Number(order.quantity || 1) });
+      message = await orderEmail(order, fulfilment);
     }
   }
   if (!message) {
     const sale = await selectOne('offline_sales', { keygen_license_id: license.id });
     if (sale && sale.status === 'provisioned') {
-      if (sale.kind === 'paid') invoice = await ensureOfflineInvoice(sale);
       recipient = recipient || sale.email;
-      message = licenceEmail({ licenseKey: openSecret(sale.license_key_enc), plan: sale.plan, invoiceNumber: invoice && invoice.number, activations: Number(sale.activations || 1) });
+      message = await offlineEmail(sale);
     }
   }
   if (!message) {
     recipient = recipient || metadata.email;
-    message = licenceEmail({ licenseKey: attributes.key, plan: metadata.plan, activations: Number(attributes.maxMachines || 1) });
+    message = licenceEmail({ licenseKey: attributes.key, plan: metadata.plan, activations: Number(attributes.maxMachines || 1), expiry: attributes.expiry || null });
   }
   if (!recipient) return { ok: false, error: 'no_email' };
-  const attachments = invoice ? [{ filename: `invoice-${invoice.number.replace(/\//g, '-')}.pdf`, content: (await renderInvoicePdf(invoice)).toString('base64') }] : [];
-  const result = await sendEmail({ to: recipient, ...message, attachments, idempotencyKey: `resend/${license.id}/${Date.now()}` });
+  const result = await sendEmail({ to: recipient, ...message, idempotencyKey: `resend/${license.id}/${Date.now()}` });
   return { ...result, to: recipient };
 }
 
