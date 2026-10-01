@@ -40,7 +40,7 @@ Branch `spike/razorpay-keygen-phase1` (worktree `../ttd-info-keygen-spike`). Scr
    | `LICENSING_PROVIDER` | `dodo` (unchanged behaviour) |
    | `PAYMENT_PROVIDER` | `dodo` (unchanged behaviour) |
 
-3. **Deploy the branch to production** 🔴 with both providers still `dodo`. Expected: no customer-visible change; the new crons run (reconcile is a no-op; health-watch starts alerting). Check `/api/config`, a Dodo activation and a refresh.
+3. **Deploy the branch to production** 🔴 with both providers still `dodo`. Note: `vercel.json` sets `"regions": ["bom1"]`, so production functions move from Washington (iad1) to Mumbai, next to Keygen, Supabase and Razorpay (test app: activation 3.7 s → 0.4 s, refresh 0.94 s → 0.14 s). Dodo calls (supporters) then cross the ocean instead; check a Dodo activation and refresh after this deploy. Expected: no customer-visible change; the new crons run (reconcile is a no-op; health-watch starts alerting). Check `/api/config`, a Dodo activation and a refresh.
 4. **Full pre-import** (the day before): `export-dodo.mjs` → `export-payments.mjs` → `plan.mjs <snapshot> --payments <payments>` → `import.mjs <plan> ~/.ttd-keygen-prod.env` → `reconcile.mjs` = 0 differences. Customers are still on Dodo (no ledger rows yet).
 5. **Live canary** 🔴: temporarily set `PAYMENT_PROVIDER=razorpay` on a **Preview** of the production project, or do it in production during a quiet hour. The owner buys one ₹99 pass for real, then refunds it from the Razorpay dashboard (the licence stays, by design). Verify key, activation and email; then revert to `dodo`.
 

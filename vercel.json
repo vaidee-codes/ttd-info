@@ -1,5 +1,8 @@
 {
   "cleanUrls": true,
+  "regions": [
+    "bom1"
+  ],
   "functions": {
     "api/license-activate.mjs": {
       "maxDuration": 30
