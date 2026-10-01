@@ -19,7 +19,7 @@
 
   <main id="main" class="inner-main">
     <header class="inner-hero">
-      <p class="eyebrow">Privacy policy · Updated August 15, 2026</p>
+      <p class="eyebrow">Privacy policy · Updated October 1, 2026</p>
       <h1>Your details stay under your control.</h1>
       <p>This policy explains what TTD Autofill Assistant version 7.0.0 stores, how it uses the information and what happens when you fill a TTD form.</p>
       <div class="policy-summary"><div><strong>Profiles stay local</strong><span>Your pilgrim data is stored in Chrome, not on our servers.</span></div><div><strong>No tracking or ads</strong><span>We do not analyze or sell your personal data.</span></div><div><strong>Licence data is limited</strong><span>Pass checks use only the key and installation identifiers needed for activation.</span></div></div>
@@ -34,7 +34,7 @@
 
       <section>
         <h2>2. Information stored by the extension</h2>
-        <p>We do <strong>not collect or store your personal information on developer-operated servers</strong>. Information you choose to save is kept in your browser's local extension storage (<code>chrome.storage.local</code>) for the Chrome profile in which the extension is installed.</p>
+        <p>We do <strong>not collect or store the information you save in the extension on developer-operated servers</strong> (purchase records are covered in the payments section below). Information you choose to save is kept in your browser's local extension storage (<code>chrome.storage.local</code>) for the Chrome profile in which the extension is installed.</p>
         <p>Depending on the workflow you use, locally saved information may include:</p>
         <ul>
           <li><strong>Pilgrim and identity details:</strong> name, surname, parent/spouse name, age, date of birth, gender, blood group, ID proof type and ID number.</li>
@@ -61,8 +61,8 @@
         <p>We do not include third-party advertising or analytics SDKs in the extension. The extension interacts with supported TTD pages only to perform the autofill action you request.</p>
 
         <h3>Paid passes and licence data</h3>
-        <p>When you buy an optional pass, checkout is hosted by Dodo Payments. Card and billing details are entered with Dodo Payments and are not available to the extension.</p>
-        <p>Dodo Payments processes the payment and delivers your licence key under its own privacy policy and terms. The extension sends the key, a random installation identifier, a short device label, the provider activation-instance identifier and a short-lived signed entitlement token to our licence API for activation and hourly entitlement checks. We do not store your pilgrim profiles or contact details from the extension on our servers.</p>
+        <p>When you buy an optional pass, payment is handled by Razorpay. Card, UPI and bank details are entered with Razorpay and are never available to us or to the extension. (Earlier purchases and existing supporter subscriptions were handled by Dodo Payments.)</p>
+        <p>For a purchase we keep: the email address you enter at checkout, the plan and number of passes, the amount, Razorpay order and payment references, the licence key, and the invoice. We use them only to deliver and support your licence, send your licence key and invoice, help you recover a lost key, and keep accounting records. The extension sends the key, a random installation identifier, a short device label, the activation-instance identifier and a short-lived signed entitlement token to our licence API for activation and periodic entitlement checks. We do not store your pilgrim profiles or contact details from the extension on our servers.</p><p>Service providers that process this data for us: Razorpay (payments), Vercel (website and API hosting), Supabase (purchase records database), Amazon Web Services (licence server and email delivery), and Resend and Brevo (email delivery). Purchase and invoice records are kept as long as accounting and tax law requires; other licence data is kept while the licence can be used and for up to one year after it ends.</p>
         <p>If you voluntarily email support or contact the developer on Reddit, that communication is handled by the relevant email/Reddit service and may contain the information you choose to provide. Please do not send identity documents, passwords, OTPs or unredacted personal data.</p>
       </section>
 
@@ -80,7 +80,7 @@
           <li><strong>Remove all extension data:</strong> uninstalling the extension removes its locally stored data from that Chrome profile, subject to Chrome's behavior.</li>
           <li><strong>Stop access:</strong> disable or uninstall the extension at any time through Chrome.</li>
         </ul>
-        <p>Because saved profiles are not uploaded to our servers, we cannot view, recover or remotely delete them for you. Payment and licence data is controlled by Dodo Payments (see their privacy policy and your payment portal); you can request deletion of any data we hold for a purchase by emailing <a href="mailto:ttdautofill@gmail.com">ttdautofill@gmail.com</a>.</p>
+        <p>Because saved profiles are not uploaded to our servers, we cannot view, recover or remotely delete them for you. You can ask for a copy of, or the deletion of, the purchase data we hold (except records we must keep by law) by emailing <a href="mailto:ttdautofill@gmail.com">ttdautofill@gmail.com</a>.</p>
       </section>
 
       <section>
@@ -92,7 +92,7 @@
       <section>
         <h2>8. Support website and external links</h2>
         <p>The support website hosts the pass purchase and success pages. For security, it does not provide public email, customer or licence-key lookup. Pass status is shown inside the extension from a signed, browser-bound entitlement. None of these pages collect extension profiles.</p>
-        <p>The site links to external services including the Chrome Web Store, Dodo Payments, official TTD pages and Reddit. Those services have their own privacy policies.</p>
+        <p>The site links to external services including the Chrome Web Store, Razorpay, Dodo Payments, official TTD pages and Reddit. Those services have their own privacy policies.</p>
         <p>The site's Tirumala guides credit public discussions from <a href="https://www.reddit.com/r/TirumalaDarshan/" target="_blank" rel="noopener noreferrer">r/TirumalaDarshan</a>, but this website is independently owned and is not affiliated with or endorsed by Reddit or the subreddit.</p>
       </section>
 

@@ -60,10 +60,17 @@
     const params = new URLSearchParams(location.search);
     const extensionIdParam = (params.get('extension_id') || '').trim();
     const extensionId = /^[a-p]{32}$/.test(extensionIdParam) ? extensionIdParam : '';
-    const keyValue = (params.get('license_key') || '').trim();
+    // Razorpay purchases hand the key over via sessionStorage (never the URL).
+    // Kept (tab-scoped) so a reload still shows the key.
+    let stored = null;
+    try {
+      stored = JSON.parse(sessionStorage.getItem('ttdafPurchase') || 'null');
+    } catch { stored = null; }
+    const keyValue = (stored && stored.license_key || params.get('license_key') || '').trim();
     const licenseKey = keyValue.length <= 128 && !/[\u0000-\u001f\u007f]/.test(keyValue) ? keyValue : '';
-    const paymentStatus = (params.get('status') || '').trim();
-    const planCode = ['7d', '30d', '90d'].includes(params.get('plan')) ? params.get('plan') : '7d';
+    const paymentStatus = (stored && stored.status || params.get('status') || '').trim();
+    const planParam = params.get('plan') || (stored && stored.plan) || '';
+    const planCode = ['7d', '30d', '90d'].includes(planParam) ? planParam : '7d';
     const plan = {
       '7d': { label: '7-day', duration: '7 days' },
       '30d': { label: '30-day', duration: '30 days' },
@@ -84,7 +91,8 @@
       heading.textContent = 'Your pass is ready';
       subline.textContent = plan.label + ' Access for TTD Autofill Assistant.';
       document.getElementById('license-key').textContent = key;
-      document.getElementById('pass-duration').textContent = plan.duration;
+      const quantity = Number(stored && stored.quantity) || 1;
+      document.getElementById('pass-duration').textContent = plan.duration + (quantity > 1 ? ' · works on ' + quantity + ' browsers (share this key)' : '');
       showEl(keyCard);
       deliverToExtension(key);
     }
@@ -98,11 +106,34 @@
       }
       if (!licenseKey) {
         heading.textContent = 'Payment received';
-        subline.textContent = 'Your licence key is being delivered by email.';
+        subline.textContent = 'Your licence key is being prepared. It will appear here and is also emailed to you.';
         showEl(waitingCard);
+        if (stored && stored.razorpay_order_id && stored.purchase_token) pollForKey(stored);
         return;
       }
       showLicense(licenseKey);
+    }
+
+    // The payment went through but the key was not ready in time (e.g. the
+    // licence service was slow). Keep asking for a few minutes.
+    async function pollForKey(purchase) {
+      for (let attempt = 0; attempt < 36; attempt++) {
+        await new Promise((r) => setTimeout(r, 5000));
+        try {
+          const res = await fetch('/api/payment-confirm', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ razorpay_order_id: purchase.razorpay_order_id, purchase_token: purchase.purchase_token })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (res.ok && data.license_key) {
+            try { sessionStorage.setItem('ttdafPurchase', JSON.stringify({ ...purchase, license_key: data.license_key })); } catch {}
+            showLicense(data.license_key);
+            return;
+          }
+          if (res.status !== 202 && res.status < 500) return;
+        } catch {}
+      }
+      subline.textContent = 'Your licence key is being delivered by email. You can also find it later on the "Find my key" page.';
     }
 
     // Auto-activation: hand the key to the extension that opened this page.

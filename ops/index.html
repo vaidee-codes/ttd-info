@@ -1,0 +1,250 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Operations — TTD Autofill</title>
+  <link rel="stylesheet" href="/site.css">
+  <link rel="stylesheet" href="/pass/pass.css">
+  <style>
+    .ops-wrap{max-width:880px;margin:32px auto;padding:0 16px}
+    .ops-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:18px}
+    .ops-card h2{margin:0 0 12px;font-size:1.1rem}
+    .ops-row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+    .ops-row > *{flex:1 1 160px}
+    .ops-row label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:4px}
+    .ops-result{border:1px solid var(--line);border-radius:12px;padding:14px;margin-top:12px;font-size:.9rem}
+    .ops-result code{font-family:ui-monospace,Menlo,monospace;background:#f4f2fb;padding:2px 6px;border-radius:6px;word-break:break-all}
+    .ops-meta{color:var(--muted);font-size:.82rem;margin-top:4px}
+    .ops-machines{margin:10px 0 0;padding:0;list-style:none}
+    .ops-machines li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
+    .ops-small{padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:650}
+    .ops-small.danger{border-color:#fecaca;color:#b91c1c}
+    .ops-msg{margin-top:10px;font-size:.9rem}
+    .ops-msg.err{color:#b91c1c}.ops-msg.ok{color:#166534}
+    [hidden]{display:none!important}
+  </style>
+</head>
+<body>
+  <main class="ops-wrap">
+    <h1 style="margin:0 0 6px">Operations</h1>
+    <p class="ops-meta" id="who">Sign in with your Keygen admin account.</p>
+
+    <section class="ops-card" id="signin">
+      <h2>Sign in</h2>
+      <div class="ops-row">
+        <div><label for="login-email">Admin email</label><input class="pass-field" id="login-email" type="email" autocomplete="username"></div>
+        <div><label for="login-password">Password</label><input class="pass-field" id="login-password" type="password" autocomplete="current-password"></div>
+        <div style="flex:0 0 auto"><button class="pass-btn" id="login-btn" style="margin:0">Sign in</button></div>
+      </div>
+      <p class="ops-msg" id="login-msg"></p>
+    </section>
+
+    <div id="app" hidden>
+      <section class="ops-card">
+        <h2>Find a licence</h2>
+        <div class="ops-row">
+          <div style="flex:4 1 280px"><label for="q">Buyer email, licence key, or licence id</label><input class="pass-field" id="q"></div>
+          <div style="flex:0 0 auto"><button class="pass-btn" id="search-btn" style="margin:0">Search</button></div>
+        </div>
+        <p class="ops-msg" id="search-msg"></p>
+        <div id="results"></div>
+      </section>
+
+      <section class="ops-card">
+        <h2>Record an offline sale or a grant</h2>
+        <div class="ops-row">
+          <div><label for="s-kind">Type</label><select class="pass-field" id="s-kind"><option value="paid">Paid (offline payment)</option><option value="grant">Grant (free, starts at first activation)</option></select></div>
+          <div><label for="s-plan">Pass</label><select class="pass-field" id="s-plan"><option value="7d">7 days</option><option value="30d">30 days</option><option value="90d">90 days</option></select></div>
+          <div><label for="s-method">Payment method</label><select class="pass-field" id="s-method"><option value="upi">UPI</option><option value="bank">Bank transfer</option><option value="cash">Cash</option><option value="other">Other / grant</option></select></div>
+        </div>
+        <div class="ops-row" style="margin-top:10px">
+          <div><label for="s-ref">Reference (UTR / receipt no.)</label><input class="pass-field" id="s-ref" maxlength="80"></div>
+          <div><label for="s-amount">Amount received (₹)</label><input class="pass-field" id="s-amount" type="number" min="0" step="1"></div>
+          <div><label for="s-email">Buyer email (optional)</label><input class="pass-field" id="s-email" type="email"></div>
+        </div>
+        <div class="ops-row" style="margin-top:10px">
+          <div style="flex:0 1 220px"><label for="s-activations">Browsers allowed (activations)</label><input class="pass-field" id="s-activations" type="number" min="1" max="1000" step="1" value="1"></div>
+          <div style="flex:0 1 260px"><label style="display:flex;gap:8px;align-items:center;margin-top:26px;color:var(--ink);font-size:.9rem"><input type="checkbox" id="s-send-email"> Email the licence key to the buyer<br>(paid sales include the invoice)</label></div>
+          <div style="flex:3 1 280px"><p class="ops-meta" style="margin:0 0 12px">One key can be activated on this many browsers. Use more than 1 when one payment covers several people, e.g. 6 for "6 passes for ₹200".</p></div>
+        </div>
+        <div class="ops-row" style="margin-top:10px">
+          <div style="flex:4 1 280px"><label for="s-note">Note (optional)</label><input class="pass-field" id="s-note" maxlength="300"></div>
+          <div style="flex:0 0 auto"><button class="pass-btn" id="sale-btn" style="margin:0">Issue licence</button></div>
+        </div>
+        <p class="ops-msg" id="sale-msg"></p>
+        <div id="sale-result"></div>
+      </section>
+      <p class="ops-meta"><button class="ops-small" id="logout">Sign out</button></p>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const TOKEN_KEY = 'ttdafOpsToken';
+    let token = '';
+    try { token = sessionStorage.getItem(TOKEN_KEY) || ''; } catch { token = ''; }
+
+    function el(tag, props = {}, children = []) {
+      const node = document.createElement(tag);
+      for (const [k, v] of Object.entries(props)) {
+        if (k === 'text') node.textContent = v;
+        else if (k === 'onclick') node.addEventListener('click', v);
+        else node.setAttribute(k, v);
+      }
+      for (const c of children) node.append(c);
+      return node;
+    }
+    function msg(id, text, kind) { const m = $(id); m.textContent = text || ''; m.className = 'ops-msg ' + (kind || ''); }
+
+    async function api(path, body, { auth = true } = {}) {
+      const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401 && auth) { signOut(); throw new Error(data.message || 'Session expired. Sign in again.'); }
+      if (!res.ok) throw new Error(data.message || 'Request failed.');
+      return data;
+    }
+
+    function showApp(email) {
+      $('signin').hidden = true;
+      $('app').hidden = false;
+      $('who').textContent = email ? 'Signed in as ' + email + '. Every action is recorded in the audit log.' : 'Signed in. Every action is recorded in the audit log.';
+    }
+    function signOut() {
+      token = '';
+      try { sessionStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+      $('app').hidden = true;
+      $('signin').hidden = false;
+      $('who').textContent = 'Sign in with your Keygen admin account.';
+    }
+
+    $('login-btn').addEventListener('click', async () => {
+      msg('login-msg', 'Signing in…');
+      try {
+        const data = await api('/api/ops/login', { email: $('login-email').value.trim(), password: $('login-password').value }, { auth: false });
+        token = data.token;
+        try { sessionStorage.setItem(TOKEN_KEY, token); } catch { /* ignore */ }
+        $('login-password').value = '';
+        msg('login-msg', '');
+        showApp(data.operator && data.operator.email);
+      } catch (e) { msg('login-msg', e.message, 'err'); }
+    });
+    $('logout').addEventListener('click', signOut);
+
+    function fmt(ts) { return ts ? new Date(ts).toLocaleString('en-IN', { dateStyle: 'medium', timeStyle: 'short' }) : '—'; }
+
+    async function resetActivations(licenseId, machineId) {
+      const reason = prompt(machineId ? 'Why deactivate this browser? (recorded in the audit log)' : 'Why reset all activations? (recorded in the audit log)');
+      if (!reason) return;
+      try {
+        const data = await api('/api/ops/reset-activations', { license_id: licenseId, ...(machineId ? { machine_id: machineId } : {}), reason });
+        msg('search-msg', 'Removed ' + data.removed + ' activation(s). The customer can activate again now; the old browser locks within 8 hours.', 'ok');
+        search();
+      } catch (e) { msg('search-msg', e.message, 'err'); }
+    }
+
+    async function changeLimit(l) {
+      const value = prompt('How many browsers may this key be activated on? (currently ' + (l.max_machines || 1) + ', ' + l.machines.length + ' in use)', String(l.max_machines || 1));
+      if (value === null) return;
+      const activations = Number(value);
+      if (!Number.isInteger(activations) || activations < 1) return msg('search-msg', 'Enter a whole number, 1 or more.', 'err');
+      const reason = prompt('Why change the limit? (recorded in the audit log)');
+      if (!reason) return;
+      try {
+        const data = await api('/api/ops/set-activation-limit', { license_id: l.id, activations, reason });
+        msg('search-msg', 'Browser limit changed from ' + data.previous + ' to ' + data.activations + '.', 'ok');
+        search();
+      } catch (e) { msg('search-msg', e.message, 'err'); }
+    }
+
+    async function licenceAction(l, action) {
+      const extra = {};
+      if (action === 'set_expiry') {
+        const current = l.expiry ? new Date(l.expiry).toISOString().slice(0, 10) : '';
+        const value = prompt('New expiry date (YYYY-MM-DD, ends at midnight UTC). Currently ' + (l.expiry ? fmt(l.expiry) : 'not set') + '.', current);
+        if (!value) return;
+        extra.expiry = /^\d{4}-\d{2}-\d{2}$/.test(value.trim()) ? value.trim() + 'T23:59:59Z' : value.trim();
+      }
+      if (action === 'resend_email') {
+        const value = prompt('Send the licence email to (leave as is for the buyer):', l.email || '');
+        if (value === null) return;
+        if (value.trim() && value.trim() !== l.email) extra.to = value.trim();
+      }
+      if (action === 'suspend' && !confirm('Suspend this key? Its browsers stop working within 8 hours. You can reinstate it later.')) return;
+      const reason = prompt('Why? (recorded in the audit log)');
+      if (!reason) return;
+      try {
+        const data = await api('/api/ops/licence-action', { license_id: l.id, action, reason, ...extra });
+        const done = {
+          suspend: 'Key suspended. Its browsers lock within 8 hours.',
+          reinstate: 'Key reinstated.',
+          set_expiry: 'Expiry changed to ' + fmt(data.expiry) + '.',
+          resend_email: 'Licence email sent to ' + data.to + '.'
+        }[action];
+        msg('search-msg', done, 'ok');
+        search();
+      } catch (e) { msg('search-msg', e.message, 'err'); }
+    }
+
+    function renderLicence(l) {
+      const machines = el('ul', { class: 'ops-machines' }, l.machines.length ? l.machines.map((m) =>
+        el('li', {}, [el('span', { text: (m.name || 'Browser') + ' · activated ' + fmt(m.created) }),
+          el('button', { class: 'ops-small danger', text: 'Deactivate', onclick: () => resetActivations(l.id, m.id) })])
+      ) : [el('li', {}, [el('span', { class: 'ops-meta', text: 'No active browsers.' })])]);
+      return el('div', { class: 'ops-result' }, [
+        el('div', {}, [el('code', { text: l.key || '(no key)' })]),
+        el('div', { class: 'ops-meta', text: [l.plan ? l.plan + ' pass' : null, l.source, l.status, 'expires ' + (l.expiry ? fmt(l.expiry) : 'at first activation / never'), l.email, l.reference ? 'ref ' + l.reference : null].filter(Boolean).join(' · ') }),
+        el('div', { class: 'ops-meta', text: 'Licence id ' + l.id + ' · created ' + fmt(l.created) + ' · limit ' + (l.max_machines || 1) + ' browser(s)' }),
+        machines,
+        el('p', {}, [
+          el('button', { class: 'ops-small', text: 'Change browser limit (now ' + (l.max_machines || 1) + ')', onclick: () => changeLimit(l) }), ' ',
+          l.machines.length > 1 ? el('button', { class: 'ops-small danger', text: 'Reset all activations', onclick: () => resetActivations(l.id) }) : '', ' ',
+          el('button', { class: 'ops-small', text: 'Change expiry', onclick: () => licenceAction(l, 'set_expiry') }), ' ',
+          el('button', { class: 'ops-small', text: 'Re-send licence email', onclick: () => licenceAction(l, 'resend_email') }), ' ',
+          l.status === 'SUSPENDED'
+            ? el('button', { class: 'ops-small', text: 'Reinstate key', onclick: () => licenceAction(l, 'reinstate') })
+            : el('button', { class: 'ops-small danger', text: 'Suspend key', onclick: () => licenceAction(l, 'suspend') })
+        ])
+      ]);
+    }
+
+    async function search() {
+      const query = $('q').value.trim();
+      if (!query) return;
+      msg('search-msg', 'Searching…');
+      $('results').replaceChildren();
+      try {
+        const data = await api('/api/ops/lookup', { query });
+        msg('search-msg', data.results.length ? '' : 'No licence found.');
+        $('results').replaceChildren(...data.results.map(renderLicence));
+      } catch (e) { msg('search-msg', e.message, 'err'); }
+    }
+    $('search-btn').addEventListener('click', search);
+    $('q').addEventListener('keydown', (e) => { if (e.key === 'Enter') search(); });
+
+    $('s-kind').addEventListener('change', () => {
+      if ($('s-kind').value === 'grant') { $('s-method').value = 'other'; $('s-amount').value = '0'; }
+    });
+    $('sale-btn').addEventListener('click', async () => {
+      msg('sale-msg', 'Issuing…');
+      $('sale-result').replaceChildren();
+      try {
+        const data = await api('/api/ops/offline-sale', {
+          kind: $('s-kind').value, plan: $('s-plan').value, method: $('s-method').value,
+          reference: $('s-ref').value.trim(), amount_inr: Number($('s-amount').value), activations: Number($('s-activations').value || 1), email: $('s-email').value.trim(), note: $('s-note').value.trim(), send_email: $('s-send-email').checked
+        });
+        msg('sale-msg', 'Licence issued for ' + data.activations + ' browser' + (data.activations === 1 ? '' : 's') +
+          (data.invoice_number ? ' · invoice ' + data.invoice_number : '') +
+          ($('s-send-email').checked ? (data.email_sent ? ' · emailed to the buyer.' : ' · the email could not be sent; give the key directly.') : ' · not emailed.') +
+          ' Key:', 'ok');
+        const code = el('code', { text: data.license_key });
+        $('sale-result').replaceChildren(el('div', { class: 'ops-result' }, [code, ' ',
+          el('button', { class: 'ops-small', text: 'Copy', onclick: () => navigator.clipboard.writeText(data.license_key).catch(() => {}) })]));
+      } catch (e) { msg('sale-msg', e.message, 'err'); }
+    });
+
+    if (token) showApp('');
+  </script>
+</body>
+</html>

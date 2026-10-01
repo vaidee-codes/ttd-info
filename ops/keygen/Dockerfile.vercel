@@ -1,0 +1,16 @@
+# Keygen CE as a Vercel container Function (production; digest = tag v1.7.2, which runs Keygen 1.8.0).
+FROM keygen/api@sha256:8d60120082255d0edb241718962c205ac2f356bd4d8afcfd823ab4410c402327
+
+USER root
+RUN apk add --no-cache redis
+COPY --chown=keygen:keygen start.sh /app/scripts/vercel-start.sh
+RUN chmod +x /app/scripts/vercel-start.sh
+USER keygen
+
+ENV PORT="3000" \
+    WEB_CONCURRENCY="0" \
+    RAILS_MAX_THREADS="3" \
+    SIDEKIQ_CONCURRENCY="5" \
+    KEYGEN_EMBED_WORKER="0"
+
+ENTRYPOINT ["/app/scripts/vercel-start.sh"]

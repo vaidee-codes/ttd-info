@@ -1,0 +1,54 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Amazon SES sending for TTD Autofill licence emails - domain identity (DKIM), configuration set, send-only IAM user.
+
+Parameters:
+  Domain:
+    Type: String
+    Default: ttd-autofill.com
+
+Resources:
+  ConfigSet:
+    Type: AWS::SES::ConfigurationSet
+    Properties:
+      Name: ttd-autofill-transactional
+      DeliveryOptions: { TlsPolicy: REQUIRE }
+      ReputationOptions: { ReputationMetricsEnabled: true }
+      SendingOptions: { SendingEnabled: true }
+      SuppressionOptions: { SuppressedReasons: [BOUNCE, COMPLAINT] }
+
+  Identity:
+    Type: AWS::SES::EmailIdentity
+    Properties:
+      EmailIdentity: !Ref Domain
+      ConfigurationSetAttributes: { ConfigurationSetName: !Ref ConfigSet }
+      DkimSigningAttributes: { NextSigningKeyLength: RSA_2048_BIT }
+      DkimAttributes: { SigningEnabled: true }
+      FeedbackAttributes: { EmailForwardingEnabled: true }
+      MailFromAttributes:
+        MailFromDomain: !Sub "ses.${Domain}"
+        BehaviorOnMxFailure: USE_DEFAULT_VALUE
+
+  Sender:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: ttd-ses-sender
+      Tags: [{ Key: project, Value: ttd-autofill }]
+      Policies:
+        - PolicyName: send-only-from-domain
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: SendFromOurDomainOnly
+                Effect: Allow
+                Action: [ses:SendEmail, ses:SendRawEmail]
+                Resource:
+                  - !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:identity/${Domain}"
+                  - !Sub "arn:aws:ses:${AWS::Region}:${AWS::AccountId}:configuration-set/${ConfigSet}"
+                Condition:
+                  StringLike: { "ses:FromAddress": !Sub "*@${Domain}" }
+
+Outputs:
+  Dkim1: { Value: !Sub "${Identity.DkimDNSTokenName1} CNAME ${Identity.DkimDNSTokenValue1}" }
+  Dkim2: { Value: !Sub "${Identity.DkimDNSTokenName2} CNAME ${Identity.DkimDNSTokenValue2}" }
+  Dkim3: { Value: !Sub "${Identity.DkimDNSTokenName3} CNAME ${Identity.DkimDNSTokenValue3}" }
+  ConfigurationSet: { Value: !Ref ConfigSet }

@@ -6,6 +6,8 @@ import {
   planByCode
 } from './_dodo.mjs';
 import { logCheckoutCreated, logCheckoutRejected } from './_diagnostics.mjs';
+import { razorpayCheckout } from './_razorpay-checkout.mjs';
+import { paymentProvider } from './_razorpay.mjs';
 import {
   beginRequest,
   boundedString,
@@ -53,6 +55,10 @@ export default async function handler(req, res) {
   } catch (error) {
     logCheckoutRejected({ reason: error && error.code, detail: error && error.message });
     return handleRequestError(res, error);
+  }
+
+  if (paymentProvider() === 'razorpay') {
+    return razorpayCheckout(res, { plan, body, requestId, extensionId });
   }
 
   const returnParams = new URLSearchParams({ plan: plan.code });

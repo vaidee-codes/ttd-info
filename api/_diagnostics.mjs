@@ -44,10 +44,12 @@ export function logActivationOutcome({
   licenseKeyId = null,
   instanceId = null,
   installationUuid = null,
-  recovered = false
+  recovered = false,
+  provider = 'dodo'
 }) {
   console.log(JSON.stringify({
     event: 'license_activate_outcome',
+    provider: provider === 'keygen' ? 'keygen' : 'dodo',
     outcome: String(outcome || 'unknown').slice(0, 40),
     reason: reason ? String(reason).slice(0, 48) : null,
     recovered: !!recovered,

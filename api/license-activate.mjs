@@ -14,12 +14,14 @@ import { isInstallationUuid, issueEntitlement } from './_entitlement.mjs';
 import {
   beginRequest,
   boundedString,
+  featureEnabled,
   handleRequestError,
   MAX_LICENSE_KEY_LENGTH,
   MAX_NAME_LENGTH,
   readJsonBody,
   sendError
 } from './_http.mjs';
+import { keygenActivate, REJECTIONS, rejectionFor, routeForKey } from './_licensing.mjs';
 import { enforceHashedKeyRateLimit } from './_rate-limit.mjs';
 
 // A brand-new key that was already activated seconds ago on the same device
@@ -28,46 +30,6 @@ import { enforceHashedKeyRateLimit } from './_rate-limit.mjs';
 // browser never received an entitlement. Allow that one case to be reclaimed
 // by the same installation, and only inside this short window.
 const LEGACY_RECLAIM_WINDOW_MS = 15 * 60_000;
-
-// Rejection reason (from inspectLicenseBinding) -> customer-facing response.
-// A used slot, an uncompleted payment, and an expired key are three different
-// problems; reporting all of them as "invalid key" is what sent customers back
-// to the payment page instead of to support.
-const REJECTIONS = {
-  licence_expired: {
-    status: 400,
-    code: 'licence_expired',
-    message: 'This pass has expired. Buy a new pass to keep autofill unlocked.'
-  },
-  licence_disabled: {
-    status: 400,
-    code: 'licence_disabled',
-    message: 'This key is no longer active on the payment provider (it may have been refunded or revoked). Use the key from your latest purchase, or contact support.'
-  },
-  payment_not_succeeded: {
-    status: 400,
-    code: 'payment_not_completed',
-    message: 'The payment for this key did not complete, so it cannot unlock autofill. Use the key from your successful payment (check your email), or contact support if you were charged.'
-  },
-  product_not_accepted: {
-    status: 400,
-    code: 'licence_invalid',
-    message: 'This key is not for a TTD Autofill pass.'
-  },
-  product_mismatch: {
-    status: 400,
-    code: 'licence_invalid',
-    message: 'This key is not for a TTD Autofill pass.'
-  }
-};
-
-function rejectionFor(reason) {
-  return REJECTIONS[reason] || {
-    status: 400,
-    code: 'licence_invalid',
-    message: 'This licence is expired, disabled, unpaid, or invalid.'
-  };
-}
 
 // Reasons that describe the KEY itself (expired, disabled, unpaid, wrong
 // product) are worth surfacing even from a recovery attempt. Structural
@@ -148,6 +110,20 @@ export default async function handler(req, res) {
     return handleRequestError(res, error);
   }
   if (!await enforceHashedKeyRateLimit(req, res, licenseKey)) return;
+  // Cutover fence: activations/deactivations wait a few minutes while licences
+  // move providers. Existing entitlements and refreshes keep working.
+  if (featureEnabled('LICENSING_FENCE')) {
+    return sendError(res, 503, 'provider_unavailable', 'Licence changes are paused for a few minutes for maintenance. Autofill keeps working; try again shortly.');
+  }
+
+  let route;
+  try {
+    route = await routeForKey(licenseKey);
+  } catch (error) {
+    logProviderFailure('license_route', error, { installationUuid });
+    return sendError(res, 502, 'provider_unavailable', 'Licence activation is temporarily unavailable. Wait a moment and try again.');
+  }
+  if (route.authority === 'keygen') return keygenActivate(res, { licenseKey, installationUuid, deviceLabel });
 
   let activation;
   let activationFailure = null;

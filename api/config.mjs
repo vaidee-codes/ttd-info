@@ -1,5 +1,7 @@
 import { PLANS, WEEKLY_PLAN } from './_dodo.mjs';
 import { beginRequest, featureEnabled } from './_http.mjs';
+import { BULK_TIERS, MAX_QUANTITY } from './_pricing.mjs';
+import { paymentProvider } from './_razorpay.mjs';
 
 function planView(plan) {
   return {
@@ -27,6 +29,9 @@ export default function handler(req, res) {
     gate_enabled: featureEnabled('PASS_GATE_ENABLED'),
     // `plan` retained for older clients that expect the single 7-day tier;
     // `plans` is the full set the pass page renders.
+    payment_provider: paymentProvider(),
+    // Multi-pass (one key, several browsers) — Razorpay checkout only.
+    bulk: paymentProvider() === 'razorpay' ? { max_quantity: MAX_QUANTITY, tiers: BULK_TIERS } : null,
     plan: planView(WEEKLY_PLAN),
     plans: Object.values(PLANS).map(planView)
   });

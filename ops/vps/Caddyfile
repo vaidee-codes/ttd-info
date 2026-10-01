@@ -1,0 +1,7 @@
+{$KEYGEN_HOST}, {$KEYGEN_ALT_HOST:13-205-179-101.sslip.io} {
+	reverse_proxy web:3000
+}
+
+{$REHEARSAL_HOST:http://rehearsal.localhost} {
+	reverse_proxy rehearsal:3000
+}

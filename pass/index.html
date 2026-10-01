@@ -22,7 +22,7 @@
     <header class="pass-hero">
       <p class="eyebrow">Professional Access</p>
       <h1>Unlock pilgrim booking autofill.</h1>
-      <p>One payment, one browser, one licence key. Personal and family use of the rest of the extension stays free.</p>
+      <p><span id="hero-scope">One payment, one browser, one licence key.</span> Personal and family use of the rest of the extension stays free.</p>
       <div class="pass-price-row" id="price-row">
         <span class="pass-price" id="hero-price">₹99 <small>one-time</small></span>
         <span class="pass-price-old" id="hero-price-old">₹198</span>
@@ -48,16 +48,44 @@
           <span class="pass-plan-name">90 days</span>
           <span class="pass-plan-price">₹699</span>
         </label>
+        <label class="pass-plan" data-plan="multi" id="multi-card" hidden>
+          <input type="radio" name="plan" value="multi">
+          <span class="pass-plan-name">Multiple passes</span>
+          <span class="pass-plan-price pass-plan-price-sm" id="multi-card-price">Save up to 25%</span>
+        </label>
+      </div>
+      <div class="pass-multi" id="multi-panel" hidden>
+        <div class="pass-multi-row">
+          <div>
+            <label for="multi-plan">Pass length</label>
+            <select class="pass-field" id="multi-plan">
+              <option value="7d">7 days</option>
+              <option value="30d" selected>30 days</option>
+              <option value="90d">90 days</option>
+            </select>
+          </div>
+          <div>
+            <label for="multi-qty">How many passes (browsers)</label>
+            <div class="pass-stepper">
+              <button type="button" id="multi-minus" aria-label="Fewer">−</button>
+              <input class="pass-field" id="multi-qty" type="number" min="2" max="50" step="1" value="5" inputmode="numeric">
+              <button type="button" id="multi-plus" aria-label="More">+</button>
+            </div>
+          </div>
+        </div>
+        <div class="pass-multi-sum" id="multi-sum"></div>
+        <div class="pass-multi-tiers" id="multi-tiers"></div>
+        <p class="pass-note" style="margin-top:8px">You get <b>one licence key</b> that works on this many browsers — share it with family or your group. Each browser activates it once.</p>
       </div>
 
       <h2>What the pass unlocks</h2>
       <ul class="pass-feature-list">
         <li><span aria-hidden="true">⚡</span><span><b>Pilgrim booking autofill</b> on the official TTD pilgrim booking portal (<code>ttdevasthanams.ap.gov.in</code>) — the floating fill button and the Pilgrim tab.</span></li>
-        <li><span aria-hidden="true">🔑</span><span><b>Licence key delivered instantly</b> by email and on the success page — valid <b id="feat-days">7 days</b>, 1 browser activation.</span></li>
+        <li><span aria-hidden="true">🔑</span><span><b>Licence key delivered instantly</b> by email and on the success page — valid <b id="feat-days">7 days</b>, <span id="feat-browsers">1 browser activation</span>.</span></li>
         <li><span aria-hidden="true">🕒</span><span><b>Renew after your current pass expires.</b> A new pass begins when it is purchased; it does not add time to an active pass.</span></li>
       </ul>
 
-      <div class="pass-check">
+      <div class="pass-check" id="activate-row">
         <input type="checkbox" id="activate" checked>
         <div>
           <label for="activate">Activate this extension automatically</label>
@@ -65,8 +93,13 @@
         </div>
       </div>
 
+      <div id="email-row" hidden style="margin-top:22px">
+        <label for="email" style="font-weight:700;color:var(--ink)">Email for your licence key and receipt</label>
+        <input class="pass-field" id="email" type="email" autocomplete="email" maxlength="254" required placeholder="you@example.com" style="margin-top:8px">
+      </div>
+
       <button class="pass-btn" id="get-pass">Get 7-day pass · ₹99</button>
-      <p class="pass-note">You'll enter your email and payment details on the secure checkout page.</p>
+      <p class="pass-note" id="checkout-note">You'll enter your email and payment details on the secure checkout page.</p>
       <div class="pass-error" id="error"></div>
       <p class="pass-note">Refunds within 24 hours of purchase if the pass has not been used. See the <a class="pass-link" href="/refund-policy">refund policy</a> and <a class="pass-link" href="/terms">terms</a>.</p>
       <p class="pass-note">Already have a key? Open the extension and choose <b>Enter licence key</b>.</p>
@@ -131,15 +164,86 @@
       '90d': { label: '90-day pass', price: '₹699', old: '', days: '90 days' }
     };
     let selectedPlan = '7d';
+    let bulk = null;
+    const multiCard = document.getElementById('multi-card');
+    const multiPanel = document.getElementById('multi-panel');
+    const multiPlan = document.getElementById('multi-plan');
+    const multiQty = document.getElementById('multi-qty');
+    const PLAN_AMOUNT = { '7d': 9900, '30d': 29900, '90d': 69900 };
+
+    function multiQuantity() {
+      const max = bulk ? bulk.max_quantity : 50;
+      const q = Math.round(Number(multiQty.value) || 2);
+      return Math.min(max, Math.max(2, q));
+    }
+    function discountFor(q) {
+      let pct = 0;
+      for (const t of (bulk ? bulk.tiers : [])) if (q >= t.min) pct = t.pct;
+      return pct;
+    }
+    // Display only: the server computes and charges the authoritative price.
+    function multiPrice() {
+      const q = multiQuantity();
+      const subtotal = PLAN_AMOUNT[multiPlan.value] * q;
+      const pct = discountFor(q);
+      const total = Math.round(subtotal * (100 - pct) / 100 / 100) * 100;
+      return { q, pct, subtotal, total, perPass: total / q };
+    }
+    const rs = (paise) => '₹' + Math.round(paise / 100).toLocaleString('en-IN');
 
     const heroPrice = document.getElementById('hero-price');
     const heroOld = document.getElementById('hero-price-old');
     const featDays = document.getElementById('feat-days');
+    const heroScope = document.getElementById('hero-scope');
+    const featBrowsers = document.getElementById('feat-browsers');
+    const activateRow = document.getElementById('activate-row');
+    // Multiple passes: no automatic activation (the buyer shares one key across
+    // several browsers). Remember the single-pass choice to restore it.
+    let activateBeforeMulti = null;
+    let activateNoteText = '';
+    function setMultiActivation(multi) {
+      if (multi && activateBeforeMulti === null) {
+        activateBeforeMulti = activateBox.checked;
+        activateNoteText = activateNote ? activateNote.textContent : '';
+        activateBox.checked = false;
+        activateBox.disabled = true;
+        activateRow.classList.add('disabled');
+        if (activateNote) activateNote.textContent = 'Not available for multiple passes. After payment, the licence key is shown on the success page and emailed to you — paste it into the extension on each browser.';
+      } else if (!multi && activateBeforeMulti !== null) {
+        activateBox.checked = activateBeforeMulti;
+        activateBox.disabled = false;
+        activateRow.classList.remove('disabled');
+        if (activateNote) activateNote.textContent = activateNoteText;
+        activateBeforeMulti = null;
+      }
+    }
 
     function renderPlan(code) {
+      document.querySelectorAll('.pass-plan').forEach((el) => el.classList.toggle('active', el.dataset.plan === code));
+      multiPanel.hidden = code !== 'multi';
+      setMultiActivation(code === 'multi');
+      if (code === 'multi') {
+        selectedPlan = 'multi';
+        const p = multiPrice();
+        multiQty.value = p.q;
+        const meta = PLAN_META[multiPlan.value];
+        heroPrice.innerHTML = rs(p.total) + ' <small>for ' + p.q + ' passes</small>';
+        heroScope.textContent = 'One payment, one licence key for ' + p.q + ' browsers.';
+        heroOld.textContent = p.pct ? rs(p.subtotal) : '';
+        heroOld.style.display = p.pct ? '' : 'none';
+        if (featDays) featDays.textContent = meta.days;
+        if (featBrowsers) featBrowsers.textContent = 'one key for ' + p.q + ' browsers';
+        document.getElementById('multi-sum').innerHTML = p.q + ' × ' + meta.days + ' · ' +
+          (p.pct ? '<s>' + rs(p.subtotal) + '</s> ' : '') + '<b>' + rs(p.total) + '</b>' +
+          (p.pct ? ' (' + p.pct + '% off, ' + rs(p.perPass) + ' per pass)' : '');
+        if (!btn.disabled) btn.textContent = 'Get ' + p.q + ' × ' + meta.label + ' · ' + rs(p.total);
+        return;
+      }
       const meta = PLAN_META[code] || PLAN_META['7d'];
       selectedPlan = code;
       heroPrice.innerHTML = meta.price + ' <small>one-time</small>';
+      heroScope.textContent = 'One payment, one browser, one licence key.';
+      if (featBrowsers) featBrowsers.textContent = '1 browser activation';
       heroOld.textContent = meta.old;
       heroOld.style.display = meta.old ? '' : 'none';
       if (featDays) featDays.textContent = meta.days;
@@ -152,6 +256,11 @@
     document.querySelectorAll('input[name="plan"]').forEach((input) => {
       input.addEventListener('change', () => renderPlan(input.value));
     });
+    multiPlan.addEventListener('change', () => renderPlan('multi'));
+    multiQty.addEventListener('input', () => { if (selectedPlan === 'multi' && multiQty.value !== '') renderPlan('multi'); });
+    multiQty.addEventListener('change', () => renderPlan('multi'));
+    document.getElementById('multi-minus').addEventListener('click', () => { multiQty.value = multiQuantity() - 1; renderPlan('multi'); });
+    document.getElementById('multi-plus').addEventListener('click', () => { multiQty.value = multiQuantity() + 1; renderPlan('multi'); });
 
     // From the extension link -> activate by default (still user-toggleable).
     if (activateParam === '0' || !extensionId) activateBox.checked = false;
@@ -160,6 +269,14 @@
     // gets an honest note instead of a promise the payment cannot keep.
     detection.then((detected) => {
       if (detected && !installExtensionId) installExtensionId = EXTENSION_ID;
+      const note = detected
+        ? 'Extension detected in this browser. After payment the licence key is sent straight to it — no copy-paste needed.'
+        : 'Extension not detected in this browser. After payment, open the extension and paste the licence key (it is also emailed to you).';
+      if (activateBeforeMulti !== null) {
+        if (activateParam !== '0') activateBeforeMulti = detected;
+        activateNoteText = note;
+        return;
+      }
       if (activateParam !== '0') activateBox.checked = detected;
       if (!activateNote) return;
       activateNote.textContent = detected
@@ -179,6 +296,109 @@
 
     function inr(paise) { return '₹' + Math.round(Number(paise) / 100); }
 
+    let paymentProvider = 'dodo';
+    const emailRow = document.getElementById('email-row');
+    const emailInput = document.getElementById('email');
+
+    function loadRazorpayScript() {
+      if (window.Razorpay) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://checkout.razorpay.com/v1/checkout.js';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Could not load the secure payment window. Check your connection and try again.'));
+        document.head.appendChild(script);
+      });
+    }
+
+    async function startCheckout(body) {
+      const res = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+      return { res, data: await res.json().catch(() => ({})) };
+    }
+
+    // Confirms with the server (which re-checks the payment with Razorpay) and
+    // retries while the key is being prepared. The purchase token keeps the key
+    // retrievable only from this browser tab.
+    async function confirmPayment(payload) {
+      for (let attempt = 0; attempt < 20; attempt++) {
+        const res = await fetch('/api/payment-confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) }).catch(() => null);
+        const data = res ? await res.json().catch(() => ({})) : {};
+        if (res && res.ok && data.license_key) return data;
+        if (res && res.status !== 202 && res.status < 500) throw new Error(data.message || 'The payment could not be confirmed.');
+        btn.textContent = 'Payment received — preparing your key…';
+        await new Promise((r) => setTimeout(r, 3000));
+      }
+      return null;
+    }
+
+    async function razorpayFlow(autoActivate) {
+      const email = emailInput.value.trim();
+      if (!email || !emailInput.checkValidity()) {
+        emailInput.focus();
+        throw new Error('Enter your email address. Your licence key is sent there, and you need it to recover the key later.');
+      }
+      await loadRazorpayScript();
+      const multi = selectedPlan === 'multi' ? multiPrice() : null;
+      const planCode = multi ? multiPlan.value : selectedPlan;
+      const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), email, activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
+      let { res, data } = await startCheckout(body);
+      if (res.status === 409 && data.error === 'request_conflict') {
+        sessionStorage.removeItem('ttdafCheckoutRequestId');
+        ({ res, data } = await startCheckout({ ...body, request_id: requestId() }));
+      }
+      if (!res.ok || !data.razorpay_order_id) throw new Error(data.message || 'Could not start checkout. Please try again.');
+
+      const success = await new Promise((resolve, reject) => {
+        const rzp = new window.Razorpay({
+          key: data.key_id,
+          order_id: data.razorpay_order_id,
+          amount: data.amount,
+          currency: data.currency,
+          name: 'TTD Autofill',
+          description: (data.quantity > 1 ? data.quantity + ' × ' : '') + PLAN_META[planCode].days + ' pass' + (data.quantity > 1 ? 'es (one key)' : ''),
+          image: location.origin + '/assets/logo-128.png',
+          prefill: { email: data.email },
+          readonly: { email: true },
+          theme: { color: '#5b21b6' },
+          // UPI first; cards, netbanking and wallets stay available below it.
+          // EMI and pay-later make no sense for a ₹99–₹699 pass.
+          config: {
+            display: {
+              blocks: { upi: { name: 'Pay with UPI', instruments: [{ method: 'upi' }] } },
+              sequence: ['block.upi'],
+              hide: [{ method: 'emi' }, { method: 'cardless_emi' }, { method: 'paylater' }],
+              preferences: { show_default_blocks: true }
+            }
+          },
+          handler: (response) => resolve(response),
+          modal: {
+            confirm_close: true,
+            ondismiss: () => reject(new Error('Payment was cancelled. You have not been charged.'))
+          }
+        });
+        rzp.on('payment.failed', (response) => reject(new Error((response && response.error && response.error.description) || 'The payment failed. You have not been charged.')));
+        rzp.open();
+      });
+
+      btn.textContent = 'Confirming payment…';
+      const result = await confirmPayment({
+        razorpay_order_id: success.razorpay_order_id,
+        razorpay_payment_id: success.razorpay_payment_id,
+        razorpay_signature: success.razorpay_signature,
+        purchase_token: data.purchase_token
+      });
+      sessionStorage.removeItem('ttdafCheckoutRequestId');
+      // Kept for this tab only. The order id + purchase token let the success
+      // page keep checking (and survive a reload) if the key is not ready yet.
+      sessionStorage.setItem('ttdafPurchase', JSON.stringify({
+        status: 'succeeded', plan: planCode, quantity: data.quantity || 1, license_key: result ? result.license_key : '',
+        razorpay_order_id: data.razorpay_order_id, purchase_token: data.purchase_token
+      }));
+      const next = new URLSearchParams({ plan: planCode });
+      if (autoActivate && installExtensionId) next.set('extension_id', installExtensionId);
+      location.href = '/pass/success?' + next;
+    }
+
     async function loadConfig() {
       try {
         const response = await fetch('/api/config', { signal: AbortSignal.timeout(5000) });
@@ -187,6 +407,24 @@
           btn.disabled = true;
           btn.textContent = 'Pass sales are temporarily unavailable';
           return;
+        }
+        paymentProvider = config.payment_provider === 'razorpay' ? 'razorpay' : 'dodo';
+        bulk = config.bulk && Array.isArray(config.bulk.tiers) ? config.bulk : null;
+        for (const p of config.plans) PLAN_AMOUNT[p.code] = p.amount;
+        if (bulk) {
+          multiCard.hidden = false;
+          const top = bulk.tiers[bulk.tiers.length - 1];
+          document.getElementById('multi-card-price').textContent = 'Save up to ' + top.pct + '%';
+          multiQty.max = bulk.max_quantity;
+          document.getElementById('multi-tiers').textContent = 'Discounts: ' + bulk.tiers.map((t, i) => {
+            const next = bulk.tiers[i + 1];
+            return (next ? t.min + '–' + (next.min - 1) : t.min + '+') + ' passes ' + t.pct + '% off';
+          }).join(' · ');
+        }
+        if (paymentProvider === 'razorpay') {
+          emailRow.hidden = false;
+          const note = document.getElementById('checkout-note');
+          if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Your licence key appears here right after payment and is also emailed to you.';
         }
         // Sync displayed prices/labels to the server's source of truth.
         for (const p of config.plans) {
@@ -213,7 +451,7 @@
       try {
         // The detection probe may still be in flight on a fast click. Resolve it
         // before the POST so automatic activation is never silently dropped.
-        let autoActivate = activateBox.checked;
+        let autoActivate = activateBox.checked && selectedPlan !== 'multi';
         if (autoActivate && !installExtensionId) {
           if (await detection) installExtensionId = EXTENSION_ID;
           if (!installExtensionId) {
@@ -223,6 +461,10 @@
               activateNote.textContent = 'Extension not detected in this browser, so this purchase will not activate automatically. Open the extension and paste the licence key after payment (it is also emailed to you).';
             }
           }
+        }
+        if (paymentProvider === 'razorpay') {
+          await razorpayFlow(autoActivate);
+          return;
         }
         const res = await fetch('/api/checkout', {
           method: 'POST',

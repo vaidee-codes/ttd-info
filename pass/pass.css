@@ -45,7 +45,7 @@
 @media(max-width:680px){.pass-hero{padding:40px 24px}.pass-card{padding:22px}}
 
 /* Pass plan selector (7 / 30 / 90 days) */
-.pass-plans{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;margin-bottom:22px}
+.pass-plans{display:grid;grid-template-columns:repeat(4,1fr);gap:10px;margin-bottom:22px}
 .pass-plan{position:relative;display:grid;gap:2px;padding:16px 14px;border:1.5px solid var(--line);border-radius:14px;background:#fff;cursor:pointer;transition:border-color .15s ease,box-shadow .15s ease,transform .15s ease}
 .pass-plan input{position:absolute;opacity:0;pointer-events:none}
 .pass-plan-name{font-weight:800;color:var(--ink)}
@@ -54,4 +54,19 @@
 .pass-plan:hover{transform:translateY(-1px);border-color:#b798ec}
 .pass-plan.active{border-color:#7c3aed;box-shadow:0 0 0 3px rgba(124,58,237,.14)}
 .pass-plan.active::after{content:'✓';position:absolute;top:10px;right:12px;color:#7c3aed;font-weight:900}
-@media(max-width:480px){.pass-plans{grid-template-columns:1fr}}
+@media(max-width:680px){.pass-plans{grid-template-columns:repeat(2,1fr)}}
+@media(max-width:340px){.pass-plans{grid-template-columns:1fr}}
+.pass-multi{margin-top:14px;padding:16px;border:1px solid var(--line);border-radius:14px;background:#faf8ff}
+.pass-multi-row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
+.pass-multi-row > div{flex:1 1 160px}
+.pass-multi label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:4px}
+.pass-stepper{display:flex;align-items:center;gap:8px}
+.pass-stepper button{width:40px;height:44px;border-radius:10px;border:1px solid var(--line);background:#fff;font-size:1.2rem;cursor:pointer}
+.pass-stepper input{text-align:center}
+.pass-multi-sum{margin-top:12px;font-size:.92rem;color:var(--ink)}
+.pass-multi-sum s{color:var(--muted)}
+.pass-multi-tiers{margin-top:8px;font-size:.8rem;color:var(--muted)}
+
+.pass-plan-price-sm{font-size:.95rem}
+.pass-check.disabled{opacity:.6}
+.pass-check.disabled label{cursor:not-allowed}

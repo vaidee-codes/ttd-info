@@ -5,3 +5,4 @@ node_modules/
 discovery/
 ops/personalized-email-drafts-private.md
 ops/personalized-cashfree-donor-email-drafts-private.md
+.DS_Store

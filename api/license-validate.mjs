@@ -10,6 +10,7 @@ import {
   readJsonBody,
   sendError
 } from './_http.mjs';
+import { keygenValidate, routeForClaims } from './_licensing.mjs';
 import { enforceHashedKeyRateLimit } from './_rate-limit.mjs';
 
 export default async function handler(req, res) {
@@ -34,6 +35,15 @@ export default async function handler(req, res) {
   } catch {
     return sendError(res, 401, 'invalid_entitlement', 'Entitlement is invalid.');
   }
+
+  let route;
+  try {
+    route = await routeForClaims(claims, instanceId);
+  } catch (error) {
+    logProviderFailure('license_route', error, { installationUuid: claims.installation_uuid });
+    return sendError(res, 502, 'provider_unavailable', 'Licence validation is temporarily unavailable.');
+  }
+  if (route.authority === 'keygen') return keygenValidate(res, { licenseKey, instanceId, claims, route });
 
   try {
     const state = await inspectLicenseBinding({
