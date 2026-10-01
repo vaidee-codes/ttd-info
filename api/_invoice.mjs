@@ -15,8 +15,8 @@ export function financialYear(date = new Date()) {
 
 export function sellerDetails() {
   return {
-    name: String(process.env.INVOICE_SELLER_NAME || 'Roopa Nayanika B').trim(),
-    address: String(process.env.INVOICE_SELLER_ADDRESS || 'Bangalore 560035, Karnataka, India').trim(),
+    name: String(process.env.INVOICE_SELLER_NAME || 'FireflyAI Softwares').trim(),
+    address: String(process.env.INVOICE_SELLER_ADDRESS || 'Proprietor: Roopa Nayanika B, Bangalore 560035, Karnataka, India').trim(),
     email: String(process.env.INVOICE_SELLER_EMAIL || 'ttdautofill@gmail.com').trim(),
     gstin: String(process.env.INVOICE_GSTIN || '').trim() || null
   };

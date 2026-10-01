@@ -33,7 +33,7 @@ Branch `spike/razorpay-keygen-phase1` (worktree `../ttd-info-keygen-spike`). Scr
    | `RESEND_API_KEY` (sensitive), `RESEND_FROM`, `ALERT_EMAIL` | as on the test app |
    | `BREVO_API_KEY` (sensitive), `BREVO_FROM` | `~/.brevoenv`; `TTD Autofill <keys@ttd-autofill.com>` |
    | `EMAIL_PROVIDERS` | optional; default `ses,resend,brevo` |
-   | `INVOICE_SELLER_NAME`, `INVOICE_SELLER_ADDRESS` | optional; defaults are "Roopa Nayanika B", "Bangalore 560035, Karnataka, India" |
+   | `INVOICE_SELLER_NAME`, `INVOICE_SELLER_ADDRESS` | optional; defaults are "FireflyAI Softwares", "Proprietor: Roopa Nayanika B, Bangalore 560035, Karnataka, India" |
    | `LICENSING_OUTAGE_ACCESS` | leave unset (on). `false` disables the 72 h outage access |
    | `SUPABASE_ACCESS_TOKEN` (sensitive), `SUPABASE_PROJECT_REFS=nfjpzkkqcfgvopijnxtj,tyiwglnvusbdjvfgbxjm` | optional: lets health-watch restore a paused Supabase project by itself |
    | `CRON_SECRET` (sensitive) | new random |
