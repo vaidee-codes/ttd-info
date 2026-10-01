@@ -1,4 +1,4 @@
-import { inspectLicenseBinding, logProviderFailure } from './_dodo.mjs';
+import { inspectLicenseBinding, isProviderNotFound, logProviderFailure } from './_dodo.mjs';
 import { verifyEntitlement } from './_entitlement.mjs';
 import {
   beginRequest,
@@ -44,6 +44,11 @@ export default async function handler(req, res) {
     });
     return res.status(200).json({ ok: true, valid: state.valid === true });
   } catch (error) {
+    // Dodo removes an instance after deactivation. A 404 is a definitive
+    // invalid licence state, not an outage that should prompt endless retries.
+    if (isProviderNotFound(error)) {
+      return res.status(200).json({ ok: true, valid: false });
+    }
     logProviderFailure('license_validate', error, {
       licenseKeyId: claims && claims.license_key_id,
       instanceId,

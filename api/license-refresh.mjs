@@ -63,6 +63,7 @@ export default async function handler(req, res) {
       license_key_id: claims.license_key_id,
       product_id: state.productId,
       provider_status: 'active',
+      activation_limit: Number(state.license && state.license.activations_limit) || null,
       provider_expires_at: state.effectiveExpiry || null,
       entitlement_token: entitlement.token,
       token_expires_at: entitlement.expires_at

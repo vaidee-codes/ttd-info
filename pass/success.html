@@ -32,7 +32,7 @@
         <button id="copy-key" type="button">Copy</button>
       </div>
       <div class="pass-status" id="activation-status"></div>
-      <p class="pass-count" id="countdown">Valid for <b id="pass-duration">7 days</b> with one browser activation.</p>
+      <p class="pass-count" id="countdown">Valid for <b id="pass-duration">7 days</b>.</p>
       <button class="pass-btn" id="renew" type="button">Buy another pass</button>
       <p class="pass-note">A new pass begins when purchased. We recommend buying after this pass expires.</p>
     </section>
@@ -106,40 +106,69 @@
     }
 
     // Auto-activation: hand the key to the extension that opened this page.
-    function deliverToExtension(key) {
+    // The message can fail transiently (a sleeping service worker, a browser
+    // that blocked the port), so retry a couple of times before telling the
+    // customer to paste the key.
+    function sendKeyToExtension(key) {
+      return new Promise((resolve) => {
+        let settled = false;
+        const done = (value) => {
+          if (settled) return;
+          settled = true;
+          resolve(value);
+        };
+        try {
+          window.chrome.runtime.sendMessage(targetExtensionId(), { type: 'TTDAF_LICENSE', license_key: key }, (response) => {
+            if (window.chrome.runtime.lastError) done({ ok: false, error: 'extension_unreachable' });
+            else done(response || { ok: false, error: 'no_response' });
+          });
+        } catch {
+          done({ ok: false, error: 'extension_unreachable' });
+        }
+      });
+    }
+
+    function targetExtensionId() {
+      return extensionId || 'piiegkjdfbbakjmjdckgdjbbohfjfolg';
+    }
+
+    async function deliverToExtension(key) {
       const statusEl = document.getElementById('activation-status');
-      if (!extensionId) {
-        statusEl.className = 'pass-status info';
-        statusEl.textContent = 'Automatic activation was not selected. Copy your key and enter it in the extension popup.';
-        return;
-      }
-      const target = window.chrome && window.chrome.runtime && window.chrome.runtime.sendMessage ? extensionId : null;
+      const target = window.chrome && window.chrome.runtime && window.chrome.runtime.sendMessage ? targetExtensionId() : null;
       if (!target) {
         statusEl.className = 'pass-status warn';
         statusEl.textContent = 'Extension not detected — copy your key and paste it in the extension popup.';
         return;
       }
-      try {
-        window.chrome.runtime.sendMessage(target, {
-          type: 'TTDAF_LICENSE',
-          license_key: key
-        }, (response) => {
-          if (window.chrome.runtime.lastError) {
-            statusEl.className = 'pass-status warn';
-            statusEl.textContent = 'Could not reach the extension — copy your key and paste it in the extension popup.';
-          } else if (response && response.ok) {
-            statusEl.className = 'pass-status ok';
-            statusEl.textContent = '✓ Activated on this browser. Open the extension to see your countdown.';
-          } else {
-            statusEl.className = 'pass-status warn';
-            statusEl.textContent = response && response.error === 'activation_limit_reached'
-              ? 'This pass has already been activated. If it is not shown in the extension, copy your key and enter it in the extension popup.'
-              : 'Activation failed — copy your key and paste it in the extension popup.';
-          }
-        });
-      } catch (e) {
+      statusEl.className = 'pass-status info';
+      statusEl.textContent = 'Activating in your extension…';
+      let response = null;
+      for (let attempt = 0; attempt < 3; attempt++) {
+        response = await sendKeyToExtension(key);
+        // A server verdict (used slot, expired key, …) is final; only a failed
+        // hand-off is worth retrying.
+        if (response && (response.ok || response.error !== 'extension_unreachable')) break;
+        await new Promise((r) => setTimeout(r, 1500));
+      }
+      if (!response) {
         statusEl.className = 'pass-status warn';
-        statusEl.textContent = 'Copy your key and paste it in the extension popup.';
+        statusEl.textContent = 'Could not reach the extension — copy your key and paste it in the extension popup.';
+        return;
+      }
+      if (response.ok) {
+        statusEl.className = 'pass-status ok';
+        statusEl.textContent = '✓ Activated on this browser. Open the extension to see your countdown.';
+        return;
+      }
+      statusEl.className = 'pass-status warn';
+      if (response.error === 'extension_unreachable') {
+        statusEl.textContent = 'Could not reach the extension — copy your key and paste it in the extension popup.';
+      } else if (response.error === 'activation_limit_reached' || response.error === 'activation_in_use') {
+        statusEl.textContent = 'This pass is already activated in another browser. Email ttdautofill@gmail.com with your receipt if it is not working here.';
+      } else if (response.message || response.error) {
+        statusEl.textContent = (response.message || response.error) + ' Copy your key if you need it again.';
+      } else {
+        statusEl.textContent = 'Activation failed — copy your key and paste it in the extension popup.';
       }
     }
 

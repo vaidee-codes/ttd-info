@@ -121,6 +121,40 @@ test('checkout rejects unknown plans and enforces the body limit', async () => {
   assert.equal(large.statusCode, 413);
 });
 
+test('a rejected checkout is labelled in the logs, reason only', async (t) => {
+  process.env.PASS_SALES_ENABLED = 'true';
+  const lines = [];
+  t.mock.method(console, 'log', (value) => lines.push(String(value)));
+
+  // 33 characters: the shape a wrong hard-coded extension id has. Rejected by
+  // validation, so nothing reaches the provider.
+  const bad = response();
+  await checkoutHandler(request({
+    body: {
+      plan: '7d',
+      request_id: '33333333-3333-4333-8333-333333333333',
+      activate: true,
+      extension_id: 'piiegkjdfcgbbakjmjdckgdjbbohfjfolg'
+    }
+  }), bad);
+  assert.equal(bad.statusCode, 400);
+  assert.equal(bad.body.error, 'invalid_request');
+
+  const rejected = lines.filter((line) => line.includes('checkout_rejected'));
+  assert.equal(rejected.length, 1);
+  const parsed = JSON.parse(rejected[0]);
+  assert.equal(parsed.reason, 'invalid_request');
+  assert.equal(parsed.detail, 'extension_id is invalid.');
+  assert.equal(JSON.stringify(parsed).includes('piiegkjdf'), false);
+
+  // An unknown plan is a different reason, and also labelled.
+  const plan = response();
+  await checkoutHandler(request({ body: { plan: '365d' } }), plan);
+  assert.equal(plan.statusCode, 400);
+  const reasons = lines.filter((line) => line.includes('checkout_rejected')).map((line) => JSON.parse(line).reason);
+  assert.deepEqual(reasons, ['invalid_request', 'invalid_plan']);
+});
+
 test('authorization keeps legacy pass and supporter products compatible', () => {
   assert.equal(isAcceptedProduct('pdt_0Nk4Gw67usedtjPoO6hX2'), true);
   assert.equal(isAcceptedProduct('pdt_0NkvjEpCQNkDuaCT65cFV'), true);
@@ -289,6 +323,42 @@ test('activation projects only a signed browser-bound entitlement', async (t) =>
   assert.equal(calls.some((url) => /customers/.test(url)), false);
 });
 
+test('activation accepts manually configured keys with multiple activation slots', async (t) => {
+  const key = 'MULTI-ACTIVATION-KEY-123456';
+  const instanceId = 'lki_instance_multi';
+  const licenseKeyId = 'lic_key_multi';
+  const productId = 'pdt_0Nk4Gw67usedtjPoO6hX2';
+  t.mock.method(globalThis, 'fetch', async (url) => {
+    const path = new URL(String(url)).pathname;
+    if (path === '/licenses/activate') return jsonResponse({
+      id: instanceId,
+      license_key_id: licenseKeyId,
+      product: { product_id: productId }
+    }, 201);
+    if (path === '/licenses/validate') return jsonResponse({ valid: true });
+    if (path === '/license_key_instances/' + instanceId) return jsonResponse({ id: instanceId, license_key_id: licenseKeyId });
+    if (path === '/license_keys/' + licenseKeyId) return jsonResponse({
+      id: licenseKeyId,
+      key,
+      product_id: productId,
+      status: 'active',
+      activations_limit: 5,
+      expires_at: null
+    });
+    throw new Error('unexpected request ' + path);
+  });
+
+  const res = response();
+  await activateHandler(request({ body: {
+    license_key: key,
+    installation_uuid: '55555555-5555-4555-8555-555555555555',
+    device_label: 'TTD Autofill - Multi Test'
+  } }), res);
+  assert.equal(res.statusCode, 200);
+  assert.equal(res.body.ok, true);
+  assert.equal(res.body.activation_limit, 5);
+});
+
 test('activation accepts a foreign-currency payment for the same weekly product', async (t) => {
   const key = '7DAY-LICENCE-KEY-USD-789';
   const instanceId = 'lki_instance_789';
@@ -413,7 +483,9 @@ test('activation rejects a purchasable key whose backing payment did not succeed
     device_label: 'TTD Autofill - Test'
   } }), res);
   assert.equal(res.statusCode, 400);
-  assert.equal(res.body.error, 'licence_invalid');
+  // Labelled for what it is: the payment never completed. Reporting this as a
+  // generic "invalid licence" is what made paying customers buy again.
+  assert.equal(res.body.error, 'payment_not_completed');
 });
 
 test('provider failures never expose provider bodies or customer data', async (t) => {
@@ -465,5 +537,10 @@ test('removed discovery routes and enumeration code are absent', () => {
     assert.equal(existsSync(new URL('../api/' + file, import.meta.url)), false);
   }
   const dodoSource = readFileSync(new URL('../api/_dodo.mjs', import.meta.url), 'utf8');
-  assert.doesNotMatch(dodoSource, /\/customers\?|license_keys\?page|resolveLicenseForCustomer|resolveLicenseForEmail/);
+  // Customer/email enumeration stays banned. The one licence-key listing allowed
+  // is findLicenseKeyBySecret: a bounded, exact-secret match used only by the
+  // activation recovery path to re-find a key the caller already holds. It
+  // exposes nothing to a caller who does not already have the secret.
+  assert.doesNotMatch(dodoSource, /\/customers\?|resolveLicenseForCustomer|resolveLicenseForEmail/);
+  assert.match(dodoSource, /findLicenseKeyBySecret\(licenseKey, \{ maxPages = 10,/);
 });

@@ -61,7 +61,7 @@
         <input type="checkbox" id="activate" checked>
         <div>
           <label for="activate">Activate this extension automatically</label>
-          <small>After payment, the licence key is sent straight to your extension — no copy-paste needed. Uncheck to receive the key by email and on the success page instead.</small>
+          <small id="activate-note">After payment, the licence key is sent straight to your extension — no copy-paste needed. Uncheck to receive the key by email and on the success page instead.</small>
         </div>
       </div>
 
@@ -86,8 +86,42 @@
     const activateParam = params.get('activate');
     if (location.search) history.replaceState(null, '', location.pathname + location.hash);
     const activateBox = document.getElementById('activate');
+    const activateNote = document.getElementById('activate-note');
     const errorEl = document.getElementById('error');
     const btn = document.getElementById('get-pass');
+
+    // Published extension ID (fixed by the manifest key), also used by the
+    // manifest's externally_connectable. Ask the extension directly instead of
+    // relying on the customer arriving through the extension's own link: most
+    // buyers reach this page from search, chat or a bookmark, and without its
+    // ID in the checkout return URL the key would never reach their browser.
+    const EXTENSION_ID = 'piiegkjdfbbakjmjdckgdjbbohfjfolg';
+    let installExtensionId = extensionId;
+
+    function detectExtension() {
+      return new Promise((resolve) => {
+        if (!(window.chrome && window.chrome.runtime && window.chrome.runtime.sendMessage)) {
+          resolve(false);
+          return;
+        }
+        let settled = false;
+        const done = (value) => {
+          if (settled) return;
+          settled = true;
+          resolve(value);
+        };
+        setTimeout(() => done(false), 1200);
+        try {
+          window.chrome.runtime.sendMessage(EXTENSION_ID, { type: 'TTDAF_PING' }, (response) => {
+            done(!window.chrome.runtime.lastError && !!(response && response.ok));
+          });
+        } catch {
+          done(false);
+        }
+      });
+    }
+
+    const detection = extensionId ? Promise.resolve(true) : detectExtension();
 
     // Plan metadata for the UI. The amount actually charged is fixed by Dodo;
     // /api/config is the source of truth and overrides these on load.
@@ -121,6 +155,17 @@
 
     // From the extension link -> activate by default (still user-toggleable).
     if (activateParam === '0' || !extensionId) activateBox.checked = false;
+
+    // Reflect what we can actually detect. A customer without the extension
+    // gets an honest note instead of a promise the payment cannot keep.
+    detection.then((detected) => {
+      if (detected && !installExtensionId) installExtensionId = EXTENSION_ID;
+      if (activateParam !== '0') activateBox.checked = detected;
+      if (!activateNote) return;
+      activateNote.textContent = detected
+        ? 'Extension detected in this browser. After payment the licence key is sent straight to it — no copy-paste needed.'
+        : 'Extension not detected in this browser. After payment, open the extension and paste the licence key (it is also emailed to you).';
+    });
 
     function requestId() {
       const key = 'ttdafCheckoutRequestId';
@@ -166,14 +211,27 @@
       btn.disabled = true;
       btn.textContent = 'Opening secure checkout…';
       try {
+        // The detection probe may still be in flight on a fast click. Resolve it
+        // before the POST so automatic activation is never silently dropped.
+        let autoActivate = activateBox.checked;
+        if (autoActivate && !installExtensionId) {
+          if (await detection) installExtensionId = EXTENSION_ID;
+          if (!installExtensionId) {
+            autoActivate = false;
+            activateBox.checked = false;
+            if (activateNote) {
+              activateNote.textContent = 'Extension not detected in this browser, so this purchase will not activate automatically. Open the extension and paste the licence key after payment (it is also emailed to you).';
+            }
+          }
+        }
         const res = await fetch('/api/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
           body: JSON.stringify({
             plan: selectedPlan,
             request_id: requestId(),
-            activate: activateBox.checked,
-            extension_id: activateBox.checked ? extensionId : ''
+            activate: autoActivate,
+            extension_id: autoActivate ? installExtensionId : ''
           })
         });
         const data = await res.json();

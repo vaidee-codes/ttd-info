@@ -33,6 +33,51 @@ export function logProviderFailure(operation, error, context = {}) {
   }));
 }
 
+// Every activation attempt logs one non-PII outcome line. Without it the
+// production logs cannot say WHY an attempt failed (used slot vs expired key vs
+// uncompleted payment), which is exactly what made the "invalid key" reports
+// impossible to triage from the server side.
+export function logActivationOutcome({
+  outcome,
+  reason = null,
+  licenseKey = null,
+  licenseKeyId = null,
+  instanceId = null,
+  installationUuid = null,
+  recovered = false
+}) {
+  console.log(JSON.stringify({
+    event: 'license_activate_outcome',
+    outcome: String(outcome || 'unknown').slice(0, 40),
+    reason: reason ? String(reason).slice(0, 48) : null,
+    recovered: !!recovered,
+    license_key_ref: diagnosticRef('dodo_license_key', licenseKey),
+    license_ref: diagnosticRef('dodo_license_id', licenseKeyId),
+    instance_ref: diagnosticRef('dodo_instance_id', instanceId),
+    installation_ref: diagnosticRef('installation_uuid', installationUuid),
+    correlation_configured: !!String(process.env.TTDAF_LOG_CORRELATION_SECRET || '').trim()
+  }));
+}
+
+// Checkout funnel telemetry: distinguishes a purchase that opted into
+// automatic activation from one that will need a manual key paste. No
+// customer data, no key.
+export function logCheckoutCreated({ plan, autoActivate }) {
+  console.log(JSON.stringify({
+    event: 'checkout_created',
+    plan: String(plan || '').slice(0, 8),
+    auto_activate: !!autoActivate
+  }));
+}
+
+export function logCheckoutRejected({ reason, detail = '' }) {
+  console.log(JSON.stringify({
+    event: 'checkout_rejected',
+    reason: String(reason || 'invalid_request').slice(0, 40),
+    detail: String(detail || '').slice(0, 60)
+  }));
+}
+
 export function logRateLimitFailure(reason) {
   console.error(JSON.stringify({
     event: 'rate_limit_unavailable',

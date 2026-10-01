@@ -4,6 +4,7 @@
   "type": "module",
   "scripts": {
     "diagnose:license-ref": "node scripts/correlate-license-ref.mjs",
+    "release:instance": "node scripts/release-license-instance.mjs",
     "test": "node --test",
     "validate:dodo": "node scripts/validate-dodo-config.mjs"
   },

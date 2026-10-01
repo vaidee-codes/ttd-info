@@ -1,9 +1,17 @@
 import { createHash, timingSafeEqual } from 'node:crypto';
+import { diagnosticRef } from './_diagnostics.mjs';
 export { logProviderFailure } from './_diagnostics.mjs';
 
 const LIVE_BASE = 'https://live.dodopayments.com';
 const TEST_BASE = 'https://test.dodopayments.com';
 const REQUEST_TIMEOUT_MS = 8000;
+// Activation reserves the single browser slot at the provider BEFORE the
+// response is assembled, so a short client timeout can abandon a paid,
+// single-activation key: the retry then sees "no slots left" while the
+// customer's browser never received an entitlement. Give the activate call a
+// timeout that comfortably exceeds the client's own wait.
+const ACTIVATION_TIMEOUT_MS = 20000;
+export { ACTIVATION_TIMEOUT_MS };
 
 export const WEEKLY_PRODUCT_ID = 'pdt_0Nk4Gw67usedtjPoO6hX2';
 export const WEEKLY_ENTITLEMENT_ID = 'ent_0Nk4GugPIsPbnFf5dYYqC';
@@ -14,8 +22,8 @@ export const SUPPORTER_PRODUCT_ID = 'pdt_0NjbdVzVqfSrrofI36ENV';
 // Purchasable pass plans. `list_price`/`discount_percent` mirror the live Dodo
 // product exactly (Dodo is the source of truth for the amount actually charged);
 // `net` is the effective INR-paise price after the product discount and is what
-// the config guard verifies. All three issue a one-time, single-activation
-// licence key whose duration comes from the attached entitlement below.
+// the config guard verifies. All three issue a one-time licence key with the
+// configured activation limit; duration comes from the attached entitlement.
 export const PLANS = Object.freeze({
   '7d': Object.freeze({
     code: '7d', product_id: WEEKLY_PRODUCT_ID, entitlement_id: WEEKLY_ENTITLEMENT_ID,
@@ -90,7 +98,7 @@ async function request(path, opts = {}) {
         ...(opts.headers || {})
       },
       body: opts.body ? JSON.stringify(opts.body) : undefined,
-      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+      signal: AbortSignal.timeout(Number(opts.timeoutMs) || REQUEST_TIMEOUT_MS)
     });
   } catch {
     throw new ProviderError(503);
@@ -114,8 +122,52 @@ export function activateLicenseKey(key, name) {
   return request('/licenses/activate', {
     authenticated: false,
     method: 'POST',
-    body: { license_key: key, name }
+    body: { license_key: key, name },
+    timeoutMs: ACTIVATION_TIMEOUT_MS
   });
+}
+
+// Installation marker embedded in the activation instance name. Dodo's
+// instances are the only record of "which browser consumed the slot", so a
+// stranded activation (provider finished, client never received the
+// entitlement) can be recovered by the SAME installation without consuming a
+// second slot. The marker is an HMAC reference: no raw installation id reaches
+// the provider or the logs.
+export const INSTANCE_REF_PREFIX = 'instref:';
+
+export function instanceName(deviceLabel, installationUuid) {
+  const label = String(deviceLabel || 'TTD Autofill - Chrome').slice(0, 48);
+  const ref = installationRef(installationUuid);
+  return ref ? `${label} ${INSTANCE_REF_PREFIX}${ref}` : label;
+}
+
+export function installationRef(installationUuid) {
+  return diagnosticRef('installation_uuid', installationUuid);
+}
+
+export function instanceBelongsToInstallation(instance, installationUuid) {
+  const ref = installationRef(installationUuid);
+  if (!ref) return false;
+  return String(instance && instance.name || '').includes(INSTANCE_REF_PREFIX + ref);
+}
+
+export function listLicenseKeyInstances(licenseKeyId, { pageSize = 100, pageNumber = 0, timeoutMs } = {}) {
+  return dodo(`/license_key_instances?license_key_id=${encodeURIComponent(licenseKeyId)}&page_size=${pageSize}&page_number=${pageNumber}`, { timeoutMs });
+}
+
+// Bounded scan for the licence record behind a key secret. Only the recovery
+// path (a provider refusal or a timed-out activation) calls this, so the
+// happy path stays at four provider reads.
+export async function findLicenseKeyBySecret(licenseKey, { maxPages = 10, timeoutMs } = {}) {
+  for (let page = 0; page < maxPages; page++) {
+    const response = await dodo(`/license_keys?page_size=100&page_number=${page}`, { timeoutMs });
+    const items = Array.isArray(response && response.items) ? response.items : [];
+    for (const item of items) {
+      if (item && item.key && exactSecretMatch(item.key, licenseKey)) return item;
+    }
+    if (items.length < 100) return null;
+  }
+  return null;
 }
 
 export function validateLicenseKey(key, instanceId) {
@@ -193,13 +245,26 @@ export async function inspectLicenseBinding({ licenseKey, licenseKeyId, instance
   const effectiveExpiry = computeEffectiveExpiry(license, instance, plan);
   const effectiveExpiryMs = effectiveExpiry ? Date.parse(effectiveExpiry) : null;
 
-  const basicValid = validation && validation.valid === true &&
-    instance && instance.id === instanceId && instance.license_key_id === licenseKeyId &&
-    license && license.id === licenseKeyId && exactSecretMatch(license.key, licenseKey) &&
-    isAcceptedProduct(productId) && (!expectedProductId || productId === expectedProductId) &&
-    license.status === 'active' && license.activations_limit === 1 &&
-    (!effectiveExpiryMs || (Number.isFinite(effectiveExpiryMs) && effectiveExpiryMs > Date.now()));
-  if (!basicValid) return { valid: false, productId, license, effectiveExpiry };
+  const activationLimit = Number(license && license.activations_limit);
+  // Each check carries the reason it rejects with, so the API can tell the
+  // customer (and the logs) WHY a key failed instead of a generic
+  // "invalid licence".
+  const checks = [
+    [!!(instance && instance.id === instanceId && instance.license_key_id === licenseKeyId), 'instance_mismatch'],
+    [!!(license && license.id === licenseKeyId), 'licence_not_found'],
+    [!!(license && exactSecretMatch(license.key, licenseKey)), 'key_mismatch'],
+    [isAcceptedProduct(productId), 'product_not_accepted'],
+    [!expectedProductId || productId === expectedProductId, 'product_mismatch'],
+    [!!(license && license.status === 'active'), 'licence_disabled'],
+    [Number.isInteger(activationLimit) && activationLimit > 0, 'activation_limit_missing'],
+    [!effectiveExpiryMs || (Number.isFinite(effectiveExpiryMs) && effectiveExpiryMs > Date.now()), 'licence_expired'],
+    // Dodo can return valid:false for an expired key even after allowing the
+    // activation request. Keep its known expiry/status as the customer-facing
+    // reason once the key and instance identities have been checked.
+    [!!(validation && validation.valid === true), 'provider_validation_failed']
+  ];
+  const rejected = checks.find(([passed]) => !passed);
+  if (rejected) return { valid: false, reason: rejected[1], productId, license, effectiveExpiry };
 
   // Imported grants (donor thank-you keys and any manually issued key) carry no
   // payment record, and the recurring supporter product is not a one-time pass
@@ -207,12 +272,12 @@ export async function inspectLicenseBinding({ licenseKey, licenseKeyId, instance
   // records are the authority. Only a one-time purchasable tier (7/30/90-day)
   // backed by a real payment gets the full payment + checkout cross-check.
   if (!plan || !license.payment_id) {
-    return { valid: true, productId, license, effectiveExpiry };
+    return { valid: true, reason: null, productId, license, effectiveExpiry };
   }
 
   // A purchasable-tier key backed by a payment record. The purchase is already
   // proven by Dodo's /licenses/validate + the license record checked above
-  // (active, single-activation, accepted product, key secret match). We add ONE
+  // (active, configured activation limit, accepted product, key secret match). We add ONE
   // guard here: the backing payment must have succeeded, which rejects keys left
   // behind by unfulfilled/failed payments.
   //
@@ -238,7 +303,13 @@ export async function inspectLicenseBinding({ licenseKey, licenseKeyId, instance
     has_checkout_session: !!(payment && payment.checkout_session_id)
   }));
 
-  return { valid: !!paymentValid, productId, license, effectiveExpiry };
+  return {
+    valid: !!paymentValid,
+    reason: paymentValid ? null : 'payment_not_succeeded',
+    productId,
+    license,
+    effectiveExpiry
+  };
 }
 
 // A pass-tier key with no fixed expiry expires plan.days after its activation
