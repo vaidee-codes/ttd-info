@@ -37,6 +37,8 @@ async function razorpay(path, { method = 'GET', body } = {}) {
   }
   const json = await response.json().catch(() => null);
   if (!response.ok) throw new ProviderError(response.status, json && json.error && json.error.code || null);
+  // A cut-off body is "try again", not "no payments".
+  if (!json || typeof json !== 'object') throw new ProviderError(502, 'INVALID_RESPONSE');
   return json;
 }
 

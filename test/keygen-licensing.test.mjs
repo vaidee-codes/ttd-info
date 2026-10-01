@@ -38,15 +38,19 @@ function fakeWorld(t, { ledgerDown = false } = {}) {
     relationships: { license: { data: { type: 'licenses', id: m.license } } } });
   const machinesOf = (id) => Object.values(world.machines).filter((m) => m.license === id);
 
-  function validateCode(l, fingerprint) {
+  // Mirrors real Keygen (probed 2026-10-01): machine and fingerprint scopes are
+  // checked independently — a machine of this licence plus *another* machine's
+  // fingerprint is VALID.
+  function validateCode(l, fingerprint, machineId) {
     if (!l) return 'NOT_FOUND';
     if (l.product !== 'kg-product') return 'PRODUCT_SCOPE_MISMATCH';
     if (l.status === 'SUSPENDED') return 'SUSPENDED';
     if (l.expiry && Date.parse(l.expiry) <= Date.now()) return 'EXPIRED';
     const machines = machinesOf(l.id);
-    if (fingerprint) {
+    if (fingerprint || machineId) {
       if (!machines.length) return 'NO_MACHINES';
-      if (!machines.some((m) => m.fingerprint === fingerprint)) return 'FINGERPRINT_SCOPE_MISMATCH';
+      if (machineId && !machines.some((m) => m.id === machineId)) return 'MACHINE_SCOPE_MISMATCH';
+      if (fingerprint && !machines.some((m) => m.fingerprint === fingerprint)) return 'FINGERPRINT_SCOPE_MISMATCH';
     }
     return 'VALID';
   }
@@ -67,11 +71,12 @@ function fakeWorld(t, { ledgerDown = false } = {}) {
       return new Response(JSON.stringify(hit), { status: 200 });
     }
     if (world.keygenDown) throw new TypeError('fetch failed');
+    if (world.truncateNext) { world.truncateNext--; return new Response('{"data":{"id":"', { status: 200, headers: { 'Content-Type': 'application/vnd.api+json' } }); }
     assert.equal(options.headers.Authorization, 'Bearer prod-token');
     const path = u.pathname.replace('/v1/accounts/acct-1', '');
     if (path === '/licenses/actions/validate-key' && method === 'POST') {
       const l = Object.values(world.licenses).find((x) => x.key === body.meta.key);
-      const code = validateCode(l, body.meta.scope && body.meta.scope.fingerprint);
+      const code = validateCode(l, body.meta.scope && body.meta.scope.fingerprint, body.meta.scope && body.meta.scope.machine);
       return kgJson({ data: l ? licDoc(l) : null, meta: { valid: code === 'VALID', code } });
     }
     let m;
@@ -496,4 +501,77 @@ test('bridge: an expired or suspended migrated licence is refused without re-bin
   assert.ok(w.machines[legacy.id]);
   assert.equal(w.machines[legacy.id].fingerprint, 'legacy:lki_legacy_1');
   assert.equal(w.aliasPatches || 0, 0);
+});
+
+// ---- one Keygen call per refresh (same decisions as the two-call check) ----
+const keygenCalls = (w) => w.calls.filter((c) => c.includes('keygen.test')).length;
+
+test('refresh: a native activation costs one Keygen call once its machine is known', async (t) => {
+  quiet(t);
+  const w = fakeWorld(t);
+  const l = w.license({ expiry: inDays(7) });
+  const a = (await call(activate, { license_key: l.key, installation_uuid: INSTALL_A })).body;
+  const body = { license_key: l.key, instance_id: a.instance_id, entitlement_token: a.entitlement_token, installation_uuid: INSTALL_A };
+  let before = keygenCalls(w);
+  assert.equal((await call(refresh, body)).statusCode, 200);
+  assert.ok(keygenCalls(w) - before <= 2, 'first refresh: validate + one machine lookup');
+  before = keygenCalls(w);
+  assert.equal((await call(refresh, body)).statusCode, 200);
+  assert.equal(keygenCalls(w) - before, 1, 'later refreshes: a single validation call');
+});
+
+test('refresh: every binding the two-call check refused is still refused', async (t) => {
+  quiet(t);
+  const w = fakeWorld(t);
+  const l = w.license({ expiry: inDays(7), maxMachines: 2 });
+  const a = (await call(activate, { license_key: l.key, installation_uuid: INSTALL_A })).body;
+  const b = (await call(activate, { license_key: l.key, installation_uuid: INSTALL_B })).body;
+  const other = w.license({ expiry: inDays(7) });
+  const o = (await call(activate, { license_key: other.key, installation_uuid: INSTALL_A })).body;
+  const sign = (instance, uuid, licenseKeyId = l.id) => issueEntitlement({ productId: WEEKLY, licenseKeyId, installationUuid: uuid, activationInstanceId: instance, providerExpiry: l.expiry }).token;
+  const refreshAs = (instance, uuid, token, key = l.key) => call(refresh, { license_key: key, instance_id: instance, entitlement_token: token, installation_uuid: uuid });
+  // Warm the machine facts first, so the refusals below come from the one-call path.
+  assert.equal((await refreshAs(a.instance_id, INSTALL_A, a.entitlement_token)).statusCode, 200);
+  assert.equal((await refreshAs(b.instance_id, INSTALL_B, b.entitlement_token)).statusCode, 200);
+
+  // Keygen alone would accept this pair (browser A's machine, browser B's fingerprint).
+  assert.equal((await refreshAs(a.instance_id, INSTALL_B, sign(a.instance_id, INSTALL_B))).statusCode, 401);
+  // Another licence's machine.
+  assert.equal((await refreshAs(o.instance_id, INSTALL_A, sign(o.instance_id, INSTALL_A))).statusCode, 401);
+  // A machine id that does not exist.
+  const ghost = randomUUID();
+  assert.equal((await refreshAs(ghost, INSTALL_A, sign(ghost, INSTALL_A))).statusCode, 401);
+  // A licence key that is not the token's licence.
+  assert.equal((await refreshAs(a.instance_id, INSTALL_A, a.entitlement_token, other.key)).statusCode, 401);
+  // Deactivated (deleted) machine — even though its facts are remembered.
+  await call(deactivate, { license_key: l.key, instance_id: a.instance_id, entitlement_token: a.entitlement_token, installation_uuid: INSTALL_A });
+  assert.equal((await refreshAs(a.instance_id, INSTALL_A, a.entitlement_token)).statusCode, 401);
+  // Suspended licence.
+  w.licenses[l.id].status = 'SUSPENDED';
+  assert.equal((await refreshAs(b.instance_id, INSTALL_B, b.entitlement_token)).statusCode, 401);
+  // Expired licence.
+  w.licenses[l.id].status = 'ACTIVE'; w.licenses[l.id].expiry = new Date(Date.now() - 1000).toISOString();
+  assert.equal((await refreshAs(b.instance_id, INSTALL_B, b.entitlement_token)).statusCode, 401);
+});
+
+test('a Keygen answer cut off mid-body is "unavailable", never "licence invalid"', async (t) => {
+  quiet(t);
+  const w = fakeWorld(t);
+  const l = w.license({ expiry: inDays(7) });
+  const a = (await call(activate, { license_key: l.key, installation_uuid: INSTALL_A })).body;
+  const body = { license_key: l.key, instance_id: a.instance_id, entitlement_token: a.entitlement_token, installation_uuid: INSTALL_A };
+  process.env.LICENSING_OUTAGE_ACCESS = 'false';
+  try {
+    w.truncateNext = 1;
+    const r = await call(refresh, body);
+    assert.equal(r.statusCode, 502, 'retryable, the licence is kept');
+    assert.equal(r.body.error, 'provider_unavailable');
+  } finally { delete process.env.LICENSING_OUTAGE_ACCESS; }
+  w.truncateNext = 1;
+  const g = await call(refresh, body);
+  assert.equal(g.body.outage_grace, true, 'with outage access on, the browser keeps working');
+  assert.equal((await call(refresh, body)).statusCode, 200);
+  w.truncateNext = 1;
+  const act = await call(activate, { license_key: l.key, installation_uuid: INSTALL_B });
+  assert.notEqual(act.body.error, 'licence_invalid');
 });

@@ -75,6 +75,10 @@ async function keygen(path, { method = 'GET', body, timeoutMs } = {}) {
     const first = json && Array.isArray(json.errors) ? json.errors[0] : null;
     throw new ProviderError(response.status, first && first.code || null);
   }
+  // A success status whose body did not arrive whole (e.g. the timeout fired
+  // mid-body under load) is an availability failure, never an answer: an empty
+  // result would otherwise read as "licence not found" and lock the customer out.
+  if (!json || typeof json !== 'object') throw new ProviderError(502, 'INVALID_RESPONSE');
   return json;
 }
 
@@ -87,6 +91,7 @@ const VALIDATION_REASONS = {
   NO_MACHINE: 'instance_mismatch',
   NO_MACHINES: 'instance_mismatch',
   FINGERPRINT_SCOPE_MISMATCH: 'instance_mismatch',
+  MACHINE_SCOPE_MISMATCH: 'instance_mismatch',
   FINGERPRINT_SCOPE_REQUIRED: 'instance_mismatch',
   TOO_MANY_MACHINES: 'instance_mismatch',
   PRODUCT_SCOPE_MISMATCH: 'product_not_accepted'
@@ -98,12 +103,15 @@ export function fingerprintFor(installationUuid) {
   return fingerprint;
 }
 
-export async function validateKey(licenseKey, fingerprint, { timeoutMs } = {}) {
+// `machineId` adds Keygen's machine scope: the machine must exist and belong to
+// this licence. (Keygen checks machine and fingerprint independently, so the
+// caller still confirms they are the same machine.)
+export async function validateKey(licenseKey, fingerprint, { timeoutMs, machineId } = {}) {
   const { productId } = keygenConfig();
   const json = await keygen('/licenses/actions/validate-key', {
     method: 'POST',
     timeoutMs,
-    body: { meta: { key: licenseKey, scope: { product: productId, ...(fingerprint ? { fingerprint } : {}) } } }
+    body: { meta: { key: licenseKey, scope: { product: productId, ...(fingerprint ? { fingerprint } : {}), ...(machineId ? { machine: machineId } : {}) } } }
   });
   const code = String(json && json.meta && json.meta.code || '');
   const license = json && json.data || null;

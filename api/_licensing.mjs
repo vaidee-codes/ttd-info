@@ -300,11 +300,59 @@ async function bridgeLegacyMachine({ legacy, licenseId, fingerprint, instanceId 
   return machine;
 }
 
+// A machine's licence, fingerprint and public instance id never change once it
+// exists (Keygen cannot edit a fingerprint; ids are never reused), so they are
+// remembered per server instance. Whether the machine still exists is checked
+// by Keygen on every refresh (machine scope), never cached.
+const MACHINE_FACTS_MAX = 20000;
+const machineFacts = new Map();
+async function factsFor(machineId) {
+  if (machineFacts.has(machineId)) return machineFacts.get(machineId);
+  let machine;
+  try {
+    machine = await getMachine(machineId);
+  } catch (error) {
+    if (error instanceof ProviderError && error.status === 404) return null;
+    throw error;
+  }
+  const mv = machineView(machine);
+  const facts = { licenseId: mv.licenseId, fingerprint: mv.fingerprint, publicInstanceId: mv.publicInstanceId };
+  if (machineFacts.size >= MACHINE_FACTS_MAX) machineFacts.delete(machineFacts.keys().next().value);
+  machineFacts.set(machineId, facts);
+  return facts;
+}
+export function forgetMachineFactsForTests() { machineFacts.clear(); }
+
+// A terminal answer clears the customer's licence in the extension, so every
+// one is logged with the check that decided it (no keys, ids or emails).
+function terminal(check, extra = {}) {
+  console.log(JSON.stringify({ event: 'refresh_terminal', check, ...extra }));
+  return { terminal: true, ...(extra.reason ? { reason: extra.reason } : {}) };
+}
+
 // Resolves the Keygen licence + machine behind a signed entitlement and checks
 // every binding. Returns { terminal: true } for any definitive "not yours /
 // gone" state so callers can stop the client's refresh loop.
 async function inspectBinding({ licenseKey, installationUuid, instanceId, claims, route }) {
-  if (route.tombstoned || !route.keygenLicenseId || !route.keygenMachineId) return { terminal: true };
+  if (route.tombstoned || !route.keygenLicenseId || !route.keygenMachineId) return terminal('route', { tombstoned: !!route.tombstoned });
+  // Keygen-native activation: one Keygen call per refresh (validation scoped to
+  // the machine) plus the remembered machine facts — the same checks as the
+  // general path below. Migrated (alias) activations take the general path,
+  // because the legacy bridge needs the live machine record.
+  if (!route.viaAlias && installationUuid) {
+    const fingerprint = fingerprintFor(installationUuid);
+    const check = await validateKey(licenseKey, fingerprint, { machineId: route.keygenMachineId });
+    const view = licenceView(check.license);
+    if (!check.license || view.id !== route.keygenLicenseId || view.publicLicenseId !== String(claims.license_key_id || '')) {
+      return terminal('licence_identity', { code: check.code || null, has_licence: !!check.license });
+    }
+    if (!check.valid || !view.productAccepted) return terminal('licence_validity', { code: check.code || null, reason: check.reason });
+    const facts = await factsFor(route.keygenMachineId);
+    if (!facts || facts.licenseId !== route.keygenLicenseId || facts.fingerprint !== fingerprint || facts.publicInstanceId !== instanceId) {
+      return terminal('machine_binding', { found: !!facts });
+    }
+    return { terminal: false, view };
+  }
   let machine;
   try {
     machine = await getMachine(route.keygenMachineId);
