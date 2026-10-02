@@ -147,6 +147,7 @@ Resources:
         - arn:aws:iam::aws:policy/IAMUserChangePassword          # change your own password
         - arn:aws:iam::aws:policy/ServiceQuotasFullAccess        # raise limits
         - arn:aws:iam::aws:policy/SignInLocalDevelopmentAccess   # `aws login` for the CLI
+        - arn:aws:iam::aws:policy/AWSManagementConsoleBasicUserAccess  # console display settings, notifications
 
 Outputs:
   Group:
