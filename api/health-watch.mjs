@@ -88,6 +88,17 @@ async function checkEmailBacklog() {
     : { ok: true };
 }
 
+// SES is the sender; Resend/Brevo are only for when SES refuses. Any email
+// that went out through a backup in the last 24 h means SES needs a look
+// (sending paused, quota, reputation).
+async function checkEmailOnSes() {
+  const since = new Date(Date.now() - 24 * 3600e3).toISOString();
+  const rows = await selectMany('email_outbox', { select: 'provider', status: 'eq.sent', sent_at: 'gte.' + since, provider: 'neq.ses', limit: '200' });
+  if (!rows.length) return { ok: true };
+  const by = rows.reduce((m, r) => ((m[r.provider || 'unknown'] = (m[r.provider || 'unknown'] || 0) + 1), m), {});
+  return { ok: false, detail: `${rows.length} email(s) in the last 24 h went out through a backup provider (${Object.entries(by).map(([k, v]) => k + ': ' + v).join(', ')}), so SES refused them. Check SES in the AWS console (account status, sending quota, bounces).` };
+}
+
 async function checkEmailFailures() {
   const since = new Date(Date.now() - 24 * 3600e3).toISOString();
   const rows = await selectMany('email_outbox', { select: 'id', status: 'eq.failed', created_at: 'gte.' + since, limit: '50' });
@@ -121,7 +132,7 @@ export async function restorePausedSupabase() {
   return actions;
 }
 
-const CHECKS = { keygen: checkKeygen, keygen_db: checkKeygenDatabase, backup: checkBackup, paid_unfulfilled: checkPaidUnfulfilled, email_failures: checkEmailFailures, email_backlog: checkEmailBacklog };
+const CHECKS = { keygen: checkKeygen, keygen_db: checkKeygenDatabase, backup: checkBackup, paid_unfulfilled: checkPaidUnfulfilled, email_failures: checkEmailFailures, email_backlog: checkEmailBacklog, email_on_ses: checkEmailOnSes };
 
 async function notify(subject, lines, idempotencyKey) {
   const to = String(process.env.ALERT_EMAIL || '').trim();
@@ -170,14 +181,14 @@ export default async function handler(req, res) {
       if (!result.ok) {
         const remind = !state.failing || !state.last_sent_at || now - Date.parse(state.last_sent_at) > REMIND_EVERY_MS;
         let sent = false;
-        if (remind) sent = await notify(`[TTD Autofill] ALERT: ${name.replace('_', ' ')}`, [result.detail, '', `Failing since ${ist(state.failing ? state.since : now)}.`]);
+        if (remind) sent = await notify(`[TTD Autofill] ALERT: ${name.replace(/_/g, ' ')}`, [result.detail, '', `Failing since ${ist(state.failing ? state.since : now)}.`]);
         await updateWhere('alert_state', { check_name: name }, {
           failing: true, since: state.failing ? state.since : now.toISOString(), detail: result.detail,
           ...(sent ? { last_sent_at: now.toISOString() } : {}), updated_at: now.toISOString()
         });
         alerts.push(name);
       } else if (state.failing) {
-        await notify(`[TTD Autofill] RECOVERED: ${name.replace('_', ' ')}`, [`Recovered at ${ist(now)}.`, `Was failing since ${ist(state.since)}: ${state.detail}`]);
+        await notify(`[TTD Autofill] RECOVERED: ${name.replace(/_/g, ' ')}`, [`Recovered at ${ist(now)}.`, `Was failing since ${ist(state.since)}: ${state.detail}`]);
         await updateWhere('alert_state', { check_name: name }, { failing: false, since: null, detail: null, updated_at: now.toISOString() });
       }
     } catch {

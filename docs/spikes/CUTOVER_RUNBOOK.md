@@ -32,7 +32,7 @@ Branch `spike/razorpay-keygen-phase1` (worktree `../ttd-info-keygen-spike`). Scr
    | `SES_ACCESS_KEY_ID`, `SES_SECRET_ACCESS_KEY` (sensitive), `SES_REGION=ap-south-1`, `SES_CONFIGURATION_SET=ttd-autofill-transactional`, `SES_FROM` | SES sender (`ops/ses/setup.sh` creates a key; one per project) |
    | `RESEND_API_KEY` (sensitive), `RESEND_FROM`, `ALERT_EMAIL` | as on the test app |
    | `BREVO_API_KEY` (sensitive), `BREVO_FROM` | `~/.brevoenv`; `TTD Autofill <keys@ttd-autofill.com>` |
-   | `EMAIL_PROVIDERS` | optional; default `ses,resend,brevo` |
+   | `EMAIL_PROVIDERS` | `ses,resend,brevo` (SES sends; the others only when SES refuses — health-watch alerts if that happens) |
    | `INVOICE_SELLER_NAME`, `INVOICE_SELLER_ADDRESS` | optional; defaults are "FireflyAI Softwares", "Proprietor: Roopa Nayanika B, Bangalore 560035, Karnataka, India" |
    | `LICENSING_OUTAGE_ACCESS` | leave unset (on). `false` disables the 72 h outage access |
    | `SUPABASE_ACCESS_TOKEN` (sensitive), `SUPABASE_PROJECT_REFS=nfjpzkkqcfgvopijnxtj,tyiwglnvusbdjvfgbxjm` | optional: lets health-watch restore a paused Supabase project by itself |

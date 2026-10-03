@@ -16,7 +16,7 @@ const watch = (await import('../api/health-watch.mjs')).default;
 function world(t) {
   const w = { tables: { backup_runs: [{ at: new Date().toISOString(), ok: true }], orders: [], email_outbox: [], alert_state: [] }, keygenUp: true, keygenDbUp: true, ledgerDown: false, emails: [] };
   const json = (v, s = 200) => new Response(JSON.stringify(v), { status: s });
-  const match = (row, [k, v]) => v.startsWith('eq.') ? String(row[k]) === v.slice(3) : v.startsWith('lt.') ? row[k] < v.slice(3) : v.startsWith('gte.') ? row[k] >= v.slice(4) : true;
+  const match = (row, [k, v]) => v.startsWith('neq.') ? String(row[k]) !== v.slice(4) : v.startsWith('eq.') ? String(row[k]) === v.slice(3) : v.startsWith('lt.') ? row[k] < v.slice(3) : v.startsWith('gte.') ? row[k] >= v.slice(4) : true;
   t.mock.method(globalThis, 'fetch', async (url, opts = {}) => {
     const u = new URL(String(url));
     const method = opts.method || 'GET';
@@ -148,4 +148,16 @@ test('a single failed check (one dropped request) is rechecked and does not aler
 test('alert times are shown in IST', async () => {
   const { ist } = await import('../api/health-watch.mjs');
   assert.equal(ist('2026-10-01T14:00:15.667Z'), '1 Oct 2026, 7:30:15 pm IST');
+});
+
+test('health-watch: emails sent through a backup provider raise the "email on SES" alert; SES-only is fine', async (t) => {
+  quiet(t);
+  const w = world(t);
+  const sentAt = new Date().toISOString();
+  w.tables.email_outbox.push({ id: 'a', status: 'sent', provider: 'ses', sent_at: sentAt, created_at: sentAt });
+  assert.deepEqual((await run()).body.alerts, [], 'SES only: no alert');
+  w.tables.email_outbox.push({ id: 'b', status: 'sent', provider: 'resend', sent_at: sentAt, created_at: sentAt });
+  assert.deepEqual((await run()).body.alerts, ['email_on_ses']);
+  assert.match(w.emails.at(-1).subject, /ALERT: email on ses/);
+  assert.match(w.emails.at(-1).text, /resend: 1/);
 });
