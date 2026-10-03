@@ -75,6 +75,12 @@ function world(t) {
     w.calls.push(`${method} ${u.host}${u.pathname}`);
     if (u.host === 'ledger.test') {
       if (u.pathname.endsWith('/rpc/allocate_invoice_seq')) return json(++w.invoiceSeq);
+      if (u.pathname.endsWith('/rpc/claim_outbox_row')) {
+        const row = w.tables.email_outbox.find((r) => r.id === body.p_id);
+        const free = row && row.status === 'queued' && (!row.claimed_until || Date.parse(row.claimed_until) < Date.now());
+        if (free) row.claimed_until = new Date(Date.now() + 120e3).toISOString();
+        return json(!!free);
+      }
       const table = u.pathname.split('/').pop();
       const rows = w.tables[table];
       const filters = [...u.searchParams].filter(([k]) => !['select', 'limit', 'on_conflict', 'order'].includes(k));
@@ -106,6 +112,7 @@ function world(t) {
       if ((m = u.pathname.match(/^\/v1\/payments\/([^/]+)$/))) return w.payments[m[1]] ? json(w.payments[m[1]]) : json({ error: { code: 'BAD_REQUEST_ERROR' } }, 400);
     }
     if (u.host === 'api.resend.com') {
+      if (w.emailDelayMs) await new Promise((r) => setTimeout(r, w.emailDelayMs));
       w.emails.push({ idem: opts.headers['Idempotency-Key'], body });
       const status = w.resendStatus.shift() || 200;
       return json(status === 200 ? { id: 'em_' + w.emails.length } : { name: 'error' }, status);
@@ -639,4 +646,26 @@ test('reconcile: 30 abandoned checkouts cannot hide a newer paid order whose web
   await reconcile({ method: 'GET', headers: { authorization: 'Bearer cron-secret' } }, res());
   assert.equal(paidLater.status, 'fulfilled');
   assert.equal(w.licenses.length, 1);
+});
+
+test('email: the page confirm and three webhooks arriving together send exactly one email (SES has no idempotency key)', async (t) => {
+  quiet(t);
+  process.env.RESEND_API_KEY = 're_test'; process.env.RESEND_FROM = 'TTD Autofill <keys@example.com>';
+  try {
+    const w = world(t);
+    w.emailDelayMs = 30; // like a real provider: the send takes time, so the four deliveries overlap
+    const c = (await start('7d', randomUUID(), 'buyer@example.com')).body;
+    const { payment, signature } = w.pay(c.razorpay_order_id, { email: 'buyer@example.com' });
+    const evt = (name) => ({ event: name, payload: { payment: { entity: { ...payment, order_id: c.razorpay_order_id } } } });
+    await Promise.all([
+      post(confirm, { razorpay_order_id: c.razorpay_order_id, razorpay_payment_id: payment.id, razorpay_signature: signature, purchase_token: c.purchase_token }),
+      hook(evt('payment.authorized')), hook(evt('payment.captured')), hook(evt('order.paid'))
+    ]);
+    // The fake Resend dedupes nothing: count real sends.
+    assert.equal(w.emails.length, 1);
+    assert.equal(w.tables.email_outbox[0].status, 'sent');
+    // A later cron run does not resend it either.
+    await reconcile({ method: 'GET', headers: { authorization: 'Bearer cron-secret' } }, res());
+    assert.equal(w.emails.length, 1);
+  } finally { delete process.env.RESEND_API_KEY; delete process.env.RESEND_FROM; }
 });

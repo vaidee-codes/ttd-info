@@ -2,7 +2,7 @@ import { PLANS } from './_dodo.mjs';
 import { ensureOfflineInvoice, ensureOrderInvoice } from './_invoice.mjs';
 import { getLicense } from './_keygen.mjs';
 import { getPayment } from './_razorpay.mjs';
-import { openSecret, selectMany, selectOne, updateWhere } from './_ledger.mjs';
+import { openSecret, rpc, selectMany, selectOne, updateWhere } from './_ledger.mjs';
 
 // Outbox retry: 5 min, 10 min, 20 min … capped at 3 h between tries, for up to
 // 7 days. Daily provider limits reset within a day, so a missed email still goes.
@@ -334,16 +334,22 @@ export async function deliverOutboxRow(row) {
   } else {
     return false;
   }
+  // Claim the row first: only one concurrent sender (page confirm, webhooks,
+  // cron) may send it. Losing the claim means someone else is sending it now.
+  if (!await rpc('claim_outbox_row', { p_id: row.id })) return false;
   const result = await sendEmail({ to: row.to_email, ...message, idempotencyKey: `${row.kind}/${row.order_id || row.offline_sale_id}` });
-  if (result.error === 'email_not_configured') return false;
+  if (result.error === 'email_not_configured') {
+    await updateWhere('email_outbox', { id: row.id, status: 'queued' }, { claimed_until: null }).catch(() => []);
+    return false;
+  }
   const attempts = Number(row.attempts || 0) + 1;
   if (result.ok) {
-    await updateWhere('email_outbox', { id: row.id, status: 'queued' }, { status: 'sent', attempts, sent_at: new Date().toISOString(), last_error: null, provider: result.provider || null });
+    await updateWhere('email_outbox', { id: row.id, status: 'queued' }, { status: 'sent', attempts, sent_at: new Date().toISOString(), last_error: null, provider: result.provider || null, claimed_until: null });
   } else {
     const expired = Date.now() - Date.parse(row.created_at || new Date()) > RETRY_WINDOW_MS;
     const failed = !result.retry || expired;
     await updateWhere('email_outbox', { id: row.id, status: 'queued' }, {
-      status: failed ? 'failed' : 'queued', attempts, last_error: result.error,
+      status: failed ? 'failed' : 'queued', attempts, last_error: result.error, claimed_until: null,
       next_attempt_at: new Date(Date.now() + nextAttemptDelay(attempts)).toISOString()
     });
   }

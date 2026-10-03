@@ -48,6 +48,12 @@ function world(t) {
     const body = opts.body ? JSON.parse(opts.body) : null;
     if (u.host === 'ledger.test') {
       if (u.pathname.endsWith('/rpc/allocate_invoice_seq')) return json(++w.invoiceSeq);
+      if (u.pathname.endsWith('/rpc/claim_outbox_row')) {
+        const row = w.tables.email_outbox.find((r) => r.id === body.p_id);
+        const free = row && row.status === 'queued' && (!row.claimed_until || Date.parse(row.claimed_until) < Date.now());
+        if (free) row.claimed_until = new Date(Date.now() + 120e3).toISOString();
+        return json(!!free);
+      }
       const table = u.pathname.split('/').pop();
       const rows = w.tables[table];
       const filters = [...u.searchParams].filter(([k]) => !['select', 'limit', 'on_conflict', 'order'].includes(k));
