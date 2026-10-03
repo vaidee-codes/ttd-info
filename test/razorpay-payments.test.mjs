@@ -474,15 +474,15 @@ test('the email typed on our page wins; Razorpay\'s placeholder is never used as
 });
 
 // ---- multi-pass ------------------------------------------------------------
-test('multi-pass: 5 × 7-day passes cost ₹421 (15% off), and the one key works on 5 browsers', async (t) => {
+test('multi-pass: 5 × 7-day passes cost ₹406 (18% off), and the one key works on 5 browsers', async (t) => {
   quiet(t);
   process.env.RESEND_API_KEY = 're_test'; process.env.RESEND_FROM = 'TTD Autofill <keys@example.com>';
   try {
     const w = world(t);
     const c = await post(checkout, { plan: '7d', request_id: randomUUID(), email: 'group@example.com', quantity: 5, activate: false });
     assert.equal(c.statusCode, 200);
-    assert.deepEqual([c.body.amount, c.body.quantity, c.body.discount_pct], [42100, 5, 15]);
-    assert.equal(w.rzpOrders[c.body.razorpay_order_id].amount, 42100);
+    assert.deepEqual([c.body.amount, c.body.quantity, c.body.discount_pct], [40600, 5, 18]);
+    assert.equal(w.rzpOrders[c.body.razorpay_order_id].amount, 40600);
     const { payment, signature } = w.pay(c.body.razorpay_order_id);
     const r = await post(confirm, { razorpay_order_id: c.body.razorpay_order_id, razorpay_payment_id: payment.id, razorpay_signature: signature, purchase_token: c.body.purchase_token });
     assert.equal(r.statusCode, 200);
@@ -490,8 +490,8 @@ test('multi-pass: 5 × 7-day passes cost ₹421 (15% off), and the one key works
     assert.equal(w.licenses.length, 1);
     assert.equal(w.licenses[0].maxMachines, 5);
     assert.equal(w.tables.invoices[0].quantity, 5);
-    assert.equal(w.tables.invoices[0].discount_pct, 15);
-    assert.equal(w.tables.invoices[0].amount_paise, 42100);
+    assert.equal(w.tables.invoices[0].discount_pct, 18);
+    assert.equal(w.tables.invoices[0].amount_paise, 40600);
     assert.match(w.emails[0].body.text, /5 browsers/);
   } finally { delete process.env.RESEND_API_KEY; delete process.env.RESEND_FROM; }
 });
@@ -504,7 +504,7 @@ test('multi-pass: quantity is validated, fixed per checkout, and fully paid', as
   }
   const id = randomUUID();
   const a = await post(checkout, { plan: '30d', request_id: id, email: 'g@example.com', quantity: 3, activate: false });
-  assert.equal(a.body.amount, 80700, JSON.stringify(a.body));
+  assert.equal(a.body.amount, 77100, JSON.stringify(a.body)); // 3 × ₹299, 14% off
   assert.equal((await post(checkout, { plan: '30d', request_id: id, email: 'g@example.com', quantity: 4, activate: false })).statusCode, 409);
   const cheap = w.pay(a.body.razorpay_order_id, { amount: 29900 });
   const r = await post(confirm, { razorpay_order_id: a.body.razorpay_order_id, razorpay_payment_id: cheap.payment.id, razorpay_signature: cheap.signature, purchase_token: a.body.purchase_token });
@@ -668,4 +668,19 @@ test('email: the page confirm and three webhooks arriving together send exactly 
     await reconcile({ method: 'GET', headers: { authorization: 'Bearer cron-secret' } }, res());
     assert.equal(w.emails.length, 1);
   } finally { delete process.env.RESEND_API_KEY; delete process.env.RESEND_FROM; }
+});
+
+test('multi-pass pricing: 50% off from 21 passes, a smooth ramp below, and buying more never costs less in total', async () => {
+  const { priceFor, discountFor } = await import('../api/_pricing.mjs');
+  const { PLANS } = await import('../api/_dodo.mjs');
+  assert.deepEqual([1, 2, 5, 10, 20, 21, 50].map(discountFor), [0, 12, 18, 28, 48, 50, 50]);
+  for (const plan of ['7d', '30d', '90d']) {
+    let previous = 0;
+    for (let q = 1; q <= 50; q++) {
+      const total = priceFor(PLANS[plan], q).total;
+      assert.ok(total >= previous, `${plan}: ${q} passes (${total}) cost less than ${q - 1} (${previous})`);
+      previous = total;
+    }
+  }
+  assert.equal(priceFor(PLANS['7d'], 21).total, 104000);
 });

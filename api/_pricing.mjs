@@ -1,11 +1,13 @@
 // Multi-pass pricing. One key, valid on `quantity` browsers, priced as
 // quantity × the plan price minus a volume discount. Totals round to whole rupees.
 export const MAX_QUANTITY = 50;
+// Owner decision 2026-10-03: more than 20 passes (21+) are half price, and the
+// rates below ramp smoothly up to it so buying more never costs less in total
+// than buying fewer (no tier cliff): 12% for 2 passes, +2% per extra pass,
+// 48% at 20, then 50% from 21.
 export const BULK_TIERS = Object.freeze([
-  Object.freeze({ min: 2, pct: 10 }),
-  Object.freeze({ min: 5, pct: 15 }),
-  Object.freeze({ min: 10, pct: 20 }),
-  Object.freeze({ min: 25, pct: 25 })
+  ...Array.from({ length: 19 }, (_, i) => Object.freeze({ min: i + 2, pct: 12 + 2 * i })),
+  Object.freeze({ min: 21, pct: 50 })
 ]);
 
 export function discountFor(quantity) {

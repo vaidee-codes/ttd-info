@@ -404,10 +404,17 @@
           const top = bulk.tiers[bulk.tiers.length - 1];
           document.getElementById('multi-card-price').textContent = 'Save up to ' + top.pct + '%';
           multiQty.max = bulk.max_quantity;
-          document.getElementById('multi-tiers').textContent = 'Discounts: ' + bulk.tiers.map((t, i) => {
-            const next = bulk.tiers[i + 1];
-            return (next ? t.min + '–' + (next.min - 1) : t.min + '+') + ' passes ' + t.pct + '% off';
-          }).join(' · ');
+          const tiers = bulk.tiers;
+          const ramp = tiers.length > 2 ? tiers[1].pct - tiers[0].pct : 0;
+          const steady = tiers.slice(0, -1).every((t, i) => i === 0 || (t.pct - tiers[i - 1].pct === ramp && t.min - tiers[i - 1].min === 1));
+          document.getElementById('multi-tiers').textContent = steady && tiers.length > 3
+            // e.g. "12% off for 2 passes, +2% for each extra pass (48% at 20), and 50% off from 21 passes."
+            ? 'Discounts: ' + tiers[0].pct + '% off for ' + tiers[0].min + ' passes, +' + ramp + '% for each extra pass (' +
+              tiers[tiers.length - 2].pct + '% at ' + tiers[tiers.length - 2].min + '), and ' + top.pct + '% off from ' + top.min + ' passes.'
+            : 'Discounts: ' + tiers.map((t, i) => {
+              const next = tiers[i + 1];
+              return (next ? t.min + '–' + (next.min - 1) : t.min + '+') + ' passes ' + t.pct + '% off';
+            }).join(' · ');
         }
         if (paymentProvider === 'razorpay') {
           const note = document.getElementById('checkout-note');
