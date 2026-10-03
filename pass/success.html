@@ -159,12 +159,19 @@
       });
     }
 
+    // Only the browser that asked for automatic activation (the checkbox on the
+    // pass page) gets the key; checkout passes its extension id only then.
     function targetExtensionId() {
-      return extensionId || 'piiegkjdfbbakjmjdckgdjbbohfjfolg';
+      return extensionId || null;
     }
 
     async function deliverToExtension(key) {
       const statusEl = document.getElementById('activation-status');
+      if (!targetExtensionId()) {
+        statusEl.className = 'pass-status info';
+        statusEl.textContent = 'Copy your key and paste it into the extension (choose Enter licence key) on the browser you want to use.';
+        return;
+      }
       const target = window.chrome && window.chrome.runtime && window.chrome.runtime.sendMessage ? targetExtensionId() : null;
       if (!target) {
         statusEl.className = 'pass-status warn';

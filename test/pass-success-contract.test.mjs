@@ -66,11 +66,11 @@ test('pending payment and missing key never hand off a key', async () => {
 });
 
 test('missing extension offers manual copy; transient handoff retries', async () => {
-  const absent = await runSuccessPage('?status=succeeded&license_key=QA-KEY', [], { extensionPresent: false });
+  const absent = await runSuccessPage('?status=succeeded&license_key=QA-KEY&extension_id=' + EXTENSION, [], { extensionPresent: false });
   assert.match(absent.element('activation-status').textContent, /copy your key/i);
   assert.equal(absent.sends.length, 0);
 
-  const recovered = await runSuccessPage('?status=succeeded&license_key=QA-KEY', [
+  const recovered = await runSuccessPage('?status=succeeded&license_key=QA-KEY&extension_id=' + EXTENSION, [
     { ok: false, error: 'extension_unreachable' }, { ok: true }
   ]);
   assert.equal(recovered.sends.length, 2);
@@ -78,7 +78,7 @@ test('missing extension offers manual copy; transient handoff retries', async ()
 });
 
 test('a spent slot is final and directs the customer to support without retrying', async () => {
-  const page = await runSuccessPage('?status=succeeded&license_key=QA-KEY', [
+  const page = await runSuccessPage('?status=succeeded&license_key=QA-KEY&extension_id=' + EXTENSION, [
     { ok: false, error: 'activation_in_use' }
   ]);
   assert.equal(page.sends.length, 1);
@@ -87,9 +87,17 @@ test('a spent slot is final and directs the customer to support without retrying
 });
 
 test('a provider explanation is shown when activation fails', async () => {
-  const page = await runSuccessPage('?status=succeeded&license_key=QA-KEY', [
+  const page = await runSuccessPage('?status=succeeded&license_key=QA-KEY&extension_id=' + EXTENSION, [
     { ok: false, error: 'licence_inactive', message: 'Use the key from your latest purchase.' }
   ]);
   assert.equal(page.sends.length, 1);
   assert.match(page.element('activation-status').textContent, /latest purchase/);
+});
+
+test('activation not requested (checkbox unticked): the key is shown but never sent to the extension', async () => {
+  const page = await runSuccessPage('?status=succeeded&license_key=QA-KEY&plan=30d', [{ ok: true }]);
+  assert.equal(page.element('heading').textContent, 'Your pass is ready');
+  assert.equal(page.element('license-card').style.display, 'block');
+  assert.equal(page.sends.length, 0, 'nothing sent to the extension');
+  assert.match(page.element('activation-status').textContent, /paste it into the extension/);
 });
