@@ -12,15 +12,19 @@ const RECIPIENT = execFileSync('age-keygen', ['-y', homedir() + '/.ttd-backup-ag
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
 let calls = 0;
 
+// Dodo rate-limits bursts: back off (honouring Retry-After) for up to ~6 min per call.
 async function get(path) {
-  for (let attempt = 0; attempt < 5; attempt++) {
+  let last = 'no response';
+  for (let attempt = 0; attempt < 10; attempt++) {
     calls++;
     const r = await fetch(BASE + path, { headers: { Authorization: 'Bearer ' + KEY, Accept: 'application/json' }, signal: AbortSignal.timeout(20000) }).catch(() => null);
     if (r && r.ok) return r.json();
     if (r && r.status !== 429 && r.status < 500) throw new Error(`GET ${path.split('?')[0]} → ${r.status}`);
-    await sleep(1000 * 2 ** attempt);
+    last = r ? 'HTTP ' + r.status : 'network error';
+    const retryAfter = r && Number(r.headers.get('retry-after'));
+    await sleep(Math.min(60000, Math.max(retryAfter ? retryAfter * 1000 : 0, 1000 * 2 ** attempt)));
   }
-  throw new Error(`GET ${path.split('?')[0]} kept failing`);
+  throw new Error(`GET ${path.split('?')[0]} kept failing (${last})`);
 }
 
 async function all(path) {

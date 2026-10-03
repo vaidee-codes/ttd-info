@@ -3,7 +3,7 @@
 //   node reconcile.mjs <plan.json.age> <keygen env file>
 // Prints mismatch counts by field (and HMAC refs for the first few), never keys or emails.
 import { createHmac } from 'node:crypto';
-import { execFileSync } from 'node:child_process';
+import { execFileSync, spawnSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { homedir } from 'node:os';
 
@@ -31,6 +31,17 @@ const tok = await fetch(API + '/tokens', { method: 'POST', headers: { Authorizat
 const ADMIN = 'Bearer ' + tok.data.attributes.token;
 const policyNames = Object.fromEntries((await kg(`/policies?product=${env.KEYGEN_PRODUCT_ID}&page[size]=100&page[number]=1`, ADMIN)).data.map((p) => [p.id, p.attributes.name]));
 
+// Activations deliberately removed after the import (extension deactivate or
+// /ops reset) leave a tombstoned alias in the ledger; those are expected gaps.
+const tombstoned = (() => {
+  try {
+    const pw = readFileSync(homedir() + '/.dbpassword', 'utf8').split('\n').find((l) => l.trim()).trim();
+    const r = spawnSync('psql', ['host=aws-0-ap-south-1.pooler.supabase.com port=5432 dbname=postgres user=postgres.nfjpzkkqcfgvopijnxtj sslmode=require', '-tAc',
+      'select public_instance_id from instance_alias where tombstoned_at is not null'], { env: { ...process.env, PGPASSWORD: pw }, encoding: 'utf8' });
+    return new Set(r.status === 0 ? r.stdout.split('\n').filter(Boolean) : []);
+  } catch { return new Set(); }
+})();
+const explained = { new_activations_after_import: 0, activations_removed_after_import: 0 };
 const entries = plan.entries.filter((e) => e.action === 'migrate' && state.done[e.public_license_id]);
 const missing = plan.entries.filter((e) => e.action === 'migrate' && !state.done[e.public_license_id]).length;
 const wanted = new Set(plan.entries.filter((e) => e.action === 'migrate').map((e) => e.public_license_id));
@@ -56,12 +67,25 @@ await Promise.all(Array.from({ length: 6 }, async () => {
     if (a.metadata.publicLicenseId !== e.public_license_id) miss('public_license_id', e);
     if (a.metadata.publicProductId !== e.public_product_id) miss('public_product_id', e);
     if ((a.metadata.email || null) !== (e.email || null)) miss('email', e);
-    const got = (machines.data || []).map((m) => `${m.attributes.metadata.publicInstanceId}|${m.attributes.fingerprint}`).sort().join(',');
-    const want = e.machines.map((m) => `${m.public_instance_id}|${m.fingerprint}`).sort().join(',');
+    // Machines made in Keygen after the import (no Dodo id) and Dodo instances
+    // whose Keygen machine was deliberately removed are expected; anything else
+    // about machines is a real difference.
+    const imported = (machines.data || []).filter((m) => m.attributes.metadata && m.attributes.metadata.publicInstanceId);
+    explained.new_activations_after_import += (machines.data || []).length - imported.length;
+    const wantList = e.machines.filter((m) => {
+      const present = imported.some((x) => x.attributes.metadata.publicInstanceId === m.public_instance_id);
+      if (!present && tombstoned.has(m.public_instance_id)) { explained.activations_removed_after_import++; return false; }
+      return true;
+    });
+    // A legacy machine re-bound by the bridge keeps its Dodo id with the browser's real fingerprint.
+    const fp = (x) => (x.attributes.metadata.bridgedFrom || String(x.attributes.fingerprint).startsWith('legacy:')) ? 'bridged' : x.attributes.fingerprint;
+    const got = imported.map((m) => `${m.attributes.metadata.publicInstanceId}|${fp(m) === 'bridged' ? 'legacy' : fp(m)}`).sort().join(',');
+    const want = wantList.map((m) => `${m.public_instance_id}|${m.legacy ? 'legacy' : m.fingerprint}`).sort().join(',');
     if (got !== want) miss('machines', e);
   }
 }));
 await fetch(API + '/tokens/' + tok.data.id, { method: 'DELETE', headers: { Authorization: ADMIN } }).catch(() => {});
 console.log(JSON.stringify({ target, compared: entries.length, not_yet_imported: missing,
   stale_not_suspended: staleNotSuspended, supporters_kept_on_dodo: plan.entries.filter((e) => e.authority === 'dodo').length,
+  explained,
   unexplained_differences: Object.values(mismatches).reduce((a, b) => a + b, 0) + staleNotSuspended, by_field: mismatches, sample_refs: samples }, null, 2));
