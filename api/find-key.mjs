@@ -33,8 +33,8 @@ export default async function handler(req, res) {
         await sendEmail({
           to: email,
           subject: `Your TTD Autofill code: ${challengeCode}`,
-          text: `Your code to see your TTD Autofill licence keys is ${challengeCode}. It expires in 10 minutes.\n\nIf you did not ask for this, ignore this email.\n\nCrimson\nTTD Autofill`,
-          html: `<p>Your code to see your TTD Autofill licence keys is</p><p style="font-size:24px;font-weight:700;letter-spacing:4px">${challengeCode}</p><p>It expires in 10 minutes. If you did not ask for this, ignore this email.</p><p>Crimson<br>TTD Autofill</p>`,
+          text: `Your code to see your TTD Autofill licence keys is ${challengeCode}. It expires in 10 minutes.\n\nIf you did not ask for this, ignore this email.\n\nThanks,\nTTD Autofill`,
+          html: `<p>Your code to see your TTD Autofill licence keys is</p><p style="font-size:24px;font-weight:700;letter-spacing:4px">${challengeCode}</p><p>It expires in 10 minutes. If you did not ask for this, ignore this email.</p><p>Thanks,<br>TTD Autofill</p>`,
           idempotencyKey: `find-key/${challengeCode}/${email}`
         });
       }

@@ -64,7 +64,7 @@ export function licenceEmail({ licenseKey, plan, activations = 1, expiry = null,
     `Lost this email? Find your key any time: ${findKey}`,
     `Questions? Reply to this email or write to ${SUPPORT_EMAIL}.`,
     '',
-    'Crimson',
+    'Thanks,',
     'TTD Autofill'
   ].join('\n');
 
@@ -118,7 +118,7 @@ ${payCard ? `<tr><td style="padding:14px 24px 0">${payCard}</td></tr>` : ''}
   <p style="margin:0 0 10px">Keep this email handy — the key, expiry and activation limit are all listed above.</p>
   <p style="margin:0 0 16px">If you need help, reply to this email or write to <a href="mailto:${SUPPORT_EMAIL}" style="color:#6d28d9">${SUPPORT_EMAIL}</a>.</p>
   <a href="${findKey}" style="display:inline-block;background:#1f2937;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:11px 18px;border-radius:8px">Find my licence key</a>
-  <p style="margin:18px 0 0">Crimson<br>TTD Autofill</p>
+  <p style="margin:18px 0 0">Thanks,<br>TTD Autofill</p>
 </td></tr>
 <tr><td style="padding:20px 24px;border-top:1px solid #f3f4f6;font-size:11px;color:#9ca3af;text-align:center">FireflyAI Softwares · Bangalore 560035 · Not affiliated with TTD</td></tr>
 </table></td></tr></table></body></html>`;
