@@ -4,10 +4,14 @@
   "type": "module",
   "scripts": {
     "diagnose:license-ref": "node scripts/correlate-license-ref.mjs",
+    "release:instance": "node scripts/release-license-instance.mjs",
     "test": "node --test",
     "validate:dodo": "node scripts/validate-dodo-config.mjs"
   },
   "dependencies": {
-    "@vercel/firewall": "^1.2.4"
+    "@aws-sdk/client-sesv2": "^3.1144.0",
+    "@vercel/firewall": "^1.2.4",
+    "pdf-lib": "^1.17.1",
+    "undici": "^7.30.0"
   }
 }

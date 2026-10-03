@@ -1,0 +1,156 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: >-
+  ttd-autofill-admins - IAM group for the person who runs TTD Autofill on AWS
+  (console + CLI). Add an IAM user to this group instead of using the root user.
+
+Resources:
+  AppAdminPolicy:
+    Type: AWS::IAM::ManagedPolicy
+    Properties:
+      ManagedPolicyName: ttd-autofill-app-admin
+      Description: Run TTD Autofill - Lightsail, backups bucket, app service users, own credentials, account plan.
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          # Keygen server (Lightsail has no AWS-managed policy).
+          - Sid: Lightsail
+            Effect: Allow
+            Action: "lightsail:*"
+            Resource: "*"
+
+          # Nightly database backups: list buckets in the console; full control of the backup bucket.
+          - Sid: S3Console
+            Effect: Allow
+            Action: [s3:ListAllMyBuckets, s3:GetBucketLocation, s3:GetAccountPublicAccessBlock]
+            Resource: "*"
+          - Sid: BackupBucket
+            Effect: Allow
+            Action: "s3:*"
+            Resource:
+              - !Sub "arn:aws:s3:::ttd-autofill-db-backups-${AWS::AccountId}"
+              - !Sub "arn:aws:s3:::ttd-autofill-db-backups-${AWS::AccountId}/*"
+
+          # IAM: read everything; manage only the app's service users (key rotation, stack updates).
+          - Sid: IamRead
+            Effect: Allow
+            Action: [iam:Get*, iam:List*, iam:GenerateCredentialReport, iam:GenerateServiceLastAccessedDetails, iam:SimulatePrincipalPolicy]
+            Resource: "*"
+          - Sid: AppServiceUsers
+            Effect: Allow
+            Action:
+              - iam:CreateUser
+              - iam:DeleteUser
+              - iam:UpdateUser
+              - iam:TagUser
+              - iam:UntagUser
+              - iam:PutUserPolicy
+              - iam:DeleteUserPolicy
+              - iam:CreateAccessKey
+              - iam:DeleteAccessKey
+              - iam:UpdateAccessKey
+            Resource:
+              - !Sub "arn:aws:iam::${AWS::AccountId}:user/ttd-backup-uploader"
+              - !Sub "arn:aws:iam::${AWS::AccountId}:user/ttd-ses-sender"
+              - !Sub "arn:aws:iam::${AWS::AccountId}:user/ttd-svc-*"
+          - Sid: ServiceLinkedRoles
+            Effect: Allow
+            Action: iam:CreateServiceLinkedRole
+            Resource: "*"
+            Condition:
+              StringLike:
+                iam:AWSServiceName:
+                  - lightsail.amazonaws.com
+                  - ses.amazonaws.com
+                  - support.amazonaws.com
+                  - trustedadvisor.amazonaws.com
+
+          # Your own sign-in: MFA device, access keys, password.
+          - Sid: OwnCredentials
+            Effect: Allow
+            Action:
+              - iam:CreateVirtualMFADevice
+              - iam:DeleteVirtualMFADevice
+              - iam:EnableMFADevice
+              - iam:ResyncMFADevice
+              - iam:DeactivateMFADevice
+              - iam:ListMFADevices
+              - iam:CreateAccessKey
+              - iam:DeleteAccessKey
+              - iam:UpdateAccessKey
+              - iam:ListAccessKeys
+              - iam:GetLoginProfile
+              - iam:UpdateLoginProfile
+            Resource:
+              - !Sub "arn:aws:iam::${AWS::AccountId}:user/${!aws:username}"
+              - !Sub "arn:aws:iam::${AWS::AccountId}:mfa/*"
+
+          # Bounce/complaint notifications for SES, if added later.
+          - Sid: AppTopics
+            Effect: Allow
+            Action: "sns:*"
+            Resource: !Sub "arn:aws:sns:*:${AWS::AccountId}:ttd-*"
+          - Sid: SnsList
+            Effect: Allow
+            Action: [sns:ListTopics, sns:ListSubscriptions]
+            Resource: "*"
+
+          # Account plan (free plan -> paid), account details, health, audit trail, tags.
+          - Sid: AccountAndOps
+            Effect: Allow
+            Action:
+              - "freetier:*"
+              - account:Get*
+              - account:List*
+              - "health:*"
+              - cloudtrail:LookupEvents
+              - cloudtrail:Get*
+              - cloudtrail:Describe*
+              - cloudtrail:List*
+              - tag:GetResources
+              - tag:GetTagKeys
+              - tag:GetTagValues
+              - sts:GetCallerIdentity
+            Resource: "*"
+
+          # Members cannot widen their own permissions.
+          - Sid: NoSelfEscalation
+            Effect: Deny
+            Action:
+              - iam:AttachGroupPolicy
+              - iam:DetachGroupPolicy
+              - iam:PutGroupPolicy
+              - iam:DeleteGroupPolicy
+              - iam:DeleteGroup
+              - iam:CreatePolicyVersion
+              - iam:SetDefaultPolicyVersion
+              - iam:DeletePolicy
+              - iam:DeletePolicyVersion
+              - iam:AttachUserPolicy
+              - iam:PutUserPolicy
+              - iam:AddUserToGroup
+            Resource:
+              - !Sub "arn:aws:iam::${AWS::AccountId}:group/ttd-autofill-admins"
+              - !Sub "arn:aws:iam::${AWS::AccountId}:policy/ttd-autofill-app-admin"
+              - !Sub "arn:aws:iam::${AWS::AccountId}:user/${!aws:username}"
+
+  AdminsGroup:
+    Type: AWS::IAM::Group
+    Properties:
+      GroupName: ttd-autofill-admins
+      ManagedPolicyArns:
+        - !Ref AppAdminPolicy
+        - arn:aws:iam::aws:policy/AmazonSESFullAccess            # email sending (SES)
+        - arn:aws:iam::aws:policy/AWSCloudFormationFullAccess    # the ttd-autofill-* stacks
+        - arn:aws:iam::aws:policy/CloudWatchReadOnlyAccess       # metrics, logs, Lightsail/SES graphs
+        - arn:aws:iam::aws:policy/AWSSupportAccess               # support cases (e.g. SES limits)
+        - arn:aws:iam::aws:policy/job-function/Billing           # bills, payment method, Cost Explorer, budgets
+        - arn:aws:iam::aws:policy/IAMUserChangePassword          # change your own password
+        - arn:aws:iam::aws:policy/ServiceQuotasFullAccess        # raise limits
+        - arn:aws:iam::aws:policy/SignInLocalDevelopmentAccess   # `aws login` for the CLI
+        - arn:aws:iam::aws:policy/AWSManagementConsoleBasicUserAccess  # console display settings, notifications
+
+Outputs:
+  Group:
+    Value: !Ref AdminsGroup
+  SignInUrl:
+    Value: !Sub "https://${AWS::AccountId}.signin.aws.amazon.com/console"

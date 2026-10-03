@@ -55,8 +55,22 @@ function previewOrigins() {
   return configured;
 }
 
+// The project's own production domain (trusted Vercel metadata). For ttd-info
+// this is the canonical origin; for a separate test project it is that
+// project's own domain, so its pages can call its own API.
+function productionOrigin() {
+  const host = String(process.env.VERCEL_PROJECT_PRODUCTION_URL || '').trim();
+  if (!host) return [];
+  try {
+    const origin = new URL('https://' + host).origin;
+    return origin === 'https://' ? [] : [origin];
+  } catch {
+    return [];
+  }
+}
+
 export function allowedOrigins() {
-  return new Set([CANONICAL_ORIGIN, EXTENSION_ORIGIN, ...previewOrigins()]);
+  return new Set([CANONICAL_ORIGIN, EXTENSION_ORIGIN, ...productionOrigin(), ...previewOrigins()]);
 }
 
 export function applyResponseHeaders(req, res) {

@@ -1,4 +1,4 @@
-import { inspectLicenseBinding, logProviderFailure } from './_dodo.mjs';
+import { inspectLicenseBinding, isProviderNotFound, logProviderFailure } from './_dodo.mjs';
 import { verifyEntitlement } from './_entitlement.mjs';
 import {
   beginRequest,
@@ -10,6 +10,7 @@ import {
   readJsonBody,
   sendError
 } from './_http.mjs';
+import { keygenValidate, routeForClaims } from './_licensing.mjs';
 import { enforceHashedKeyRateLimit } from './_rate-limit.mjs';
 
 export default async function handler(req, res) {
@@ -35,6 +36,15 @@ export default async function handler(req, res) {
     return sendError(res, 401, 'invalid_entitlement', 'Entitlement is invalid.');
   }
 
+  let route;
+  try {
+    route = await routeForClaims(claims, instanceId);
+  } catch (error) {
+    logProviderFailure('license_route', error, { installationUuid: claims.installation_uuid });
+    return sendError(res, 502, 'provider_unavailable', 'Licence validation is temporarily unavailable.');
+  }
+  if (route.authority === 'keygen') return keygenValidate(res, { licenseKey, instanceId, claims, route });
+
   try {
     const state = await inspectLicenseBinding({
       licenseKey,
@@ -44,6 +54,11 @@ export default async function handler(req, res) {
     });
     return res.status(200).json({ ok: true, valid: state.valid === true });
   } catch (error) {
+    // Dodo removes an instance after deactivation. A 404 is a definitive
+    // invalid licence state, not an outage that should prompt endless retries.
+    if (isProviderNotFound(error)) {
+      return res.status(200).json({ ok: true, valid: false });
+    }
     logProviderFailure('license_validate', error, {
       licenseKeyId: claims && claims.license_key_id,
       instanceId,

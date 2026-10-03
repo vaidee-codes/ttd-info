@@ -1,0 +1,9 @@
+[Unit]
+Description=Keep Supabase databases active (no free-plan pause)
+After=docker.service network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+ExecStart=/home/ubuntu/backup/db-keepalive.sh

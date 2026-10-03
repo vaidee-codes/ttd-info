@@ -3,6 +3,7 @@ import { verifyEntitlement } from './_entitlement.mjs';
 import {
   beginRequest,
   boundedString,
+  featureEnabled,
   handleRequestError,
   MAX_INSTANCE_ID_LENGTH,
   MAX_LICENSE_KEY_LENGTH,
@@ -10,6 +11,7 @@ import {
   readJsonBody,
   sendError
 } from './_http.mjs';
+import { keygenDeactivate, routeForClaims } from './_licensing.mjs';
 import { enforceHashedKeyRateLimit } from './_rate-limit.mjs';
 
 export default async function handler(req, res) {
@@ -26,6 +28,11 @@ export default async function handler(req, res) {
     return handleRequestError(res, error);
   }
   if (!await enforceHashedKeyRateLimit(req, res, licenseKey)) return;
+  // Cutover fence: activations/deactivations wait a few minutes while licences
+  // move providers. Existing entitlements and refreshes keep working.
+  if (featureEnabled('LICENSING_FENCE')) {
+    return sendError(res, 503, 'provider_unavailable', 'Licence changes are paused for a few minutes for maintenance. Autofill keeps working; try again shortly.');
+  }
 
   let claims;
   try {
@@ -34,6 +41,15 @@ export default async function handler(req, res) {
   } catch {
     return sendError(res, 401, 'invalid_entitlement', 'Entitlement is invalid.');
   }
+
+  let route;
+  try {
+    route = await routeForClaims(claims, instanceId);
+  } catch (error) {
+    logProviderFailure('license_route', error, { installationUuid: claims.installation_uuid });
+    return sendError(res, 502, 'provider_unavailable', 'Licence deactivation is temporarily unavailable.');
+  }
+  if (route.authority === 'keygen') return keygenDeactivate(res, { licenseKey, claims, route });
 
   try {
     await deactivateLicenseKey(licenseKey, instanceId);

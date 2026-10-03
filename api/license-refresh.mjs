@@ -10,6 +10,7 @@ import {
   readJsonBody,
   sendError
 } from './_http.mjs';
+import { keygenRefresh, outageGrace, routeForClaims } from './_licensing.mjs';
 import { enforceHashedKeyRateLimit } from './_rate-limit.mjs';
 
 export default async function handler(req, res) {
@@ -40,6 +41,19 @@ export default async function handler(req, res) {
     return sendError(res, 401, 'invalid_entitlement', 'Entitlement binding is invalid.');
   }
 
+  let route;
+  try {
+    route = await routeForClaims(claims, instanceId);
+  } catch (error) {
+    logProviderFailure('license_route', error, { installationUuid });
+    // Ledger unreachable (e.g. the Supabase project is paused).
+    if (outageGrace(res, { claims, installationUuid, instanceId })) return;
+    return sendError(res, 502, 'provider_unavailable', 'Licence refresh is temporarily unavailable.');
+  }
+  if (route.authority === 'keygen') {
+    return keygenRefresh(res, { licenseKey, installationUuid, instanceId, claims, route });
+  }
+
   try {
     const state = await inspectLicenseBinding({
       licenseKey,
@@ -63,6 +77,7 @@ export default async function handler(req, res) {
       license_key_id: claims.license_key_id,
       product_id: state.productId,
       provider_status: 'active',
+      activation_limit: Number(state.license && state.license.activations_limit) || null,
       provider_expires_at: state.effectiveExpiry || null,
       entitlement_token: entitlement.token,
       token_expires_at: entitlement.expires_at

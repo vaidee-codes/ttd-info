@@ -1,0 +1,9 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "regions": ["bom1"],
+  "services": {
+    "keygen": { "runtime": "container", "root": ".", "entrypoint": "Dockerfile.vercel" }
+  },
+  "rewrites": [{ "source": "/(.*)", "destination": { "service": "keygen" } }],
+  "crons": [{ "path": "/v1/health", "schedule": "*/4 * * * *" }]
+}

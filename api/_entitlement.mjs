@@ -41,12 +41,13 @@ function verificationKey() {
   return publicKey;
 }
 
-export function issueEntitlement({ productId, licenseKeyId, installationUuid, activationInstanceId, providerExpiry }, now = Date.now()) {
+export function issueEntitlement({ productId, licenseKeyId, installationUuid, activationInstanceId, providerExpiry, graceSince, seconds }, now = Date.now()) {
   const nowSeconds = Math.floor(now / 1000);
+  const lifetime = seconds || TOKEN_SECONDS;
   const providerExpirySeconds = providerExpiry ? Math.floor(Date.parse(providerExpiry) / 1000) : null;
   const expiresAt = providerExpirySeconds
-    ? Math.min(nowSeconds + TOKEN_SECONDS, providerExpirySeconds)
-    : nowSeconds + TOKEN_SECONDS;
+    ? Math.min(nowSeconds + lifetime, providerExpirySeconds)
+    : nowSeconds + lifetime;
   if (expiresAt <= nowSeconds) throw new Error('Provider licence has expired');
 
   const header = { alg: 'ES256', typ: 'JWT', kid: KEY_ID };
@@ -60,7 +61,9 @@ export function issueEntitlement({ productId, licenseKeyId, installationUuid, ac
     license_key_id: licenseKeyId,
     installation_uuid: installationUuid,
     activation_instance_id: activationInstanceId,
-    provider_expiry: providerExpiry || null
+    provider_expiry: providerExpiry || null,
+    // Present only on tokens issued while the licensing service was down.
+    ...(graceSince ? { grace_since: graceSince } : {})
   };
   const input = base64url(JSON.stringify(header)) + '.' + base64url(JSON.stringify(payload));
   const signer = createSign('SHA256');

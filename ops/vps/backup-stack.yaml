@@ -1,0 +1,69 @@
+AWSTemplateFormatVersion: "2010-09-09"
+Description: Nightly encrypted Postgres backups for TTD Autofill - private bucket plus an upload-only IAM user.
+
+Resources:
+  BackupBucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    UpdateReplacePolicy: Retain
+    Properties:
+      BucketName: !Sub "ttd-autofill-db-backups-${AWS::AccountId}"
+      PublicAccessBlockConfiguration:
+        BlockPublicAcls: true
+        BlockPublicPolicy: true
+        IgnorePublicAcls: true
+        RestrictPublicBuckets: true
+      OwnershipControls:
+        Rules: [{ ObjectOwnership: BucketOwnerEnforced }]
+      BucketEncryption:
+        ServerSideEncryptionConfiguration:
+          - ServerSideEncryptionByDefault: { SSEAlgorithm: AES256 }
+      VersioningConfiguration: { Status: Enabled }
+      LifecycleConfiguration:
+        Rules:
+          - Id: daily-35-days
+            Status: Enabled
+            Prefix: daily/
+            ExpirationInDays: 35
+            NoncurrentVersionExpiration: { NoncurrentDays: 7 }
+          - Id: monthly-400-days
+            Status: Enabled
+            Prefix: monthly/
+            ExpirationInDays: 400
+            NoncurrentVersionExpiration: { NoncurrentDays: 7 }
+      Tags: [{ Key: project, Value: ttd-autofill }]
+
+  BackupBucketPolicy:
+    Type: AWS::S3::BucketPolicy
+    Properties:
+      Bucket: !Ref BackupBucket
+      PolicyDocument:
+        Version: "2012-10-17"
+        Statement:
+          - Sid: DenyInsecureTransport
+            Effect: Deny
+            Principal: "*"
+            Action: "s3:*"
+            Resource: [!GetAtt BackupBucket.Arn, !Sub "${BackupBucket.Arn}/*"]
+            Condition: { Bool: { "aws:SecureTransport": "false" } }
+
+  BackupUploader:
+    Type: AWS::IAM::User
+    Properties:
+      UserName: ttd-backup-uploader
+      Tags: [{ Key: project, Value: ttd-autofill }]
+      Policies:
+        - PolicyName: put-only-backups
+          PolicyDocument:
+            Version: "2012-10-17"
+            Statement:
+              - Sid: UploadOnly
+                Effect: Allow
+                Action: "s3:PutObject"
+                Resource:
+                  - !Sub "${BackupBucket.Arn}/daily/*"
+                  - !Sub "${BackupBucket.Arn}/monthly/*"
+
+Outputs:
+  BucketName: { Value: !Ref BackupBucket }
+  UploaderUser: { Value: !Ref BackupUploader }

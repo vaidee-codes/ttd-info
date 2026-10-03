@@ -1,0 +1,7 @@
+spike/
+ops/keygen/
+docs/spikes/
+db/
+.DS_Store
+ops/vps/
+ops/*.json

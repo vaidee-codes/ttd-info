@@ -5,6 +5,9 @@ import {
   logProviderFailure,
   planByCode
 } from './_dodo.mjs';
+import { logCheckoutCreated, logCheckoutRejected } from './_diagnostics.mjs';
+import { razorpayCheckout } from './_razorpay-checkout.mjs';
+import { paymentProvider } from './_razorpay.mjs';
 import {
   beginRequest,
   boundedString,
@@ -30,8 +33,14 @@ export default async function handler(req, res) {
   try {
     body = readJsonBody(req);
     plan = planByCode(body.plan);
-    if (!plan) return sendError(res, 400, 'invalid_plan', 'Choose a 7-day, 30-day, or 90-day pass.');
+    if (!plan) {
+      // A rejected checkout is invisible in the funnel otherwise: it never
+      // reaches the provider, so there is no payment and no key.
+      logCheckoutRejected({ reason: 'invalid_plan' });
+      return sendError(res, 400, 'invalid_plan', 'Choose a 7-day, 30-day, or 90-day pass.');
+    }
   } catch (error) {
+    logCheckoutRejected({ reason: error && error.code, detail: error && error.message });
     return handleRequestError(res, error);
   }
 
@@ -44,7 +53,12 @@ export default async function handler(req, res) {
       extensionId = boundedString(body.extension_id, { field: 'extension_id', max: 32, pattern: EXTENSION_ID });
     }
   } catch (error) {
+    logCheckoutRejected({ reason: error && error.code, detail: error && error.message });
     return handleRequestError(res, error);
+  }
+
+  if (paymentProvider() === 'razorpay') {
+    return razorpayCheckout(res, { plan, body, requestId, extensionId });
   }
 
   const returnParams = new URLSearchParams({ plan: plan.code });
@@ -87,6 +101,9 @@ export default async function handler(req, res) {
     if (parsed.protocol !== 'https:' || !(parsed.hostname === 'dodopayments.com' || parsed.hostname.endsWith('.dodopayments.com'))) {
       throw new Error('Unexpected checkout URL');
     }
+    // Funnel telemetry: a checkout created without automatic activation can
+    // only be activated by a manual key paste. No customer data.
+    logCheckoutCreated({ plan: plan.code, autoActivate: !!extensionId });
     return res.status(200).json({ ok: true, checkout_url: checkoutUrl });
   } catch (error) {
     logProviderFailure('checkout_create', error);
