@@ -63,11 +63,27 @@ export function selectMany(table, query) {
   return rest('GET', table, { query });
 }
 
-// Exact row count for a PostgREST filter (from Content-Range), without the rows.
+// Reads every matching row, a page at a time, stopping at `maxRows`. `query` is
+// an array of [key, value] pairs so one column can carry two filters
+// (created_at=gte.… and created_at=lt.…). `order` must be a stable sort.
+export async function selectAll(table, query, { order, pageSize = 1000, maxRows = 20000 } = {}) {
+  const rows = [];
+  for (let offset = 0; offset < maxRows; offset += pageSize) {
+    const page = await rest('GET', table, { query: [...query, ['order', order], ['limit', String(pageSize)], ['offset', String(offset)]] });
+    rows.push(...page);
+    if (page.length < pageSize) return { rows, truncated: false };
+  }
+  return { rows, truncated: true };
+}
+
+// Exact row count without reading the rows (PostgREST Content-Range). `query`
+// is either an object of filters or an array of [key, value] pairs (so one
+// column can carry two filters, as selectAll takes).
 export async function countRows(table, query = {}) {
   const config = ledgerConfig();
   if (!config) throw new ProviderError(503, 'LEDGER_NOT_CONFIGURED');
-  const params = new URLSearchParams({ select: '*', ...query });
+  const pairs = Array.isArray(query) ? query : Object.entries(query);
+  const params = new URLSearchParams([...pairs, ['select', '*'], ['limit', '1']]);
   let response;
   try {
     response = await fetch(`${config.url}/rest/v1/${table}?${params}`, {
@@ -78,9 +94,10 @@ export async function countRows(table, query = {}) {
   } catch {
     throw new ProviderError(503, 'LEDGER_UNAVAILABLE');
   }
-  if (!response.ok) throw new ProviderError(503, 'LEDGER_ERROR');
+  if (!response.ok) throw new ProviderError(response.status >= 500 ? 503 : response.status, 'LEDGER_ERROR');
   const total = Number(String(response.headers.get('content-range') || '').split('/')[1]);
-  return Number.isFinite(total) ? total : 0;
+  if (!Number.isFinite(total)) throw new ProviderError(503, 'LEDGER_ERROR');
+  return total;
 }
 
 export async function insertOne(table, row, { onConflict, ignoreDuplicates = false } = {}) {

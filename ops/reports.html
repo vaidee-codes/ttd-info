@@ -1,0 +1,393 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <title>Reports — TTD Autofill</title>
+  <link rel="stylesheet" href="/site.css">
+  <link rel="stylesheet" href="/pass/pass.css">
+  <style>
+    .ops-wrap{max-width:1080px;margin:32px auto;padding:0 16px}
+    .ops-card{background:#fff;border:1px solid var(--line);border-radius:16px;padding:22px;margin-bottom:18px}
+    .ops-card h2{margin:0 0 12px;font-size:1.1rem;letter-spacing:-.01em}
+    .ops-row{display:flex;gap:10px;flex-wrap:wrap;align-items:end}
+    .ops-row > *{flex:1 1 160px}
+    .ops-row label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:4px}
+    .ops-meta{color:var(--muted);font-size:.82rem;margin-top:4px}
+    .ops-small{padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:650;font:inherit;font-size:.88rem}
+    .ops-msg{margin-top:10px;font-size:.9rem}
+    .ops-msg.err{color:#b91c1c}
+    .ops-head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap}
+    .ops-head a{color:var(--violet);font-weight:700;text-decoration:none;font-size:.9rem}
+    .r-ranges{display:flex;flex-wrap:wrap;gap:6px}
+    .r-ranges button{padding:8px 13px;border-radius:999px;border:1px solid var(--line);background:#fff;cursor:pointer;font:inherit;font-size:.86rem;font-weight:650;color:var(--ink)}
+    .r-ranges button[aria-pressed="true"]{background:var(--violet);border-color:var(--violet);color:#fff}
+    .r-tools{display:flex;flex-wrap:wrap;gap:10px;align-items:end;margin-top:14px}
+    .r-tools label{display:block;font-size:.78rem;color:var(--muted);margin-bottom:3px}
+    .r-tools input,.r-tools select{padding:7px 10px;border:1px solid var(--line);border-radius:10px;font:inherit;font-size:.88rem;background:#fff;color:var(--ink)}
+    .r-status{margin:12px 0 0;color:var(--muted);font-size:.82rem}
+    .r-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));gap:12px;margin-bottom:18px}
+    .r-tile{background:#fff;border:1px solid var(--line);border-radius:14px;padding:16px}
+    .r-tile .k{font-size:.78rem;color:var(--muted);font-weight:650}
+    .r-tile .v{font-size:1.75rem;font-weight:850;line-height:1.15;margin-top:4px;letter-spacing:-.02em;font-variant-numeric:tabular-nums}
+    .r-tile .s{font-size:.78rem;color:var(--muted);margin-top:4px}
+    .r-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:18px}
+    .r-grid .ops-card{margin-bottom:0}
+    .r-chart{position:relative}
+    .r-chart svg{display:block;width:100%;height:auto;overflow:visible}
+    .r-legend{display:flex;gap:16px;flex-wrap:wrap;font-size:.8rem;color:var(--muted);margin:0 0 8px}
+    .r-legend i{display:inline-block;width:10px;height:10px;border-radius:3px;margin-right:6px;vertical-align:-1px}
+    .r-tip{position:absolute;pointer-events:none;background:#171325;color:#fff;border-radius:8px;padding:7px 10px;font-size:.78rem;line-height:1.45;white-space:nowrap;transform:translate(-50%,-100%);z-index:2}
+    .r-table{width:100%;border-collapse:collapse;font-size:.86rem}
+    .r-table th{text-align:left;color:var(--muted);font-weight:650;font-size:.76rem;padding:6px 8px;border-bottom:1px solid var(--line)}
+    .r-table td{padding:7px 8px;border-bottom:1px solid var(--line);vertical-align:top}
+    .r-table td.n,.r-table th.n{text-align:right;font-variant-numeric:tabular-nums}
+    .r-scroll{overflow-x:auto}
+    .r-pill{display:inline-block;padding:1px 8px;border-radius:999px;font-size:.74rem;font-weight:700;border:1px solid var(--line)}
+    .r-note{padding:12px 14px;border-radius:12px;background:#fff7df;color:#78450a;font-size:.88rem;margin-bottom:18px}
+    .r-empty{color:var(--muted);font-size:.88rem;margin:0}
+    [hidden]{display:none!important}
+    @media(max-width:600px){.r-tile .v{font-size:1.4rem}.ops-card{padding:16px}}
+  </style>
+</head>
+<body>
+  <main class="ops-wrap">
+    <div class="ops-head">
+      <h1 style="margin:0 0 6px;font-size:2rem">Reports</h1>
+      <a href="/ops">← Licence tools</a>
+    </div>
+    <p class="ops-meta" id="who">Sign in with your Keygen admin account.</p>
+
+    <section class="ops-card" id="signin">
+      <h2>Sign in</h2>
+      <div class="ops-row">
+        <div><label for="login-email">Admin email</label><input class="pass-field" id="login-email" type="email" autocomplete="username"></div>
+        <div><label for="login-password">Password</label><input class="pass-field" id="login-password" type="password" autocomplete="current-password"></div>
+        <div style="flex:0 0 auto"><button class="pass-btn" id="login-btn" style="margin:0">Sign in</button></div>
+      </div>
+      <p class="ops-msg" id="login-msg"></p>
+    </section>
+
+    <div id="app" hidden>
+      <section class="ops-card">
+        <div class="r-ranges" id="ranges" role="group" aria-label="Report period">
+          <button data-range="today">Today</button>
+          <button data-range="yesterday">Yesterday</button>
+          <button data-range="7d">Last 7 days</button>
+          <button data-range="30d">Last 30 days</button>
+          <button data-range="90d">Last 90 days</button>
+          <button data-range="month">This month</button>
+          <button data-range="last_month">Last month</button>
+          <button data-range="fy">This financial year</button>
+          <button data-range="all">All time</button>
+        </div>
+        <div class="r-tools">
+          <div><label for="c-from">From</label><input type="date" id="c-from"></div>
+          <div><label for="c-to">To</label><input type="date" id="c-to"></div>
+          <div><button class="ops-small" id="c-apply">Show dates</button></div>
+          <div style="flex:1"></div>
+          <div><label for="mode">Razorpay payments</label><select id="mode"><option value="live">Live only</option><option value="test">Test only</option><option value="all">Live + test</option></select></div>
+          <div><button class="ops-small" id="refresh">Refresh</button></div>
+        </div>
+        <p class="r-status" id="status"></p>
+      </section>
+
+      <div id="report" hidden>
+        <div id="notes"></div>
+        <div class="r-tiles" id="tiles"></div>
+
+        <section class="ops-card">
+          <h2 id="chart-licences-title">New licences</h2>
+          <div class="r-legend" id="legend-licences"></div>
+          <div class="r-chart" id="chart-licences"></div>
+        </section>
+        <section class="ops-card">
+          <h2 id="chart-revenue-title">Revenue (₹)</h2>
+          <div class="r-chart" id="chart-revenue"></div>
+        </section>
+
+        <div class="r-grid" style="margin-bottom:18px">
+          <section class="ops-card"><h2>By pass</h2><div class="r-scroll" id="plans"></div></section>
+          <section class="ops-card"><h2>Emails to buyers</h2><div id="emails"></div></section>
+          <section class="ops-card"><h2>Offline payments</h2><div id="methods"></div></section>
+          <section class="ops-card"><h2>Ops activity</h2><div id="activity"></div></section>
+          <section class="ops-card"><h2>Licences on record (all time)</h2><div id="onrecord"></div></section>
+        </div>
+
+        <section class="ops-card">
+          <div class="ops-head"><h2>Licences issued in this period</h2><button class="ops-small" id="csv">Download CSV</button></div>
+          <div class="r-scroll" id="recent"></div>
+          <p style="margin:10px 0 0"><button class="ops-small" id="more" hidden>Show all</button></p>
+        </section>
+      </div>
+      <p class="ops-meta"><button class="ops-small" id="logout">Sign out</button></p>
+    </div>
+  </main>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const TOKEN_KEY = 'ttdafOpsToken';
+    const PREF_KEY = 'ttdafReportPrefs';
+    const SERIES = [
+      { key: 'razorpay', label: 'Razorpay', color: '#2a78d6' },
+      { key: 'offline', label: 'Offline sale', color: '#eb6834' },
+      { key: 'grant', label: 'Grant', color: '#1baf7a' }
+    ];
+    const SOURCE = Object.fromEntries(SERIES.map((s) => [s.key, s]));
+    const PLAN = { '7d': '7-day', '30d': '30-day', '90d': '90-day' };
+    const ACTION = { ops_login: 'Sign-ins', grant_created: 'Grants issued', offline_sale_created: 'Offline sales recorded', offline_licence_emailed: 'Offline keys emailed',
+      reset_activations: 'Activations reset', deactivate_activation: 'Browsers deactivated', set_activation_limit: 'Browser limits changed',
+      suspend: 'Keys suspended', reinstate: 'Keys reinstated', set_expiry: 'Expiries changed', resend_email: 'Emails re-sent' };
+    let token = '';
+    try { token = sessionStorage.getItem(TOKEN_KEY) || ''; } catch { token = ''; }
+    let prefs = { range: '7d', mode: 'live' };
+    try { prefs = { ...prefs, ...JSON.parse(localStorage.getItem(PREF_KEY) || '{}') }; } catch { /* defaults */ }
+    let current = null;
+    let showAll = false;
+
+    function el(tag, props = {}, children = []) {
+      const node = document.createElement(tag);
+      for (const [k, v] of Object.entries(props)) {
+        if (k === 'text') node.textContent = v;
+        else if (k === 'onclick') node.addEventListener('click', v);
+        else node.setAttribute(k, v);
+      }
+      for (const c of children) node.append(c);
+      return node;
+    }
+    const svgEl = (tag, attrs = {}) => { const n = document.createElementNS('http://www.w3.org/2000/svg', tag); for (const [k, v] of Object.entries(attrs)) n.setAttribute(k, v); return n; };
+    const num = (n) => Number(n || 0).toLocaleString('en-IN');
+    const inr = (paise) => '₹' + (Number(paise || 0) / 100).toLocaleString('en-IN', { maximumFractionDigits: 0 });
+    const when = (ts) => new Date(ts).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', dateStyle: 'medium', timeStyle: 'short' });
+    const istDate = (iso) => new Date(Date.parse(iso) + 330 * 60000).toISOString().slice(0, 10);
+    function savePrefs() { try { localStorage.setItem(PREF_KEY, JSON.stringify(prefs)); } catch { /* ignore */ } }
+
+    async function api(path, body, { auth = true } = {}) {
+      const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json', ...(auth ? { Authorization: 'Bearer ' + token } : {}) }, body: JSON.stringify(body) });
+      const data = await res.json().catch(() => ({}));
+      if (res.status === 401 && auth) { signOut(); throw new Error(data.message || 'Session expired. Sign in again.'); }
+      if (!res.ok) throw new Error(data.message || 'Request failed.');
+      return data;
+    }
+
+    function showApp(email) {
+      $('signin').hidden = true;
+      $('app').hidden = false;
+      $('who').textContent = (email ? 'Signed in as ' + email + '. ' : '') + 'Figures come from the payments ledger; times are IST.';
+      $('mode').value = prefs.mode;
+      if (prefs.from) $('c-from').value = prefs.from;
+      if (prefs.to) $('c-to').value = prefs.to;
+      load();
+    }
+    function signOut() {
+      token = '';
+      try { sessionStorage.removeItem(TOKEN_KEY); } catch { /* ignore */ }
+      $('app').hidden = true;
+      $('signin').hidden = false;
+      $('who').textContent = 'Sign in with your Keygen admin account.';
+    }
+
+    $('login-btn').addEventListener('click', async () => {
+      $('login-msg').textContent = 'Signing in…'; $('login-msg').className = 'ops-msg';
+      try {
+        const data = await api('/api/ops/login', { email: $('login-email').value.trim(), password: $('login-password').value }, { auth: false });
+        token = data.token;
+        try { sessionStorage.setItem(TOKEN_KEY, token); } catch { /* ignore */ }
+        $('login-password').value = '';
+        $('login-msg').textContent = '';
+        showApp(data.operator && data.operator.email);
+      } catch (e) { $('login-msg').textContent = e.message; $('login-msg').className = 'ops-msg err'; }
+    });
+    $('login-password').addEventListener('keydown', (e) => { if (e.key === 'Enter') $('login-btn').click(); });
+    $('logout').addEventListener('click', signOut);
+
+    for (const b of $('ranges').querySelectorAll('button')) {
+      b.addEventListener('click', () => { prefs.range = b.dataset.range; savePrefs(); load(); });
+    }
+    $('c-apply').addEventListener('click', () => {
+      if (!$('c-from').value || !$('c-to').value) { setStatus('Pick both dates.', true); return; }
+      prefs = { ...prefs, range: 'custom', from: $('c-from').value, to: $('c-to').value }; savePrefs(); load();
+    });
+    $('mode').addEventListener('change', () => { prefs.mode = $('mode').value; savePrefs(); load(); });
+    $('refresh').addEventListener('click', () => load(true));
+
+    function setStatus(text, err) { $('status').textContent = text; $('status').style.color = err ? '#b91c1c' : ''; }
+
+    let loading = 0;
+    async function load(fresh = false) {
+      for (const b of $('ranges').querySelectorAll('button')) b.setAttribute('aria-pressed', String(b.dataset.range === prefs.range));
+      const ticket = ++loading;
+      setStatus('Loading…');
+      try {
+        const body = { range: prefs.range, mode: prefs.mode, fresh, ...(prefs.range === 'custom' ? { from: prefs.from, to: prefs.to } : {}) };
+        const data = await api('/api/ops/reports', body);
+        if (ticket !== loading) return;
+        current = data.report; showAll = false;
+        render(current);
+        setStatus(periodLabel(current) + ' · updated ' + when(current.generated_at) + (data.cached ? ' (from the last minute)' : ''));
+      } catch (e) { if (ticket === loading) setStatus(e.message, true); }
+    }
+
+    function periodLabel(r) {
+      const from = istDate(r.range.from);
+      const last = istDate(new Date(Date.parse(r.range.to) - 1).toISOString());
+      const fmt = (d) => new Date(d + 'T00:00:00Z').toLocaleDateString('en-IN', { timeZone: 'UTC', day: 'numeric', month: 'short', year: 'numeric' });
+      return from === last ? fmt(from) : fmt(from) + ' – ' + fmt(last);
+    }
+
+    function tile(k, v, s) { return el('div', { class: 'r-tile' }, [el('div', { class: 'k', text: k }), el('div', { class: 'v', text: v }), el('div', { class: 's', text: s || '' })]); }
+
+    function render(r) {
+      $('report').hidden = false;
+      const L = r.licences;
+      const notes = [];
+      if (L.awaiting_licence) notes.push(L.awaiting_licence + ' paid order(s) are still waiting for their licence. The reconcile job retries every 5 minutes; check the order in Razorpay if this persists.');
+      if (r.truncated.length) notes.push('Very large period: only the first 20,000 rows of ' + r.truncated.join(', ') + ' were read. Pick a shorter period for exact figures.');
+      if (r.mode !== 'live') notes.push(r.mode === 'test' ? 'Showing Razorpay TEST payments only — not real money.' : 'Razorpay figures include TEST payments.');
+      $('notes').replaceChildren(...notes.map((n) => el('div', { class: 'r-note', text: n })));
+
+      const c = r.checkouts;
+      const conv = c.started ? Math.round((c.completed / c.started) * 100) + '% paid' : 'no checkouts';
+      const e = Object.fromEntries(r.emails.by_status.map((x) => [x.key, x.count]));
+      $('tiles').replaceChildren(
+        tile('New licences', num(L.total), num(L.razorpay) + ' Razorpay · ' + num(L.offline) + ' offline · ' + num(L.grant) + ' grants'),
+        tile('Passes (browsers)', num(L.passes), num(L.multi_pass) + ' multi-pass key' + (L.multi_pass === 1 ? '' : 's')),
+        tile('Revenue', inr(r.revenue.total_paise), inr(r.revenue.razorpay_paise) + ' Razorpay · ' + inr(r.revenue.offline_paise) + ' offline'),
+        tile('Average Razorpay order', L.razorpay ? inr(r.revenue.average_order_paise) : '—', num(L.razorpay) + ' paid order' + (L.razorpay === 1 ? '' : 's')),
+        tile('Checkouts', num(c.completed) + ' / ' + num(c.started), conv + ' · ' + num(c.abandoned) + ' not paid'),
+        tile('Invoices issued', num(r.invoices_issued), 'Razorpay and offline paid sales'),
+        tile('Emails sent', num(e.sent || 0), num(e.queued || 0) + ' queued · ' + num(e.failed || 0) + ' failed in period')
+      );
+
+      const bucketName = { hour: 'per hour', day: 'per day', month: 'per month' }[r.range.bucket];
+      $('chart-licences-title').textContent = 'New licences ' + bucketName;
+      $('chart-revenue-title').textContent = 'Revenue ' + bucketName + ' (₹)';
+      $('legend-licences').replaceChildren(...SERIES.map((s) => el('span', {}, [el('i', { style: 'background:' + s.color }), s.label])));
+      barChart($('chart-licences'), r.series, SERIES.map((s) => ({ ...s, value: (p) => p[s.key] })), r.range.bucket, num);
+      barChart($('chart-revenue'), r.series, [{ key: 'revenue', label: 'Revenue', color: '#2a78d6', value: (p) => p.revenue_paise / 100 }], r.range.bucket, (v) => '₹' + num(Math.round(v)));
+
+      $('plans').replaceChildren(r.plans.length ? table(['Pass', 'Licences', 'Passes', 'Revenue'], r.plans.map((p) => [PLAN[p.plan] || p.label, num(p.licences), num(p.passes), inr(p.revenue_paise)]), [1, 2, 3])
+        : el('p', { class: 'r-empty', text: 'No licences in this period.' }));
+      const providers = r.emails.by_provider.map((x) => (x.key === 'unknown' ? 'other' : x.key.toUpperCase()) + ' ' + num(x.count)).join(' · ');
+      $('emails').replaceChildren(
+        r.emails.by_status.length ? table(['Status', 'Emails'], r.emails.by_status.map((x) => [x.key, num(x.count)]), [1]) : el('p', { class: 'r-empty', text: 'No emails in this period.' }),
+        el('p', { class: 'ops-meta', text: (providers ? 'Sent via ' + providers + '. ' : '') + 'Queued right now (any period): ' + num(r.emails.queued_now) + '.' }));
+      $('methods').replaceChildren(r.offline_methods.length ? table(['Method', 'Sales'], r.offline_methods.map((x) => [x.key.toUpperCase(), num(x.count)]), [1])
+        : el('p', { class: 'r-empty', text: 'No offline payments in this period.' }));
+      $('activity').replaceChildren(r.ops_activity.length ? table(['Action', 'Count'], r.ops_activity.map((x) => [ACTION[x.key] || x.key.replace(/_/g, ' '), num(x.count)]), [1])
+        : el('p', { class: 'r-empty', text: 'No operator actions in this period.' }));
+      const rec = r.on_record;
+      $('onrecord').replaceChildren(table(['Source', 'Licences'], [
+        ['Imported from Dodo', num(rec.dodo_migrated || 0)], ['Razorpay', num(rec.razorpay || 0)], ['Offline sales', num(rec.offline || 0)], ['Grants', num(rec.grant || 0)]
+      ], [1]), el('p', { class: 'ops-meta', text: 'Every key the ledger knows, whatever the period. Razorpay includes test-mode keys.' }));
+      renderRecent();
+    }
+
+    function renderRecent() {
+      const rows = current.recent;
+      const shown = showAll ? rows : rows.slice(0, 100);
+      $('recent').replaceChildren(rows.length ? table(['When', 'Source', 'Pass', 'Browsers', 'Amount', 'Buyer', 'Details'], shown.map((x) => [
+        when(x.at), pill(x.source), PLAN[x.plan] || x.plan, num(x.passes), x.amount_paise ? inr(x.amount_paise) : '—', x.email || '—', x.detail || ''
+      ]), [3, 4]) : el('p', { class: 'r-empty', text: 'No licences in this period.' }));
+      $('more').hidden = showAll || rows.length <= 100;
+      $('more').textContent = 'Show all ' + num(rows.length);
+      $('csv').hidden = !rows.length;
+    }
+    let resizeTimer;
+    window.addEventListener('resize', () => { clearTimeout(resizeTimer); resizeTimer = setTimeout(() => { if (current) render(current); }, 200); });
+    $('more').addEventListener('click', () => { showAll = true; renderRecent(); });
+
+    function pill(source) {
+      const s = SOURCE[source];
+      return el('span', { class: 'r-pill' }, [el('i', { style: 'display:inline-block;width:8px;height:8px;border-radius:2px;margin-right:5px;background:' + (s ? s.color : '#999') }), s ? s.label : source]);
+    }
+
+    function table(head, rows, numeric = []) {
+      return el('table', { class: 'r-table' }, [
+        el('thead', {}, [el('tr', {}, head.map((h, i) => el('th', { class: numeric.includes(i) ? 'n' : '', text: h })))]),
+        el('tbody', {}, rows.map((row) => el('tr', {}, row.map((v, i) => { const td = el('td', { class: numeric.includes(i) ? 'n' : '' }); td.append(v); return td; }))))
+      ]);
+    }
+
+    function bucketLabel(key, bucket, long) {
+      if (bucket === 'hour') return long ? key.slice(0, 10) + ' ' + key.slice(11) : key.slice(11);
+      if (bucket === 'day') return new Date(key + 'T00:00:00Z').toLocaleDateString('en-IN', { timeZone: 'UTC', day: 'numeric', month: 'short', ...(long ? { weekday: 'short' } : {}) });
+      return new Date(key + '-01T00:00:00Z').toLocaleDateString('en-IN', { timeZone: 'UTC', month: 'short', year: 'numeric' });
+    }
+
+    // Stacked bars, one axis, recessive grid, hover tooltip per bucket.
+    function barChart(host, points, series, bucket, format) {
+      const W = Math.round(Math.max(300, host.clientWidth || 960)); const H = W < 600 ? 200 : 240; const pad = { l: 56, r: 8, t: 10, b: 28 };
+      const totals = points.map((p) => series.reduce((t, s) => t + s.value(p), 0));
+      const max = Math.max(...totals, 0);
+      const step = niceStep(max || 1);
+      const top = Math.max(step, Math.ceil((max || 1) / step) * step);
+      const plotW = W - pad.l - pad.r; const plotH = H - pad.t - pad.b;
+      const slot = plotW / Math.max(points.length, 1);
+      const barW = Math.max(2, Math.min(36, slot * 0.7));
+      const y = (v) => pad.t + plotH - (v / top) * plotH;
+      const svg = svgEl('svg', { viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': host.closest('section').querySelector('h2').textContent + '. Figures are also in the tables below.' });
+      for (let v = 0; v <= top + 1e-9; v += step) {
+        svg.append(svgEl('line', { x1: pad.l, x2: W - pad.r, y1: y(v), y2: y(v), stroke: v === 0 ? '#cfc8db' : '#eee9f4', 'stroke-width': 1 }));
+        const t = svgEl('text', { x: pad.l - 8, y: y(v) + 4, 'text-anchor': 'end', 'font-size': 12, fill: '#676276' }); t.textContent = format(v); svg.append(t);
+      }
+      const every = Math.ceil(points.length / Math.max(1, Math.floor(plotW / 70)));
+      points.forEach((p, i) => {
+        const cx = pad.l + slot * i + slot / 2;
+        let base = 0;
+        series.forEach((s, si) => {
+          const v = s.value(p);
+          if (v > 0) {
+            const y0 = y(base); const y1 = y(base + v);
+            const h = Math.max(1, y0 - y1 - (base > 0 ? 2 : 0));
+            const isTop = series.slice(si + 1).every((n) => !(n.value(p) > 0));
+            const r = isTop ? Math.min(4, barW / 2, h) : 0;
+            svg.append(svgEl('path', { d: roundedTop(cx - barW / 2, y0 - (base > 0 ? 2 : 0) - h, barW, h, r), fill: s.color }));
+            base += v;
+          }
+        });
+        if (i % every === 0) {
+          const t = svgEl('text', { x: cx, y: H - 8, 'text-anchor': 'middle', 'font-size': 12, fill: '#676276' }); t.textContent = bucketLabel(p.bucket, bucket); svg.append(t);
+        }
+        const hit = svgEl('rect', { x: pad.l + slot * i, y: pad.t, width: slot, height: plotH, fill: 'transparent' });
+        hit.addEventListener('mouseenter', () => showTip(host, svg, W, cx, y(totals[i]), p, series, bucket, format, totals[i]));
+        hit.addEventListener('mouseleave', () => hideTip(host));
+        svg.append(hit);
+      });
+      host.replaceChildren(svg);
+    }
+    function roundedTop(x, yTop, w, h, r) {
+      return `M${x},${yTop + h}V${yTop + r}Q${x},${yTop} ${x + r},${yTop}H${x + w - r}Q${x + w},${yTop} ${x + w},${yTop + r}V${yTop + h}Z`;
+    }
+    function niceStep(max) {
+      const raw = max / 4; const mag = Math.pow(10, Math.floor(Math.log10(raw)));
+      const n = raw / mag; return Math.max(1, (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * mag);
+    }
+    function showTip(host, svg, W, cx, cy, p, series, bucket, format, total) {
+      hideTip(host);
+      const scale = svg.getBoundingClientRect().width / W;
+      const lines = [bucketLabel(p.bucket, bucket, true)];
+      if (series.length > 1) { series.forEach((s) => lines.push(s.label + ': ' + format(s.value(p)))); lines.push('Total: ' + format(total)); }
+      else lines.push(format(total));
+      const tip = el('div', { class: 'r-tip', style: `left:${cx * scale}px;top:${Math.max(0, cy * scale - 6)}px` });
+      lines.forEach((l, i) => { if (i) tip.append(el('br')); tip.append(i === 0 ? el('b', { text: l }) : l); });
+      host.append(tip);
+    }
+    function hideTip(host) { const t = host.querySelector('.r-tip'); if (t) t.remove(); }
+
+    $('csv').addEventListener('click', () => {
+      if (!current) return;
+      const cell = (v) => { const s = String(v == null ? '' : v); return /[",\n]/.test(s) || /^[=+\-@]/.test(s) ? '"' + s.replace(/"/g, '""').replace(/^([=+\-@])/, "'$1") + '"' : s; };
+      const rows = [['issued_at_ist', 'source', 'pass', 'browsers', 'amount_inr', 'buyer_email', 'details']].concat(current.recent.map((x) => [
+        when(x.at), x.source, x.plan, x.passes, (x.amount_paise || 0) / 100, x.email || '', x.detail || ''
+      ]));
+      const blob = new Blob([rows.map((r) => r.map(cell).join(',')).join('\n')], { type: 'text/csv' });
+      const a = el('a', { href: URL.createObjectURL(blob), download: 'ttd-licences-' + istDate(current.range.from) + '-to-' + istDate(new Date(Date.parse(current.range.to) - 1).toISOString()) + '.csv' });
+      document.body.append(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
+    });
+
+    if (token) showApp('');
+  </script>
+</body>
+</html>
