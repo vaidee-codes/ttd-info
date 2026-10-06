@@ -122,7 +122,20 @@ function world(t) {
       const path = u.pathname.replace('/v1/accounts/acct-1', '');
       if (path === '/licenses' && method === 'POST') {
         const a = body.data.attributes;
-        if (w.licenses.some((l) => l.key === a.key)) return json({ errors: [{ code: 'KEY_TAKEN' }] }, 422);
+        // Hold overlapping creates before the unique insert. A real database
+        // race returns 409, whereas a later ordinary duplicate returns 422.
+        if (w.keygenCreateBarrier && !w.licenses.some((l) => l.key === a.key)) {
+          w.keygenCreateBarrier.arrived++;
+          if (w.keygenCreateBarrier.arrived === w.keygenCreateBarrier.expected) w.keygenCreateBarrier.release();
+          await w.keygenCreateBarrier.ready;
+        }
+        if (w.licenses.some((l) => l.key === a.key)) {
+          if (w.keygenCreateBarrier) {
+            w.keygenConflicts = (w.keygenConflicts || 0) + 1;
+            return json({ errors: [{ code: null }] }, 409);
+          }
+          return json({ errors: [{ code: 'KEY_TAKEN' }] }, 422);
+        }
         const l = { id: randomUUID(), key: a.key, metadata: a.metadata, maxMachines: a.maxMachines, policy: body.data.relationships.policy.data.id };
         w.licenses.push(l);
         if (w.keygenLoseResponse) { w.keygenLoseResponse = false; throw new TypeError('socket hang up'); }
@@ -648,19 +661,29 @@ test('reconcile: 30 abandoned checkouts cannot hide a newer paid order whose web
   assert.equal(w.licenses.length, 1);
 });
 
-test('email: the page confirm and three webhooks arriving together send exactly one email (SES has no idempotency key)', async (t) => {
+test('concurrent confirmation and webhooks recover database 409s with one licence and one email', { timeout: 5000 }, async (t) => {
   quiet(t);
   process.env.RESEND_API_KEY = 're_test'; process.env.RESEND_FROM = 'TTD Autofill <keys@example.com>';
   try {
     const w = world(t);
+    let release;
+    const ready = new Promise((resolve) => { release = resolve; });
+    w.keygenCreateBarrier = { expected: 4, arrived: 0, release, ready };
     w.emailDelayMs = 30; // like a real provider: the send takes time, so the four deliveries overlap
     const c = (await start('7d', randomUUID(), 'buyer@example.com')).body;
     const { payment, signature } = w.pay(c.razorpay_order_id, { email: 'buyer@example.com' });
     const evt = (name) => ({ event: name, payload: { payment: { entity: { ...payment, order_id: c.razorpay_order_id } } } });
-    await Promise.all([
+    const responses = await Promise.all([
       post(confirm, { razorpay_order_id: c.razorpay_order_id, razorpay_payment_id: payment.id, razorpay_signature: signature, purchase_token: c.purchase_token }),
       hook(evt('payment.authorized')), hook(evt('payment.captured')), hook(evt('order.paid'))
     ]);
+    assert.deepEqual(responses.map((r) => r.statusCode), [200, 200, 200, 200]);
+    assert.equal(w.keygenConflicts, 3);
+    assert.equal(w.licenses.length, 1);
+    assert.equal(w.tables.fulfilments.length, 1);
+    assert.equal(w.tables.fulfilments[0].status, 'provisioned');
+    assert.equal(w.tables.orders[0].status, 'fulfilled');
+    assert.equal(responses[0].body.license_key, w.licenses[0].key);
     // The fake Resend dedupes nothing: count real sends.
     assert.equal(w.emails.length, 1);
     assert.equal(w.tables.email_outbox[0].status, 'sent');
@@ -668,6 +691,26 @@ test('email: the page confirm and three webhooks arriving together send exactly 
     await reconcile({ method: 'GET', headers: { authorization: 'Bearer cron-secret' } }, res());
     assert.equal(w.emails.length, 1);
   } finally { delete process.env.RESEND_API_KEY; delete process.env.RESEND_FROM; }
+});
+
+test('two purchases by the same customer issue independent licences', async (t) => {
+  quiet(t);
+  const w = world(t);
+  const keys = [];
+  for (let purchase = 0; purchase < 2; purchase++) {
+    const c = (await start('7d', randomUUID(), 'repeat-buyer@example.com')).body;
+    const { payment, signature } = w.pay(c.razorpay_order_id);
+    const r = await post(confirm, { razorpay_order_id: c.razorpay_order_id,
+      razorpay_payment_id: payment.id, razorpay_signature: signature, purchase_token: c.purchase_token });
+    assert.equal(r.statusCode, 200);
+    keys.push(r.body.license_key);
+  }
+  assert.notEqual(keys[0], keys[1]);
+  assert.equal(w.licenses.length, 2);
+  assert.equal(w.tables.fulfilments.length, 2);
+  assert.equal(w.tables.email_outbox.length, 2);
+  assert.notEqual(w.licenses[0].metadata.orderId, w.licenses[1].metadata.orderId);
+  assert.ok(w.tables.orders.every((order) => order.status === 'fulfilled'));
 });
 
 test('multi-pass pricing: 50% off from 21 passes, a smooth ramp below, and buying more never costs less in total', async () => {
