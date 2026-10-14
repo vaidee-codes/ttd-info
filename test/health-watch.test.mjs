@@ -115,6 +115,37 @@ test('health-watch: an unreachable ledger still alerts, with an hourly idempoten
   assert.match(w.emails[0].subject, /ledger database unreachable/);
 });
 
+test('health-watch: one dropped ledger request is rechecked and does not alert', async (t) => {
+  quiet(t);
+  const w = world(t);
+  const fetch = globalThis.fetch;
+  let dropped = false;
+  t.mock.method(globalThis, 'fetch', async (url, opts) => {
+    if (!dropped && new URL(String(url)).host === 'ledger.test') { dropped = true; throw new TypeError('blip'); }
+    return fetch(url, opts);
+  });
+  t.mock.method(console, 'error', () => {});
+  const r = await run();
+  assert.deepEqual(r.body.alerts, []);
+  assert.equal(w.emails.length, 0);
+});
+
+test('health-watch: the ledger coming back is reported once; a steady heartbeat is quiet', async (t) => {
+  quiet(t);
+  const w = world(t);
+  await run();
+  assert.equal(w.emails.length, 0, 'the first heartbeat is not a recovery');
+  await run();
+  assert.equal(w.emails.length, 0, 'a heartbeat minutes old is not a recovery');
+  w.tables.alert_state.find((r) => r.check_name === 'ledger').updated_at = new Date(Date.now() - 40 * 60e3).toISOString();
+  await run();
+  assert.equal(w.emails.length, 1);
+  assert.match(w.emails[0].subject, /RECOVERED: ledger database/);
+  assert.match(w.emails[0].text, /No health check had reached it since .* IST/);
+  await run();
+  assert.equal(w.emails.length, 1);
+});
+
 test('supabase self-heal: a paused project is restored when a token is configured; nothing happens without one', async (t) => {
   const { restorePausedSupabase } = await import('../api/health-watch.mjs');
   assert.deepEqual(await restorePausedSupabase(), []);

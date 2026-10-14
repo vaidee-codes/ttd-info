@@ -132,6 +132,31 @@ export async function restorePausedSupabase() {
   return actions;
 }
 
+// An outage cannot be recorded in the ledger while it is down, so every run
+// that reaches it leaves a heartbeat in the `ledger` row instead. A heartbeat
+// older than two missed runs means the ledger stopped answering in between,
+// and without this the "unreachable" email was never followed by a
+// "recovered" one: the inbox could not say whether the outage was over.
+const LEDGER_GAP_MS = 12 * 60e3;
+async function reportLedgerRecovery(now) {
+  try {
+    const state = await selectOne('alert_state', { check_name: 'ledger' });
+    if (!state) {
+      await insertOne('alert_state', { check_name: 'ledger', updated_at: now.toISOString() }, { onConflict: 'check_name', ignoreDuplicates: true });
+      return;
+    }
+    if (now - Date.parse(state.updated_at) > LEDGER_GAP_MS) {
+      await notify('[TTD Autofill] RECOVERED: ledger database', [
+        `The ttd-ledger database answered again at ${ist(now)}.`,
+        `No health check had reached it since ${ist(state.updated_at)}. Orders paid while it was down are finished by the payments-reconcile cron (it looks back 48 h).`
+      ], 'recovered/ledger/' + now.toISOString().slice(0, 13));
+    }
+    await updateWhere('alert_state', { check_name: 'ledger' }, { updated_at: now.toISOString() });
+  } catch (error) {
+    console.error(JSON.stringify({ event: 'ledger_heartbeat_error', code: String(error && (error.code || error.status) || 'error').slice(0, 60) }));
+  }
+}
+
 const CHECKS = { keygen: checkKeygen, keygen_db: checkKeygenDatabase, backup: checkBackup, paid_unfulfilled: checkPaidUnfulfilled, email_failures: checkEmailFailures, email_backlog: checkEmailBacklog, email_on_ses: checkEmailOnSes };
 
 async function notify(subject, lines, idempotencyKey) {
@@ -152,10 +177,13 @@ export default async function handler(req, res) {
 
   const now = new Date();
   // The ledger holds alert state, so if it is unreachable (e.g. Supabase paused
-  // the project) alert directly, at most once an hour.
-  try {
+  // the project) alert directly, at most once an hour. Rechecked like every
+  // other check: one dropped request used to page on its own.
+  const ledger = await runCheck('ledger', async () => {
     await selectMany('alert_state', { select: 'check_name', limit: '1' });
-  } catch {
+    return { ok: true };
+  });
+  if (!ledger.ok) {
     const healed = await restorePausedSupabase();
     await notify('[TTD Autofill] ALERT: ledger database unreachable', [
       'The ttd-ledger database did not answer. Payments cannot be recorded and licences for new purchases cannot be issued.',
@@ -164,6 +192,7 @@ export default async function handler(req, res) {
     ], 'alert/ledger/' + now.toISOString().slice(0, 13));
     return res.status(200).json({ ok: false, alerts: ['ledger'] });
   }
+  await reportLedgerRecovery(now);
   const results = {};
   await Promise.all(Object.entries(CHECKS).map(async ([name, check]) => { results[name] = await runCheck(name, check); }));
 
