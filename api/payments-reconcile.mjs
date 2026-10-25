@@ -14,6 +14,9 @@ export default async function handler(req, res) {
   if (!secret || req.headers.authorization !== 'Bearer ' + secret) return res.status(401).json({ ok: false });
   if (paymentProvider() === 'dodo') return res.status(200).json({ ok: true, skipped: 'order_payments_disabled' });
 
+  // Orders from another gateway (e.g. Razorpay-era checkouts still open in the
+  // ledger) cannot be looked up here: only this provider's own order ids.
+  const idPrefix = paymentProvider() === 'cashfree' ? 'ttd_*' : 'order_*';
   const now = Date.now();
   const since = new Date(now - 48 * 3600e3).toISOString();
   const before = new Date(now - 2 * 60e3).toISOString();
@@ -24,10 +27,10 @@ export default async function handler(req, res) {
   try {
     const window = `(created_at.gte.${since},created_at.lte.${before})`;
     const paid = await selectMany('orders', {
-      select: '*', status: 'eq.paid', razorpay_order_id: 'not.is.null', order: 'paid_at.asc', limit: String(BATCH)
+      select: '*', status: 'eq.paid', razorpay_order_id: 'like.' + idPrefix, order: 'paid_at.asc', limit: String(BATCH)
     });
     const unpaid = await selectMany('orders', {
-      select: '*', status: 'eq.created', razorpay_order_id: 'not.is.null', and: window,
+      select: '*', status: 'eq.created', razorpay_order_id: 'like.' + idPrefix, and: window,
       order: 'reconcile_checked_at.asc.nullsfirst,created_at.desc', limit: String(BATCH)
     });
     orders = [...paid, ...unpaid];
