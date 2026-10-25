@@ -70,3 +70,9 @@
 .pass-plan-price-sm{font-size:.95rem}
 .pass-check.disabled{opacity:.6}
 .pass-check.disabled label{cursor:not-allowed}
+.pass-contact{margin-top:16px;display:grid;gap:6px}
+.pass-contact[hidden]{display:none}
+.pass-contact label{font-weight:700;font-size:.92rem}
+.pass-contact label small{font-weight:400;color:var(--muted)}
+.pass-contact input{width:100%;padding:12px 14px;border:1px solid #d8c9f4;border-radius:12px;font:inherit;background:#fff;margin-bottom:8px}
+.pass-contact input:focus{outline:2px solid #7c3aed;outline-offset:1px}

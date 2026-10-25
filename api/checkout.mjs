@@ -6,6 +6,7 @@ import {
   planByCode
 } from './_dodo.mjs';
 import { logCheckoutCreated, logCheckoutRejected } from './_diagnostics.mjs';
+import { cashfreeCheckout } from './_cashfree-checkout.mjs';
 import { razorpayCheckout } from './_razorpay-checkout.mjs';
 import { paymentProvider } from './_razorpay.mjs';
 import {
@@ -59,6 +60,9 @@ export default async function handler(req, res) {
 
   if (paymentProvider() === 'razorpay') {
     return razorpayCheckout(res, { plan, body, requestId, extensionId });
+  }
+  if (paymentProvider() === 'cashfree') {
+    return cashfreeCheckout(res, { plan, body, requestId, extensionId });
   }
 
   const returnParams = new URLSearchParams({ plan: plan.code });

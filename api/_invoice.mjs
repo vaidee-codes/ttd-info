@@ -1,6 +1,7 @@
 import { PDFDocument, rgb, StandardFonts } from 'pdf-lib';
 import { PLANS } from './_dodo.mjs';
 import { insertOne, rpc, selectOne } from './_ledger.mjs';
+import { paymentProvider } from './_razorpay.mjs';
 
 const PREFIX = 'TTDA';
 
@@ -52,7 +53,7 @@ async function ensureInvoice({ link, issuedAt, buyerEmail, plan, amountPaise, pa
 export function ensureOrderInvoice(order) {
   return ensureInvoice({
     link: { order_id: order.id }, issuedAt: order.paid_at || order.fulfilled_at || new Date(), buyerEmail: order.email,
-    plan: order.plan, amountPaise: order.amount_paise, paymentRef: order.razorpay_payment_id, paymentMethod: 'Razorpay',
+    plan: order.plan, amountPaise: order.amount_paise, paymentRef: order.razorpay_payment_id, paymentMethod: paymentProvider() === 'cashfree' ? 'Cashfree' : 'Razorpay',
     quantity: Number(order.quantity || 1), discountPct: Number(order.discount_pct || 0)
   });
 }

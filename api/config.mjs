@@ -31,7 +31,7 @@ export default function handler(req, res) {
     // `plans` is the full set the pass page renders.
     payment_provider: paymentProvider(),
     // Multi-pass (one key, several browsers) — Razorpay checkout only.
-    bulk: paymentProvider() === 'razorpay' ? { max_quantity: MAX_QUANTITY, tiers: BULK_TIERS } : null,
+    bulk: paymentProvider() !== 'dodo' ? { max_quantity: MAX_QUANTITY, tiers: BULK_TIERS } : null,
     plan: planView(WEEKLY_PLAN),
     plans: Object.values(PLANS).map(planView)
   });

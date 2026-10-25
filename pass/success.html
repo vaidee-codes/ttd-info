@@ -98,6 +98,14 @@
     }
 
     function load() {
+      // Back from a payment app before the page could confirm: check with the server.
+      if (paymentStatus === 'pending' && stored && stored.razorpay_order_id && stored.purchase_token) {
+        heading.textContent = 'Confirming your payment';
+        subline.textContent = 'We are checking with the payment provider. Your licence key will appear here once it is confirmed.';
+        showEl(waitingCard);
+        pollForKey(stored);
+        return;
+      }
       if (paymentStatus !== 'succeeded') {
         heading.textContent = 'Payment not confirmed';
         subline.textContent = 'Access is granted only after the payment provider reports a successful payment.';

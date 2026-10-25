@@ -93,6 +93,13 @@
         </div>
       </div>
 
+      <div class="pass-contact" id="contact-fields" hidden>
+        <label for="buyer-email">Email <small>— your licence key and receipt are sent here</small></label>
+        <input type="email" id="buyer-email" autocomplete="email" maxlength="254" placeholder="you@example.com">
+        <label for="buyer-phone">Mobile number <small>— required by the payment provider</small></label>
+        <input type="tel" id="buyer-phone" inputmode="numeric" autocomplete="tel-national" maxlength="14" placeholder="10-digit mobile number">
+      </div>
+
       <button class="pass-btn" id="get-pass">Get 7-day pass · ₹99</button>
       <p class="pass-note" id="checkout-note">You'll enter your email and payment details on the secure checkout page.</p>
       <div class="pass-error" id="error"></div>
@@ -304,6 +311,17 @@
       });
     }
 
+    function loadCashfreeScript() {
+      if (window.Cashfree) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://sdk.cashfree.com/js/v3/cashfree.js';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Could not load the secure payment window. Check your connection and try again.'));
+        document.head.appendChild(script);
+      });
+    }
+
     async function startCheckout(body) {
       const res = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       return { res, data: await res.json().catch(() => ({})) };
@@ -387,6 +405,45 @@
       location.href = '/pass/success?' + next;
     }
 
+    async function cashfreeFlow(autoActivate) {
+      const email = document.getElementById('buyer-email').value.trim();
+      const phone = document.getElementById('buyer-phone').value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid email address — your licence key is sent there.');
+      if (!/^(\+?91|0)?[\s-]?[6-9][0-9]{4}[\s-]?[0-9]{5}$/.test(phone)) throw new Error('Enter a valid 10-digit Indian mobile number.');
+      await loadCashfreeScript();
+      const multi = selectedPlan === 'multi' ? multiPrice() : null;
+      const planCode = multi ? multiPlan.value : selectedPlan;
+      const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), email, phone, activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
+      let { res, data } = await startCheckout(body);
+      if (res.status === 409 && data.error === 'request_conflict') {
+        sessionStorage.removeItem('ttdafCheckoutRequestId');
+        ({ res, data } = await startCheckout({ ...body, request_id: requestId() }));
+      }
+      if (!res.ok || !data.payment_session_id) throw new Error(data.message || 'Could not start checkout. Please try again.');
+
+      // If the payment app hands the buyer to another app and back, the success
+      // page can still find this purchase and keep checking until it is paid.
+      sessionStorage.setItem('ttdafPurchase', JSON.stringify({
+        status: 'pending', plan: planCode, quantity: data.quantity || 1, license_key: '',
+        razorpay_order_id: data.order_id, purchase_token: data.purchase_token
+      }));
+      const cashfree = window.Cashfree({ mode: data.mode });
+      const outcome = await cashfree.checkout({ paymentSessionId: data.payment_session_id, redirectTarget: '_modal' });
+      if (outcome && outcome.error) throw new Error('Payment was not completed. You have not been charged.');
+      if (outcome && outcome.redirect) return;
+
+      btn.textContent = 'Confirming payment…';
+      const result = await confirmPayment({ razorpay_order_id: data.order_id, purchase_token: data.purchase_token });
+      sessionStorage.removeItem('ttdafCheckoutRequestId');
+      sessionStorage.setItem('ttdafPurchase', JSON.stringify({
+        status: 'succeeded', plan: planCode, quantity: data.quantity || 1, license_key: result ? result.license_key : '',
+        razorpay_order_id: data.order_id, purchase_token: data.purchase_token
+      }));
+      const next = new URLSearchParams({ plan: planCode });
+      if (autoActivate && installExtensionId) next.set('extension_id', installExtensionId);
+      location.href = '/pass/success?' + next;
+    }
+
     async function loadConfig() {
       try {
         const response = await fetch('/api/config', { signal: AbortSignal.timeout(5000) });
@@ -396,7 +453,7 @@
           btn.textContent = 'Pass sales are temporarily unavailable';
           return;
         }
-        paymentProvider = config.payment_provider === 'razorpay' ? 'razorpay' : 'dodo';
+        paymentProvider = ['razorpay', 'cashfree'].includes(config.payment_provider) ? config.payment_provider : 'dodo';
         bulk = config.bulk && Array.isArray(config.bulk.tiers) ? config.bulk : null;
         for (const p of config.plans) PLAN_AMOUNT[p.code] = p.amount;
         if (bulk) {
@@ -419,6 +476,11 @@
         if (paymentProvider === 'razorpay') {
           const note = document.getElementById('checkout-note');
           if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Enter your email on the checkout — your licence key appears here right after payment and is also emailed to you.';
+        }
+        if (paymentProvider === 'cashfree') {
+          document.getElementById('contact-fields').hidden = false;
+          const note = document.getElementById('checkout-note');
+          if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Your licence key appears here right after payment and is also emailed to you.';
         }
         // Sync displayed prices/labels to the server's source of truth.
         for (const p of config.plans) {
@@ -458,6 +520,10 @@
         }
         if (paymentProvider === 'razorpay') {
           await razorpayFlow(autoActivate);
+          return;
+        }
+        if (paymentProvider === 'cashfree') {
+          await cashfreeFlow(autoActivate);
           return;
         }
         const res = await fetch('/api/checkout', {

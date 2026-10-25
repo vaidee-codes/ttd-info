@@ -1,7 +1,8 @@
 import { PLANS } from './_dodo.mjs';
 import { ensureOfflineInvoice, ensureOrderInvoice } from './_invoice.mjs';
 import { getLicense } from './_keygen.mjs';
-import { getPayment } from './_razorpay.mjs';
+import { getPayment, paymentProvider } from './_razorpay.mjs';
+import { listCashfreePayments } from './_cashfree.mjs';
 import { openSecret, rpc, selectMany, selectOne, updateWhere } from './_ledger.mjs';
 
 // Outbox retry: 5 min, 10 min, 20 min … capped at 3 h between tries, for up to
@@ -271,9 +272,15 @@ export async function sendEmail(message) {
   return { ok: false, retry, error: errors.join(';').slice(0, 300) };
 }
 
-async function paymentMethod(paymentId) {
+const CASHFREE_GROUPS = { upi: 'UPI', credit_card: 'Card', debit_card: 'Card', net_banking: 'Netbanking', wallet: 'Wallet', pay_later: 'Pay later', emi: 'EMI' };
+
+async function paymentMethod(paymentId, order) {
   if (!paymentId) return null;
   try {
+    if (paymentProvider() === 'cashfree') {
+      const payment = (await listCashfreePayments(order.razorpay_order_id)).find((p) => String(p.cf_payment_id) === String(paymentId));
+      return CASHFREE_GROUPS[payment && payment.payment_group] || null;
+    }
     const payment = await getPayment(paymentId);
     return METHOD_LABELS[payment && payment.method] || (payment && payment.method) || null;
   } catch {
@@ -294,7 +301,7 @@ async function licenceExpiry(keygenLicenseId) {
 // The email for a Razorpay order (with its payment summary).
 export async function orderEmail(order, fulfilment) {
   const invoice = await ensureOrderInvoice(order).catch(() => null);
-  const [method, expiry] = await Promise.all([paymentMethod(order.razorpay_payment_id), licenceExpiry(fulfilment.keygen_license_id)]);
+  const [method, expiry] = await Promise.all([paymentMethod(order.razorpay_payment_id, order), licenceExpiry(fulfilment.keygen_license_id)]);
   const quantity = Number(order.quantity || 1);
   return licenceEmail({
     licenseKey: openSecret(fulfilment.license_key_enc), plan: order.plan, activations: quantity, expiry,

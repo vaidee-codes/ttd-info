@@ -12,7 +12,7 @@ export default async function handler(req, res) {
   res.setHeader('Cache-Control', 'private, no-store');
   const secret = String(process.env.CRON_SECRET || '').trim();
   if (!secret || req.headers.authorization !== 'Bearer ' + secret) return res.status(401).json({ ok: false });
-  if (paymentProvider() !== 'razorpay') return res.status(200).json({ ok: true, skipped: 'razorpay_disabled' });
+  if (paymentProvider() === 'dodo') return res.status(200).json({ ok: true, skipped: 'order_payments_disabled' });
 
   const now = Date.now();
   const since = new Date(now - 48 * 3600e3).toISOString();

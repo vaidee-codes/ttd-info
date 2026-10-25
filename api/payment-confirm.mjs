@@ -13,7 +13,7 @@ const TOKEN = /^[A-Za-z0-9_-]{43}$/;
 // or re-show the key. Payment is always re-verified with Razorpay's API.
 export default async function handler(req, res) {
   if (!beginRequest(req, res, ['POST'])) return;
-  if (paymentProvider() !== 'razorpay') return sendError(res, 404, 'not_found', 'Not found.');
+  if (paymentProvider() === 'dodo') return sendError(res, 404, 'not_found', 'Not found.');
 
   let orderId;
   let paymentId = '';
@@ -28,7 +28,8 @@ export default async function handler(req, res) {
   } catch (error) {
     return handleRequestError(res, error);
   }
-  if (paymentId && !verifyPaymentSignature({ orderId, paymentId, signature })) {
+  // Cashfree has no browser-side signature: the order is always re-verified server-side.
+  if (paymentProvider() === 'razorpay' && paymentId && !verifyPaymentSignature({ orderId, paymentId, signature })) {
     return sendError(res, 400, 'invalid_signature', 'The payment confirmation could not be verified.');
   }
 

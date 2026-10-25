@@ -3,7 +3,8 @@ import { PLANS, ProviderConfigurationError, ProviderError } from './_dodo.mjs';
 import { deliverForOrder } from './_email.mjs';
 import { createLicenseWithKey } from './_keygen.mjs';
 import { insertOne, licenceKeyHash, openSecret, sealSecret, selectOne, sha256Hex, updateWhere } from './_ledger.mjs';
-import { capturePayment, getPayment, listOrderPayments, paymentMatchesOrder } from './_razorpay.mjs';
+import { capturePayment, getPayment, listOrderPayments, paymentMatchesOrder, paymentProvider } from './_razorpay.mjs';
+import { cashfreePaymentMatchesOrder, listCashfreePayments } from './_cashfree.mjs';
 
 export function normaliseEmail(value) {
   const email = String(value || '').trim();
@@ -54,6 +55,13 @@ function log(event, fields = {}) {
 // Finds the captured Razorpay payment for an order. An `authorized` payment is
 // captured here, in case the account's auto-capture setting is off.
 async function capturedPaymentFor(order, paymentId) {
+  if (paymentProvider() === 'cashfree') {
+    const payments = await listCashfreePayments(order.razorpay_order_id);
+    const paid = payments.find((p) => cashfreePaymentMatchesOrder(p, order) && (!paymentId || String(p.cf_payment_id) === String(paymentId)))
+      || payments.find((p) => cashfreePaymentMatchesOrder(p, order));
+    // Same shape as a captured Razorpay payment; Cashfree never reports an email.
+    return paid ? { id: String(paid.cf_payment_id), status: 'captured', email: null } : null;
+  }
   const candidates = paymentId ? [await getPayment(paymentId)] : await listOrderPayments(order.razorpay_order_id);
   const matching = candidates.filter((p) => paymentMatchesOrder(p, order));
   let captured = matching.find((p) => p.status === 'captured');
@@ -83,7 +91,7 @@ export async function fulfilOrder(order) {
       maxMachines: quantity,
       metadata: {
         quantity,
-        source: 'razorpay',
+        source: paymentProvider(),
         orderId: order.id,
         plan: order.plan,
         email: order.email || null,
@@ -93,7 +101,7 @@ export async function fulfilOrder(order) {
     if (!license || !license.id) throw new ProviderError(503, 'KEYGEN_CREATE_FAILED');
     await insertOne('licence_authority', {
       key_hash: licenceKeyHash(licenseKey), authority: 'keygen', public_license_id: license.id,
-      keygen_license_id: license.id, source: 'razorpay'
+      keygen_license_id: license.id, source: paymentProvider()
     }, { onConflict: 'key_hash', ignoreDuplicates: true });
     await updateWhere('fulfilments', { order_id: order.id, status: 'pending' },
       { status: 'provisioned', keygen_license_id: license.id, provisioned_at: new Date().toISOString() });
