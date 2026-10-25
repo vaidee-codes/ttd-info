@@ -103,7 +103,7 @@
         heading.textContent = 'Confirming your payment';
         subline.textContent = 'We are checking with the payment provider. Your licence key will appear here once it is confirmed.';
         showEl(waitingCard);
-        pollForKey(stored);
+        pollForKey(stored, true);
         return;
       }
       if (paymentStatus !== 'succeeded') {
@@ -124,9 +124,9 @@
 
     // The payment went through but the key was not ready in time (e.g. the
     // licence service was slow). Keep asking for a few minutes.
-    async function pollForKey(purchase) {
-      for (let attempt = 0; attempt < 36; attempt++) {
-        await new Promise((r) => setTimeout(r, 5000));
+    async function pollForKey(purchase, fast) {
+      for (let attempt = 0; attempt < (fast ? 45 : 36); attempt++) {
+        await new Promise((r) => setTimeout(r, fast ? (attempt ? 2000 : 800) : 5000));
         try {
           const res = await fetch('/api/payment-confirm', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },
@@ -140,6 +140,13 @@
           }
           if (res.status !== 202 && res.status < 500) return;
         } catch {}
+      }
+      if (fast) {
+        // Back from the payment page but no payment arrived (cancelled or failed).
+        heading.textContent = 'Payment not confirmed';
+        subline.textContent = 'We have not received a payment for this checkout. If you were charged, your licence key will be emailed to you; otherwise you can try again from the pass page.';
+        showEl(errorCard);
+        return;
       }
       subline.textContent = 'Your licence key is being delivered by email. You can also find it later on the "Find my key" page.';
     }

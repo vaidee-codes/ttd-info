@@ -297,6 +297,7 @@
     function inr(paise) { return '₹' + Math.round(Number(paise) / 100); }
 
     let paymentProvider = 'dodo';
+    const cashfreeModal = params.get('cf') === 'modal';
 
     function loadRazorpayScript() {
       if (window.Razorpay) return Promise.resolve();
@@ -417,7 +418,7 @@
       }
       if (!res.ok || !data.payment_session_id) throw new Error(data.message || 'Could not start checkout. Please try again.');
 
-      // If the payment app hands the buyer to another app and back, the success
+      // If the buyer leaves for the payment page (or an app) and comes back, the success
       // page can still find this purchase and keep checking until it is paid.
       sessionStorage.setItem('ttdafPurchase', JSON.stringify({
         status: 'pending', plan: planCode, quantity: data.quantity || 1, license_key: '',
@@ -452,6 +453,13 @@
       })();
 
       const cashfree = window.Cashfree({ mode: data.mode });
+      // Default: full-page redirect to Cashfree's hosted checkout and straight
+      // back to the success page (no popup). Add ?cf=modal to use the popup.
+      if (!cashfreeModal) {
+        btn.textContent = 'Redirecting to secure checkout…';
+        cashfree.checkout({ paymentSessionId: data.payment_session_id, redirectTarget: '_self' });
+        return;
+      }
       const closed = cashfree.checkout({ paymentSessionId: data.payment_session_id, redirectTarget: '_modal' }).then((outcome) => ({ outcome }));
       const first = await Promise.race([closed, early.then((result) => result ? { result } : new Promise(() => {}))]);
       windowClosed = true;

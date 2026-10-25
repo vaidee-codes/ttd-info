@@ -64,7 +64,7 @@ export async function cashfreeCheckout(res, { plan, body, requestId, extensionId
         customerId: 'c_' + createHash('sha256').update(email.toLowerCase()).digest('hex').slice(0, 24),
         email,
         phone: PLACEHOLDER_PHONE,
-        returnUrl: origin + '/pass/success?plan=' + encodeURIComponent(plan.code),
+        returnUrl: origin + '/pass/success?plan=' + encodeURIComponent(plan.code) + (extensionId ? '&extension_id=' + encodeURIComponent(extensionId) : ''),
         notifyUrl: origin + '/api/cashfree-webhook',
         note: `TTD Autofill ${plan.code} pass` + (order.quantity > 1 ? ` x${order.quantity}` : '')
       });
