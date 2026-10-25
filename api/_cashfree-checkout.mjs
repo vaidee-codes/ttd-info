@@ -54,6 +54,12 @@ export async function cashfreeCheckout(res, { plan, body, requestId, extensionId
       return sendError(res, 409, 'already_paid', 'This checkout is already paid. Your licence key is on the success page.');
     }
 
+    // Re-opening checkout issues a new token; the previous one stays valid so a
+    // first tab that completes payment can still show its key.
+    const purchaseToken = newPurchaseToken();
+    const tokenFields = { purchase_token_hash: sha256Hex(purchaseToken), purchase_token_hash_prev: order.purchase_token_hash || null };
+    let tokenSaved = false;
+
     let sessionId;
     if (!order.razorpay_order_id) {
       const gatewayId = cashfreeOrderId(order);
@@ -69,7 +75,9 @@ export async function cashfreeCheckout(res, { plan, body, requestId, extensionId
         note: `TTD Autofill ${plan.code} pass` + (order.quantity > 1 ? ` x${order.quantity}` : '')
       });
       sessionId = created.payment_session_id;
-      const [updated] = await updateWhere('orders', { id: order.id, razorpay_order_id: null }, { razorpay_order_id: gatewayId });
+      // One write for both the gateway order id and the token (one round trip less).
+      const [updated] = await updateWhere('orders', { id: order.id, razorpay_order_id: null }, { razorpay_order_id: gatewayId, ...tokenFields });
+      tokenSaved = !!updated;
       order = updated || await selectOne('orders', { id: order.id });
     } else {
       // Re-opened checkout for an order we already created: fetch its session again.
@@ -77,10 +85,7 @@ export async function cashfreeCheckout(res, { plan, body, requestId, extensionId
     }
     if (!sessionId) throw new Error('Cashfree returned no payment session');
 
-    // Re-opening checkout issues a new token; the previous one stays valid so a
-    // first tab that completes payment can still show its key.
-    const purchaseToken = newPurchaseToken();
-    await updateWhere('orders', { id: order.id }, { purchase_token_hash: sha256Hex(purchaseToken), purchase_token_hash_prev: order.purchase_token_hash || null });
+    if (!tokenSaved) await updateWhere('orders', { id: order.id }, tokenFields);
     console.log(JSON.stringify({ event: 'checkout_created', provider: 'cashfree', plan: plan.code, auto_activate: !!extensionId }));
     return res.status(200).json({
       ok: true,

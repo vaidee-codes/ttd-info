@@ -512,6 +512,7 @@
         }
         if (paymentProvider === 'cashfree') {
           document.getElementById('contact-fields').hidden = false;
+          loadCashfreeScript().catch(() => {}); // warm up, so the click does not wait for it
           const note = document.getElementById('checkout-note');
           if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Your licence key appears here right after payment and is also emailed to you.';
         }
