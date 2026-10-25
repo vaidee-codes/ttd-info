@@ -272,14 +272,15 @@ export async function sendEmail(message) {
   return { ok: false, retry, error: errors.join(';').slice(0, 300) };
 }
 
-const CASHFREE_GROUPS = { upi: 'UPI', credit_card: 'Card', debit_card: 'Card', net_banking: 'Netbanking', wallet: 'Wallet', pay_later: 'Pay later', emi: 'EMI' };
+// Cashfree reports the method as the single key of `payment_method`.
+const CASHFREE_METHODS = { upi: 'UPI', card: 'Card', netbanking: 'Netbanking', app: 'Wallet', paylater: 'Pay later', emi: 'EMI', cardless_emi: 'EMI' };
 
 async function paymentMethod(paymentId, order) {
   if (!paymentId) return null;
   try {
     if (paymentProvider() === 'cashfree') {
       const payment = (await listCashfreePayments(order.razorpay_order_id)).find((p) => String(p.cf_payment_id) === String(paymentId));
-      return CASHFREE_GROUPS[payment && payment.payment_group] || null;
+      return CASHFREE_METHODS[Object.keys(payment && payment.payment_method || {})[0]] || null;
     }
     const payment = await getPayment(paymentId);
     return METHOD_LABELS[payment && payment.method] || (payment && payment.method) || null;

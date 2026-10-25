@@ -7,9 +7,9 @@ import { MAX_QUANTITY, priceFor } from './_pricing.mjs';
 import { cashfreeConfig, createCashfreeOrder, getCashfreeOrder } from './_cashfree.mjs';
 
 const EMAIL = /^[^\s@<>()[\]\\,;:"]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
-// Indian mobile number, 10 digits. Cashfree requires one; we pass it straight
-// through and never store it.
-const PHONE = /^[6-9][0-9]{9}$/;
+// Cashfree requires a customer phone number, but its docs allow dummy details
+// when the merchant does not need them (we do not): the buyer is never asked.
+const PLACEHOLDER_PHONE = '9999999999';
 
 function appOrigin() {
   const host = String(process.env.VERCEL_PROJECT_PRODUCTION_URL || '').trim();
@@ -22,17 +22,15 @@ export function cashfreeOrderId(order) {
   return 'ttd_' + String(order.id).replace(/-/g, '');
 }
 
-// POST /api/checkout { plan, request_id, email, phone, quantity?, activate?, extension_id? } with PAYMENT_PROVIDER=cashfree.
+// POST /api/checkout { plan, request_id, email, quantity?, activate?, extension_id? } with PAYMENT_PROVIDER=cashfree.
 // Creates (or re-uses, for the same request_id) a server-priced Cashfree order and
 // returns its payment session for the Cashfree JS checkout. The order id is kept
 // in the ledger's gateway-order column (razorpay_order_id) so reconcile, webhook
 // and purchase-confirm work on one shape for every gateway.
 export async function cashfreeCheckout(res, { plan, body, requestId, extensionId }) {
   let email;
-  let phone;
   try {
     email = normaliseEmail(boundedString(body.email, { field: 'email', max: 254, pattern: EMAIL }));
-    phone = boundedString(String(body.phone || '').replace(/[\s-]/g, '').replace(/^(\+91|91|0)(?=[0-9]{10}$)/, ''), { field: 'phone', max: 10, pattern: PHONE });
   } catch (error) {
     return handleRequestError(res, error);
   }
@@ -65,7 +63,7 @@ export async function cashfreeCheckout(res, { plan, body, requestId, extensionId
         amountPaise: order.amount_paise,
         customerId: 'c_' + createHash('sha256').update(email.toLowerCase()).digest('hex').slice(0, 24),
         email,
-        phone,
+        phone: PLACEHOLDER_PHONE,
         returnUrl: origin + '/pass/success?plan=' + encodeURIComponent(plan.code),
         notifyUrl: origin + '/api/cashfree-webhook',
         note: `TTD Autofill ${plan.code} pass` + (order.quantity > 1 ? ` x${order.quantity}` : '')

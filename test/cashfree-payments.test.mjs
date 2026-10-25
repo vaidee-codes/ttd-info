@@ -150,7 +150,7 @@ function world(t) {
   });
   w.pay = (orderId, { amount, status = 'SUCCESS', currency = 'INR' } = {}) => {
     const o = w.cfOrders[orderId];
-    const p = { cf_payment_id: Math.floor(Math.random() * 1e9), order_id: orderId, payment_status: status, payment_amount: amount ?? o.order_amount, payment_currency: currency, payment_group: 'upi' };
+    const p = { cf_payment_id: Math.floor(Math.random() * 1e9), order_id: orderId, payment_status: status, payment_amount: amount ?? o.order_amount, payment_currency: currency, payment_method: { upi: { channel: 'qrcode' } } };
     w.payments[p.cf_payment_id] = p;
     return p;
   };
@@ -178,7 +178,7 @@ async function hook(event, { secret = 'cfsk_test_secret', timestamp = String(Dat
 }
 const quiet = (t) => { t.mock.method(console, 'log', () => {}); t.mock.method(console, 'error', () => {}); };
 const start = (plan = '7d', requestId = randomUUID(), extra = {}) =>
-  post(checkout, { plan, request_id: requestId, email: 'Buyer+ttd@Example.COM', phone: '98765 43210', activate: false, ...extra });
+  post(checkout, { plan, request_id: requestId, email: 'Buyer+ttd@Example.COM', activate: false, ...extra });
 const successEvent = (order, p) => ({ type: 'PAYMENT_SUCCESS_WEBHOOK', event_time: '2026-10-25T10:00:00+05:30', data: { order: { order_id: order }, payment: { cf_payment_id: p.cf_payment_id, payment_status: 'SUCCESS' } } });
 
 // ---- checkout -------------------------------------------------------------
@@ -195,24 +195,23 @@ test('cashfree checkout creates a server-priced INR order with a payment session
   assert.match(r.body.purchase_token, /^[A-Za-z0-9_-]{43}$/);
   const cf = w.cfOrders[r.body.order_id];
   assert.equal(cf.order_amount, 299);
-  assert.equal(cf.customer_details.customer_phone, '9876543210');
+  assert.equal(cf.customer_details.customer_phone, '9999999999');
   assert.equal(cf.customer_details.customer_email, 'Buyer+ttd@example.com');
   assert.match(cf.order_meta.notify_url, /\/api\/cashfree-webhook$/);
   const order = w.tables.orders[0];
   assert.equal(order.razorpay_order_id, r.body.order_id);
   assert.equal(order.razorpay_mode, 'test');
   assert.notEqual(order.purchase_token_hash, r.body.purchase_token);
-  // The phone number is passed through, never stored.
-  assert.equal(JSON.stringify(w.tables).includes('9876543210'), false);
 });
 
-test('cashfree checkout needs a valid email and Indian mobile number', async (t) => {
+test('cashfree checkout needs a valid email; the buyer is never asked for a phone number', async (t) => {
   quiet(t);
-  world(t);
+  const w = world(t);
   assert.equal((await start('7d', randomUUID(), { email: 'nope' })).statusCode, 400);
-  assert.equal((await start('7d', randomUUID(), { phone: '12345' })).statusCode, 400);
-  assert.equal((await start('7d', randomUUID(), { phone: undefined })).statusCode, 400);
-  assert.equal((await start('7d', randomUUID(), { phone: '+91 98765-43210' })).statusCode, 200);
+  const ok = await start('7d', randomUUID(), { phone: '12345' });
+  assert.equal(ok.statusCode, 200);
+  // Whatever the page sends, Cashfree only ever gets the placeholder number.
+  assert.equal(w.cfOrders[ok.body.order_id].customer_details.customer_phone, '9999999999');
 });
 
 test('re-opening the same checkout reuses the Cashfree order and issues a fresh token', async (t) => {
