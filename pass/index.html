@@ -297,7 +297,7 @@
     function inr(paise) { return '₹' + Math.round(Number(paise) / 100); }
 
     let paymentProvider = 'dodo';
-    const cashfreeModal = params.get('cf') === 'modal';
+    const cashfreeModal = params.get('cf') !== 'redirect';
 
     function loadRazorpayScript() {
       if (window.Razorpay) return Promise.resolve();
@@ -453,8 +453,9 @@
       })();
 
       const cashfree = window.Cashfree({ mode: data.mode });
-      // Default: full-page redirect to Cashfree's hosted checkout and straight
-      // back to the success page (no popup). Add ?cf=modal to use the popup.
+      // Default: popup (watched for early confirmation, below). Add
+      // ?cf=redirect for the full-page hosted checkout: measured no faster,
+      // because Cashfree shows the same post-payment screen there too.
       if (!cashfreeModal) {
         btn.textContent = 'Redirecting to secure checkout…';
         cashfree.checkout({ paymentSessionId: data.payment_session_id, redirectTarget: '_self' });
