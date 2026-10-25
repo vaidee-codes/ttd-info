@@ -423,21 +423,49 @@
         status: 'pending', plan: planCode, quantity: data.quantity || 1, license_key: '',
         razorpay_order_id: data.order_id, purchase_token: data.purchase_token
       }));
+      const finish = (result) => {
+        sessionStorage.removeItem('ttdafCheckoutRequestId');
+        sessionStorage.setItem('ttdafPurchase', JSON.stringify({
+          status: 'succeeded', plan: planCode, quantity: data.quantity || 1, license_key: result ? result.license_key : '',
+          razorpay_order_id: data.order_id, purchase_token: data.purchase_token
+        }));
+        const next = new URLSearchParams({ plan: planCode });
+        if (autoActivate && installExtensionId) next.set('extension_id', installExtensionId);
+        location.href = '/pass/success?' + next;
+      };
+
+      // Cashfree keeps its "Updating order status in N seconds" screen up for a
+      // few seconds after the payment, and offers no way to shorten it. Our
+      // server learns of the payment (webhook / API check) well before that, so
+      // watch for it while the window is open and go straight to the key.
+      let windowClosed = false;
+      const early = (async () => {
+        for (let i = 0; i < 100 && !windowClosed; i++) {
+          await new Promise((r) => setTimeout(r, 2500));
+          if (windowClosed) break;
+          const res = await fetch('/api/payment-confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ razorpay_order_id: data.order_id, purchase_token: data.purchase_token }) }).catch(() => null);
+          const body = res && res.ok ? await res.json().catch(() => ({})) : {};
+          if (body.license_key) return body;
+        }
+        return null;
+      })();
+
       const cashfree = window.Cashfree({ mode: data.mode });
-      const outcome = await cashfree.checkout({ paymentSessionId: data.payment_session_id, redirectTarget: '_modal' });
+      const closed = cashfree.checkout({ paymentSessionId: data.payment_session_id, redirectTarget: '_modal' }).then((outcome) => ({ outcome }));
+      const first = await Promise.race([closed, early.then((result) => result ? { result } : new Promise(() => {}))]);
+      windowClosed = true;
+      if (first.result) {
+        btn.textContent = 'Payment received — opening your key…';
+        finish(first.result);
+        return;
+      }
+      const outcome = first.outcome;
       if (outcome && outcome.error) throw new Error('Payment was not completed. You have not been charged.');
       if (outcome && outcome.redirect) return;
 
       btn.textContent = 'Confirming payment…';
-      const result = await confirmPayment({ razorpay_order_id: data.order_id, purchase_token: data.purchase_token });
-      sessionStorage.removeItem('ttdafCheckoutRequestId');
-      sessionStorage.setItem('ttdafPurchase', JSON.stringify({
-        status: 'succeeded', plan: planCode, quantity: data.quantity || 1, license_key: result ? result.license_key : '',
-        razorpay_order_id: data.order_id, purchase_token: data.purchase_token
-      }));
-      const next = new URLSearchParams({ plan: planCode });
-      if (autoActivate && installExtensionId) next.set('extension_id', installExtensionId);
-      location.href = '/pass/success?' + next;
+      finish(await confirmPayment({ razorpay_order_id: data.order_id, purchase_token: data.purchase_token }));
     }
 
     async function loadConfig() {
