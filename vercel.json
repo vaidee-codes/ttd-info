@@ -1,5 +1,59 @@
 {
   "cleanUrls": true,
+  "rewrites": [
+    {
+      "source": "/privacy",
+      "destination": "/PRIVACY_POLICY"
+    },
+    {
+      "source": "/privacy-policy",
+      "destination": "/PRIVACY_POLICY"
+    },
+    {
+      "source": "/privacy-notice",
+      "destination": "/PRIVACY_POLICY"
+    },
+    {
+      "source": "/shipping",
+      "destination": "/shipping-policy"
+    },
+    {
+      "source": "/delivery",
+      "destination": "/shipping-policy"
+    },
+    {
+      "source": "/delivery-policy",
+      "destination": "/shipping-policy"
+    },
+    {
+      "source": "/shipping-and-delivery",
+      "destination": "/shipping-policy"
+    },
+    {
+      "source": "/contact-us",
+      "destination": "/contact"
+    },
+    {
+      "source": "/terms-and-conditions",
+      "destination": "/terms"
+    },
+    {
+      "source": "/terms-of-service",
+      "destination": "/terms"
+    },
+    {
+      "source": "/refunds",
+      "destination": "/refund-policy"
+    },
+    {
+      "source": "/cancellation-policy",
+      "destination": "/refund-policy"
+    },
+    {
+      "source": "/refund-and-cancellation",
+      "destination": "/refund-policy"
+    }
+  ],
   "regions": [
     "bom1"
   ],
