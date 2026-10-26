@@ -11,7 +11,7 @@ import { paymentProvider } from './_razorpay.mjs';
 import {
   beginRequest,
   boundedString,
-  CANONICAL_ORIGIN,
+  siteOriginFor,
   featureEnabled,
   handleRequestError,
   readJsonBody,
@@ -66,7 +66,7 @@ export default async function handler(req, res) {
     returnParams.set('extension_id', extensionId);
     returnParams.set('activate', '1');
   }
-  const returnUrl = CANONICAL_ORIGIN + '/pass/success?' + returnParams;
+  const returnUrl = siteOriginFor(req) + '/pass/success?' + returnParams;
 
   try {
     // Fail closed if the live provider drifts from the selected plan's price,
