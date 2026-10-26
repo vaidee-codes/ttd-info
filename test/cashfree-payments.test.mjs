@@ -216,6 +216,26 @@ test('cashfree returns the buyer to the site domain they started on; the webhook
   assert.match(w.cfOrders[fromOld.body.order_id].order_meta.return_url, /^https:\/\/ttd-info\.vercel\.app\/pass\/success\?plan=7d/);
 });
 
+test('cashfree sells several passes on one key at the tiered price', async (t) => {
+  quiet(t);
+  const w = world(t);
+  const { priceFor } = await import('../api/_pricing.mjs');
+  const { planByCode } = await import('../api/_dodo.mjs');
+  const expected = priceFor(planByCode('7d'), 5);
+  const r = await start('7d', randomUUID(), { quantity: 5 });
+  assert.equal(r.statusCode, 200);
+  assert.equal(r.body.quantity, 5);
+  assert.equal(r.body.amount, expected.total);
+  assert.ok(expected.discountPct > 0 && r.body.amount < 5 * 9900);
+  const order = w.tables.orders[0];
+  assert.equal(order.quantity, 5);
+  assert.equal(order.amount_paise, expected.total);
+  assert.equal(w.cfOrders[r.body.order_id].order_amount, expected.total / 100);
+  const bad = await start('7d', randomUUID(), { quantity: 51 });
+  assert.equal(bad.statusCode, 400);
+  assert.equal(bad.body.error, 'invalid_quantity');
+});
+
 test('cashfree checkout needs a valid email; the buyer is never asked for a phone number', async (t) => {
   quiet(t);
   const w = world(t);
@@ -313,12 +333,12 @@ test('reconcile finishes a paid order whose webhook never arrived', async (t) =>
   assert.equal(w.tables.orders[0].status, 'fulfilled');
 });
 
-test('config reports cashfree with multi-pass hidden', async (t) => {
+test('config reports cashfree with multi-pass pricing', async (t) => {
   quiet(t);
   const r = res();
   config({ method: 'GET', headers: { origin: 'https://ttd-info.vercel.app' } }, r);
   assert.equal(r.body.payment_provider, 'cashfree');
-  assert.equal(r.body.bulk, null);
+  assert.ok(r.body.bulk && r.body.bulk.tiers.length);
 });
 
 test('a production key cannot run against the sandbox, or a test key against production', async (t) => {
