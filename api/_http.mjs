@@ -1,4 +1,6 @@
 const CANONICAL_ORIGIN = 'https://ttd-info.vercel.app';
+// Domains that serve the same app. Checkout returns the buyer to the one they came from.
+const SITE_ORIGINS = [CANONICAL_ORIGIN, 'https://ttd-autofill.com'];
 const EXTENSION_ORIGIN = 'chrome-extension://piiegkjdfbbakjmjdckgdjbbohfjfolg';
 
 export const MAX_BODY_BYTES = 4096;
@@ -70,7 +72,7 @@ function productionOrigin() {
 }
 
 export function allowedOrigins() {
-  return new Set([CANONICAL_ORIGIN, EXTENSION_ORIGIN, ...productionOrigin(), ...previewOrigins()]);
+  return new Set([...SITE_ORIGINS, EXTENSION_ORIGIN, ...productionOrigin(), ...previewOrigins()]);
 }
 
 export function applyResponseHeaders(req, res) {
@@ -153,4 +155,10 @@ export function featureEnabled(name) {
   return String(process.env[name] || '').trim().toLowerCase() === 'true';
 }
 
-export { CANONICAL_ORIGIN, EXTENSION_ORIGIN };
+// The site origin a request came from, if it is one of ours; otherwise the canonical one.
+export function siteOriginFor(req) {
+  const origin = String(header(req, 'origin') || '');
+  return SITE_ORIGINS.includes(origin) ? origin : CANONICAL_ORIGIN;
+}
+
+export { CANONICAL_ORIGIN, EXTENSION_ORIGIN, SITE_ORIGINS };
