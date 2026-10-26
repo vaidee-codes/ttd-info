@@ -17,9 +17,10 @@ function appOrigin(siteOrigin) {
 }
 
 // Our own order id doubles as the PhonePe merchantOrderId (letters, digits and
-// "_" only, so it also passes the purchase-confirm id check).
+// "_" only, so it also passes the purchase-confirm id check). The "pp_" prefix keeps
+// reconcile from asking PhonePe about other gateways' orders (Cashfree used "ttd_").
 export function phonepeOrderId(order) {
-  return 'ttd_' + String(order.id).replace(/-/g, '');
+  return 'pp_' + String(order.id).replace(/-/g, '');
 }
 
 // POST /api/checkout { plan, request_id, email, quantity?, activate?, extension_id? } with PAYMENT_PROVIDER=phonepe.

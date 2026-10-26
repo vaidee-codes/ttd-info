@@ -202,7 +202,7 @@ test('phonepe checkout creates a server-priced order and returns the hosted chec
   assert.equal(r.body.mode, 'sandbox');
   assert.equal(r.body.amount, 29900);
   assert.match(r.body.redirect_url, /^https:\/\/mercury-uat\.phonepe\.com\//);
-  assert.match(r.body.order_id, /^ttd_[0-9a-f]{32}$/);
+  assert.match(r.body.order_id, /^pp_[0-9a-f]{32}$/);
   assert.match(r.body.purchase_token, /^[A-Za-z0-9_-]{43}$/);
   const pp = w.ppOrders[r.body.order_id];
   assert.equal(pp.amount, 29900);
@@ -363,9 +363,9 @@ test('PhonePe stays in the sandbox unless PHONEPE_MODE is exactly production; ca
     process.env.PHONEPE_MODE = 'production';
     assert.equal(phonepeConfig().hosts.api, 'https://api.phonepe.com/apis/pg');
   } finally { process.env.PHONEPE_MODE = 'sandbox'; }
-  assert.deepEqual(phonepeAttemptIds('ttd_ab_a2'), ['ttd_ab_a2', 'ttd_ab_a1', 'ttd_ab']);
-  assert.equal(nextPhonePeOrderId('ttd_ab'), 'ttd_ab_a1');
-  assert.equal(nextPhonePeOrderId('ttd_ab_a1'), 'ttd_ab_a2');
+  assert.deepEqual(phonepeAttemptIds('pp_ab_a2'), ['pp_ab_a2', 'pp_ab_a1', 'pp_ab']);
+  assert.equal(nextPhonePeOrderId('pp_ab'), 'pp_ab_a1');
+  assert.equal(nextPhonePeOrderId('pp_ab_a1'), 'pp_ab_a2');
   process.env.PAYMENT_PROVIDER = 'cashfree';
   try { assert.equal(paymentProvider(), 'dodo'); } finally { process.env.PAYMENT_PROVIDER = 'phonepe'; }
 });
