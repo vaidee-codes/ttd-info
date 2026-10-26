@@ -62,7 +62,7 @@ export default async function handler(req, res) {
     return razorpayCheckout(res, { plan, body, requestId, extensionId });
   }
   if (paymentProvider() === 'cashfree') {
-    return cashfreeCheckout(res, { plan, body, requestId, extensionId });
+    return cashfreeCheckout(res, { plan, body, requestId, extensionId, siteOrigin: siteOriginFor(req) });
   }
 
   const returnParams = new URLSearchParams({ plan: plan.code });

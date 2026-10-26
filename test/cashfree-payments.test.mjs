@@ -204,6 +204,18 @@ test('cashfree checkout creates a server-priced INR order with a payment session
   assert.notEqual(order.purchase_token_hash, r.body.purchase_token);
 });
 
+test('cashfree returns the buyer to the site domain they started on; the webhook stays on the app origin', async (t) => {
+  quiet(t);
+  const w = world(t);
+  const fromNew = await post(checkout, { plan: '7d', request_id: randomUUID(), email: 'a@example.com', activate: false }, { origin: 'https://ttd-autofill.com' });
+  assert.equal(fromNew.statusCode, 200);
+  const first = w.cfOrders[fromNew.body.order_id].order_meta;
+  assert.match(first.return_url, /^https:\/\/ttd-autofill\.com\/pass\/success\?plan=7d/);
+  assert.match(first.notify_url, /^https:\/\/ttd-info\.vercel\.app\/api\/cashfree-webhook$/);
+  const fromOld = await start('7d');
+  assert.match(w.cfOrders[fromOld.body.order_id].order_meta.return_url, /^https:\/\/ttd-info\.vercel\.app\/pass\/success\?plan=7d/);
+});
+
 test('cashfree checkout needs a valid email; the buyer is never asked for a phone number', async (t) => {
   quiet(t);
   const w = world(t);

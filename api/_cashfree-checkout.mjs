@@ -27,7 +27,7 @@ export function cashfreeOrderId(order) {
 // returns its payment session for the Cashfree JS checkout. The order id is kept
 // in the ledger's gateway-order column (razorpay_order_id) so reconcile, webhook
 // and purchase-confirm work on one shape for every gateway.
-export async function cashfreeCheckout(res, { plan, body, requestId, extensionId }) {
+export async function cashfreeCheckout(res, { plan, body, requestId, extensionId, siteOrigin }) {
   let email;
   try {
     email = normaliseEmail(boundedString(body.email, { field: 'email', max: 254, pattern: EMAIL }));
@@ -70,7 +70,8 @@ export async function cashfreeCheckout(res, { plan, body, requestId, extensionId
         customerId: 'c_' + createHash('sha256').update(email.toLowerCase()).digest('hex').slice(0, 24),
         email,
         phone: PLACEHOLDER_PHONE,
-        returnUrl: origin + '/pass/success?plan=' + encodeURIComponent(plan.code) + (extensionId ? '&extension_id=' + encodeURIComponent(extensionId) : ''),
+        // The buyer returns to the site domain they started on; the webhook stays on the app origin.
+        returnUrl: (siteOrigin || origin) + '/pass/success?plan=' + encodeURIComponent(plan.code) + (extensionId ? '&extension_id=' + encodeURIComponent(extensionId) : ''),
         notifyUrl: origin + '/api/cashfree-webhook',
         note: `TTD Autofill ${plan.code} pass` + (order.quantity > 1 ? ` x${order.quantity}` : '')
       });
