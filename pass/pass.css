@@ -57,6 +57,7 @@
 @media(max-width:680px){.pass-plans{grid-template-columns:repeat(2,1fr)}}
 @media(max-width:340px){.pass-plans{grid-template-columns:1fr}}
 .pass-multi{margin-top:14px;padding:16px;border:1px solid var(--line);border-radius:14px;background:#faf8ff}
+.pass-plan[hidden],.pass-multi[hidden]{display:none}
 .pass-multi-row{display:flex;gap:12px;flex-wrap:wrap;align-items:end}
 .pass-multi-row > div{flex:1 1 160px}
 .pass-multi label{display:block;font-size:.8rem;color:var(--muted);margin-bottom:4px}

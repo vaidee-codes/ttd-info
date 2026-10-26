@@ -301,12 +301,12 @@ test('reconcile finishes a paid order whose webhook never arrived', async (t) =>
   assert.equal(w.tables.orders[0].status, 'fulfilled');
 });
 
-test('config reports cashfree with multi-pass pricing', async (t) => {
+test('config reports cashfree with multi-pass hidden', async (t) => {
   quiet(t);
   const r = res();
   config({ method: 'GET', headers: { origin: 'https://ttd-info.vercel.app' } }, r);
   assert.equal(r.body.payment_provider, 'cashfree');
-  assert.ok(r.body.bulk && r.body.bulk.tiers.length);
+  assert.equal(r.body.bulk, null);
 });
 
 test('a production key cannot run against the sandbox, or a test key against production', async (t) => {
