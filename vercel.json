@@ -16,6 +16,9 @@
     "api/cashfree-webhook.mjs": {
       "maxDuration": 30
     },
+    "api/phonepe-webhook.mjs": {
+      "maxDuration": 30
+    },
     "api/payments-reconcile.mjs": {
       "maxDuration": 60
     },

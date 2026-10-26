@@ -404,6 +404,28 @@
       location.href = '/pass/success?' + next;
     }
 
+    // PhonePe: full-page redirect to the hosted checkout; it returns the buyer to
+    // /pass/success, which confirms with the server using the pending purchase below.
+    async function phonepeFlow(autoActivate) {
+      const email = document.getElementById('buyer-email').value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid email address — your licence key is sent there.');
+      const multi = selectedPlan === 'multi' ? multiPrice() : null;
+      const planCode = multi ? multiPlan.value : selectedPlan;
+      const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), email, activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
+      let { res, data } = await startCheckout(body);
+      if (res.status === 409 && data.error === 'request_conflict') {
+        sessionStorage.removeItem('ttdafCheckoutRequestId');
+        ({ res, data } = await startCheckout({ ...body, request_id: requestId() }));
+      }
+      if (!res.ok || !data.redirect_url) throw new Error(data.message || 'Could not start checkout. Please try again.');
+      sessionStorage.setItem('ttdafPurchase', JSON.stringify({
+        status: 'pending', plan: planCode, quantity: data.quantity || 1, license_key: '',
+        razorpay_order_id: data.order_id, purchase_token: data.purchase_token
+      }));
+      btn.textContent = 'Redirecting to secure checkout…';
+      location.href = data.redirect_url;
+    }
+
     async function cashfreeFlow(autoActivate) {
       const email = document.getElementById('buyer-email').value.trim();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid email address — your licence key is sent there.');
@@ -486,7 +508,7 @@
           btn.textContent = 'Pass sales are temporarily unavailable';
           return;
         }
-        paymentProvider = ['razorpay', 'cashfree'].includes(config.payment_provider) ? config.payment_provider : 'dodo';
+        paymentProvider = ['razorpay', 'phonepe'].includes(config.payment_provider) ? config.payment_provider : 'dodo';
         bulk = config.bulk && Array.isArray(config.bulk.tiers) ? config.bulk : null;
         for (const p of config.plans) PLAN_AMOUNT[p.code] = p.amount;
         if (bulk) {
@@ -510,9 +532,8 @@
           const note = document.getElementById('checkout-note');
           if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Enter your email on the checkout — your licence key appears here right after payment and is also emailed to you.';
         }
-        if (paymentProvider === 'cashfree') {
+        if (paymentProvider === 'phonepe') {
           document.getElementById('contact-fields').hidden = false;
-          loadCashfreeScript().catch(() => {}); // warm up, so the click does not wait for it
           const note = document.getElementById('checkout-note');
           if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Your licence key appears here right after payment and is also emailed to you.';
         }
@@ -556,8 +577,8 @@
           await razorpayFlow(autoActivate);
           return;
         }
-        if (paymentProvider === 'cashfree') {
-          await cashfreeFlow(autoActivate);
+        if (paymentProvider === 'phonepe') {
+          await phonepeFlow(autoActivate);
           return;
         }
         const res = await fetch('/api/checkout', {

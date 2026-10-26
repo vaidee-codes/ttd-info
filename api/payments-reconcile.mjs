@@ -16,7 +16,7 @@ export default async function handler(req, res) {
 
   // Orders from another gateway (e.g. Razorpay-era checkouts still open in the
   // ledger) cannot be looked up here: only this provider's own order ids.
-  const idPrefix = paymentProvider() === 'cashfree' ? 'ttd_*' : 'order_*';
+  const idPrefix = paymentProvider() === 'phonepe' ? 'ttd_*' : 'order_*';
   const now = Date.now();
   const since = new Date(now - 48 * 3600e3).toISOString();
   const before = new Date(now - 2 * 60e3).toISOString();

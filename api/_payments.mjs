@@ -4,7 +4,8 @@ import { deliverForOrder } from './_email.mjs';
 import { createLicenseWithKey } from './_keygen.mjs';
 import { insertOne, licenceKeyHash, openSecret, sealSecret, selectOne, sha256Hex, updateWhere } from './_ledger.mjs';
 import { capturePayment, getPayment, listOrderPayments, paymentMatchesOrder, paymentProvider } from './_razorpay.mjs';
-import { cashfreePaymentMatchesOrder, listCashfreePayments } from './_cashfree.mjs';
+// import { cashfreePaymentMatchesOrder, listCashfreePayments } from './_cashfree.mjs';
+import { getPhonePeOrder, phonepeAttemptIds, phonepeOrderMatches, phonepePaymentId } from './_phonepe.mjs';
 
 export function normaliseEmail(value) {
   const email = String(value || '').trim();
@@ -55,12 +56,21 @@ function log(event, fields = {}) {
 // Finds the captured Razorpay payment for an order. An `authorized` payment is
 // captured here, in case the account's auto-capture setting is off.
 async function capturedPaymentFor(order, paymentId) {
-  if (paymentProvider() === 'cashfree') {
-    const payments = await listCashfreePayments(order.razorpay_order_id);
-    const paid = payments.find((p) => cashfreePaymentMatchesOrder(p, order) && (!paymentId || String(p.cf_payment_id) === String(paymentId)))
-      || payments.find((p) => cashfreePaymentMatchesOrder(p, order));
-    // Same shape as a captured Razorpay payment; Cashfree never reports an email.
-    return paid ? { id: String(paid.cf_payment_id), status: 'captured', email: null } : null;
+  // if (paymentProvider() === 'cashfree') {
+  //   const payments = await listCashfreePayments(order.razorpay_order_id);
+  //   const paid = payments.find((p) => cashfreePaymentMatchesOrder(p, order) && (!paymentId || String(p.cf_payment_id) === String(paymentId)))
+  //     || payments.find((p) => cashfreePaymentMatchesOrder(p, order));
+  //   // Same shape as a captured Razorpay payment; Cashfree never reports an email.
+  //   return paid ? { id: String(paid.cf_payment_id), status: 'captured', email: null } : null;
+  // }
+  if (paymentProvider() === 'phonepe') {
+    // Newest attempt first; an older attempt (re-opened checkout) may be the one that was paid.
+    for (const attemptId of phonepeAttemptIds(order.razorpay_order_id)) {
+      const status = await getPhonePeOrder(attemptId);
+      // Same shape as a captured Razorpay payment; PhonePe never reports an email.
+      if (phonepeOrderMatches(status, order)) return { id: phonepePaymentId(status), status: 'captured', email: null };
+    }
+    return null;
   }
   const candidates = paymentId ? [await getPayment(paymentId)] : await listOrderPayments(order.razorpay_order_id);
   const matching = candidates.filter((p) => paymentMatchesOrder(p, order));

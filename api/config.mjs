@@ -30,7 +30,7 @@ export default function handler(req, res) {
     // `plan` retained for older clients that expect the single 7-day tier;
     // `plans` is the full set the pass page renders.
     payment_provider: paymentProvider(),
-    // Multi-pass (one key, several browsers) — Razorpay and Cashfree checkouts; Dodo cannot sell it.
+    // Multi-pass (one key, several browsers) — Razorpay and PhonePe checkouts; Dodo cannot sell it.
     bulk: paymentProvider() !== 'dodo' ? { max_quantity: MAX_QUANTITY, tiers: BULK_TIERS } : null,
     plan: planView(WEEKLY_PLAN),
     plans: Object.values(PLANS).map(planView)
