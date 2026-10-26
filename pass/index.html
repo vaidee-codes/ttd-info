@@ -321,6 +321,17 @@
       });
     }
 
+    function loadPhonePeScript() {
+      if (window.PhonePeCheckout) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = 'https://mercury.phonepe.com/web/bundle/checkout.js';
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Could not load the secure payment window.'));
+        document.head.appendChild(script);
+      });
+    }
+
     async function startCheckout(body) {
       const res = await fetch('/api/checkout', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
       return { res, data: await res.json().catch(() => ({})) };
@@ -422,8 +433,68 @@
         status: 'pending', plan: planCode, quantity: data.quantity || 1, license_key: '',
         razorpay_order_id: data.order_id, purchase_token: data.purchase_token
       }));
-      btn.textContent = 'Redirecting to secure checkout…';
-      location.href = data.redirect_url;
+      const finish = (result) => {
+        sessionStorage.removeItem('ttdafCheckoutRequestId');
+        sessionStorage.setItem('ttdafPurchase', JSON.stringify({
+          status: 'succeeded', plan: planCode, quantity: data.quantity || 1, license_key: result ? result.license_key : '',
+          razorpay_order_id: data.order_id, purchase_token: data.purchase_token
+        }));
+        const next = new URLSearchParams({ plan: planCode });
+        if (autoActivate && installExtensionId) next.set('extension_id', installExtensionId);
+        location.href = '/pass/success?' + next;
+      };
+
+      // PhonePe's own "payment successful" animation and redirect add several seconds
+      // after the money has moved. Open its checkout in a frame on this page instead and
+      // watch our server, which learns of the payment from PhonePe's API, so the key
+      // appears as soon as the payment is confirmed. Falls back to the full-page redirect.
+      let framed = false;
+      try {
+        await loadPhonePeScript();
+        framed = !!(window.PhonePeCheckout && window.PhonePeCheckout.transact);
+      } catch { framed = false; }
+      if (!framed) {
+        btn.textContent = 'Redirecting to secure checkout…';
+        location.href = data.redirect_url;
+        return;
+      }
+      let closed = false;
+      const early = (async () => {
+        for (let i = 0; i < 200 && !closed; i++) {
+          await new Promise((r) => setTimeout(r, 1500));
+          if (closed) break;
+          const res = await fetch('/api/payment-confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ razorpay_order_id: data.order_id, purchase_token: data.purchase_token }) }).catch(() => null);
+          const body = res && res.ok ? await res.json().catch(() => ({})) : {};
+          if (body.license_key) return body;
+        }
+        return null;
+      })();
+      const outcome = new Promise((resolve) => {
+        try {
+          window.PhonePeCheckout.transact({ tokenUrl: data.redirect_url, type: 'IFRAME', callback: (response) => resolve({ response }) });
+        } catch {
+          closed = true;
+          location.href = data.redirect_url;
+        }
+      });
+      const first = await Promise.race([outcome, early.then((result) => result ? { result } : new Promise(() => {}))]);
+      if (first.result) {
+        closed = true;
+        try { window.PhonePeCheckout.closePage(); } catch {}
+        btn.textContent = 'Payment received — opening your key…';
+        finish(first.result);
+        return;
+      }
+      if (first.response === 'USER_CANCEL') {
+        closed = true;
+        throw new Error('Payment was cancelled. You have not been charged.');
+      }
+      // The window closed after a finished payment: confirm it with the server.
+      btn.textContent = 'Confirming payment…';
+      const confirmed = await confirmPayment({ razorpay_order_id: data.order_id, purchase_token: data.purchase_token });
+      closed = true;
+      finish(confirmed);
     }
 
     async function cashfreeFlow(autoActivate) {
@@ -534,6 +605,7 @@
         }
         if (paymentProvider === 'phonepe') {
           document.getElementById('contact-fields').hidden = false;
+          loadPhonePeScript().catch(() => {}); // warm up, so the click does not wait for it
           const note = document.getElementById('checkout-note');
           if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Your licence key appears here right after payment and is also emailed to you.';
         }

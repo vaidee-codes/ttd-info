@@ -88,6 +88,8 @@
     function showEl(el) { [keyCard, waitingCard, errorCard].forEach(x => x.style.display = x === el ? 'block' : 'none'); }
 
     function showLicense(key) {
+      // The purchase is finished: the next one from this tab must be a new checkout.
+      try { sessionStorage.removeItem('ttdafCheckoutRequestId'); } catch {}
       heading.textContent = 'Your pass is ready';
       subline.textContent = plan.label + ' Access for TTD Autofill Assistant.';
       document.getElementById('license-key').textContent = key;
