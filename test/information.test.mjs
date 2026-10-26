@@ -50,7 +50,7 @@ test('information pages use the shared branded mark and support keeps shared sty
  for(const file of ['index.html','guides.html','support.html']){
  const html=readFileSync(new URL(file,root),'utf8');
   assert.match(html,/brand-mark[^>]*>⚡</);
-  assert.match(html,/> TTD Info<\/a>/);
+  assert.match(html,/> TTD Autofill<\/a>/);
  }
  const support=readFileSync(new URL('support.html',root),'utf8');
  assert.match(support,/href="site\.css"|href="\/site\.css"/);

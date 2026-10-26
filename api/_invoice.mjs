@@ -16,7 +16,7 @@ export function financialYear(date = new Date()) {
 export function sellerDetails() {
   return {
     name: String(process.env.INVOICE_SELLER_NAME || 'TTD Autofill').trim(),
-    address: String(process.env.INVOICE_SELLER_ADDRESS || 'Proprietor: Roopa Nayanika B, Bangalore 560035, Karnataka, India').trim(),
+    address: String(process.env.INVOICE_SELLER_ADDRESS || 'Proprietor: Roopa Nayanika B, 402 SSS Apartments, Owners Court Layout East, Kasavanahalli, Bengaluru 560035, Karnataka, India').trim(),
     email: String(process.env.INVOICE_SELLER_EMAIL || 'ttdautofill@gmail.com').trim(),
     gstin: String(process.env.INVOICE_GSTIN || '').trim() || null
   };

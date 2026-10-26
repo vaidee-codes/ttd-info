@@ -1,6 +1,6 @@
 // Reviewed editorial data. Dates are civil dates in Asia/Kolkata, never inferred recurrences.
 export const reviewed = '2026-09-10';
-export const origin = 'https://ttd-info.vercel.app';
+export const origin = 'https://ttd-autofill.com';
 export const sources = {
   calendar: {title:'The Tirumala Verse · event topics',url:'https://thetirumalaverse.in/',kind:'Reference'},
   glossary: {title:'The Tirumala Verse · glossary',url:'https://thetirumalaverse.in/glossary',kind:'Reference'},
