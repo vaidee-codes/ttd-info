@@ -120,7 +120,7 @@ ${payCard ? `<tr><td style="padding:14px 24px 0">${payCard}</td></tr>` : ''}
   <a href="${findKey}" style="display:inline-block;background:#1f2937;color:#ffffff;text-decoration:none;font-weight:700;font-size:14px;padding:11px 18px;border-radius:8px">Find my licence key</a>
   <p style="margin:18px 0 0">Thanks,<br>TTD Autofill</p>
 </td></tr>
-<tr><td style="padding:20px 24px;border-top:1px solid #f3f4f6;font-size:11px;color:#9ca3af;text-align:center">FireflyAI Softwares · Bangalore 560035 · Not affiliated with TTD</td></tr>
+<tr><td style="padding:20px 24px;border-top:1px solid #f3f4f6;font-size:11px;color:#9ca3af;text-align:center">TTD Autofill · Bangalore 560035 · Not affiliated with TTD</td></tr>
 </table></td></tr></table></body></html>`;
   return { subject, text, html };
 }
