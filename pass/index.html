@@ -19,14 +19,11 @@
   <aside class="advisory-bar" aria-label="Information disclaimer"><strong>Independent tool.</strong> Not affiliated with or endorsed by TTD. Does not book tickets, bypass CAPTCHA, OTP, queues or payments, and provides no booking guarantee.</aside>
 
   <main id="main" class="inner-main pass-wrap">
-    <header class="pass-hero">
+    <!-- A slim title: prices live on the plan cards and the buy button. -->
+    <header class="pass-head">
       <p class="eyebrow">Professional Access</p>
-      <h1>Unlock pilgrim booking autofill.</h1>
+      <h1>Unlock pilgrim booking autofill</h1>
       <p><span id="hero-scope">One payment, one browser, one licence key.</span> Personal and family use of the rest of the extension stays free.</p>
-      <div class="pass-price-row" id="price-row">
-        <span class="pass-price" id="hero-price">₹99 <small>one-time</small></span>
-        <span class="pass-price-old" id="hero-price-old">₹198</span>
-      </div>
     </header>
 
     <section class="pass-card">
@@ -259,8 +256,6 @@
     }
     const rs = (paise) => '₹' + Math.round(paise / 100).toLocaleString('en-IN');
 
-    const heroPrice = document.getElementById('hero-price');
-    const heroOld = document.getElementById('hero-price-old');
     const featDays = document.getElementById('feat-days');
     const heroScope = document.getElementById('hero-scope');
     const featBrowsers = document.getElementById('feat-browsers');
@@ -295,10 +290,7 @@
         const p = multiPrice();
         multiQty.value = p.q;
         const meta = PLAN_META[multiPlan.value];
-        heroPrice.innerHTML = rs(p.total) + ' <small>for ' + p.q + ' passes</small>';
         heroScope.textContent = 'One payment, one licence key for ' + p.q + ' browsers.';
-        heroOld.textContent = p.pct ? rs(p.subtotal) : '';
-        heroOld.style.display = p.pct ? '' : 'none';
         if (featDays) featDays.textContent = meta.days;
         if (featBrowsers) featBrowsers.textContent = 'one key for ' + p.q + ' browsers';
         document.getElementById('multi-sum').innerHTML = p.q + ' × ' + meta.days + ' · ' +
@@ -309,11 +301,8 @@
       }
       const meta = PLAN_META[code] || PLAN_META['7d'];
       selectedPlan = code;
-      heroPrice.innerHTML = meta.price + ' <small>one-time</small>';
       heroScope.textContent = 'One payment, one browser, one licence key.';
       if (featBrowsers) featBrowsers.textContent = '1 browser activation';
-      heroOld.textContent = meta.old;
-      heroOld.style.display = meta.old ? '' : 'none';
       if (featDays) featDays.textContent = meta.days;
       document.querySelectorAll('.pass-plan').forEach((el) => {
         el.classList.toggle('active', el.dataset.plan === code);
