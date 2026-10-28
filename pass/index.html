@@ -95,11 +95,11 @@
         <input type="email" id="buyer-email" autocomplete="email" maxlength="254" placeholder="you@example.com" aria-describedby="buyer-email-error">
         <p class="pass-field-error" id="buyer-email-error" role="alert" hidden></p>
         <div class="pass-contact-mobile" id="mobile-field" hidden>
-          <label for="buyer-mobile">Mobile <small>(optional) — only for payment updates from the payment gateway; we don't store it</small></label>
+          <label for="buyer-mobile">Mobile <small><span class="pass-optional">(optional)</span> — only for payment updates from the payment gateway; we don't store it</small></label>
           <input type="tel" id="buyer-mobile" autocomplete="tel-national" inputmode="numeric" maxlength="16" placeholder="10-digit mobile number" aria-describedby="buyer-mobile-error">
           <p class="pass-field-error" id="buyer-mobile-error" role="alert" hidden></p>
         </div>
-        <label class="pass-optin" for="buyer-reminders"><input type="checkbox" id="buyer-reminders"><span>Email me the day before TTD's next quota release <small>(optional — unsubscribe any time)</small></span></label>
+        <label class="pass-optin" for="buyer-reminders"><input type="checkbox" id="buyer-reminders"><span>Email me the day before TTD's next quota release <small><span class="pass-optional">(optional)</span> — unsubscribe any time</small></span></label>
       </div>
 
       <button class="pass-btn" id="get-pass">Get 7-day pass · ₹99</button>
