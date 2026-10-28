@@ -22,6 +22,9 @@
 .pass-btn{display:inline-flex;align-items:center;justify-content:center;gap:8px;width:100%;margin-top:16px;padding:15px 20px;border:0;border-radius:14px;font:inherit;font-weight:800;font-size:1.02rem;color:#fff;background:linear-gradient(135deg,#4c1d95,#7c3aed);cursor:pointer;text-decoration:none;transition:filter .15s ease,transform .15s ease}
 .pass-btn:hover{filter:brightness(1.08);transform:translateY(-1px)}
 .pass-btn:disabled{opacity:.6;cursor:wait;transform:none}
+.pass-sticky{position:fixed;left:0;right:0;bottom:0;z-index:20;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:rgba(255,255,255,.94);backdrop-filter:blur(8px);border-top:1px solid var(--line);box-shadow:0 -10px 30px rgba(55,27,90,.1)}
+.pass-sticky[hidden]{display:none}
+.pass-sticky .pass-btn{display:flex;max-width:640px;margin:0 auto}
 .pass-btn.ghost{background:transparent;color:var(--violet);border:1px solid #d8c9f4;width:auto}
 .pass-note{margin-top:12px;color:var(--muted);font-size:.85rem}
 .pass-error{display:none;margin-top:14px;padding:12px 14px;border-radius:12px;color:#7f1d1d;background:#fef2f2;border:1px solid #fecaca;font-size:.9rem}

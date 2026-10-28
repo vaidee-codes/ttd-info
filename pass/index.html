@@ -113,6 +113,11 @@
     </section>
   </main>
 
+  <!-- Shown only while the buy button is below the visible part of the page. -->
+  <div class="pass-sticky" id="sticky-buy" hidden>
+    <button class="pass-btn" id="sticky-get-pass" type="button">Get 7-day pass · ₹99</button>
+  </div>
+
   <footer class="site-footer">
     <div><a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a><p>Form-entry help, demos and pass support.</p></div>
     <div class="footer-stack"><div class="footer-links"><a href="/pass">Pass</a><a href="/demos">Demos</a><a href="/guides">Guides</a><a href="/support">Support</a></div><div class="footer-legal"><a href="/PRIVACY_POLICY">Privacy</a><a href="/terms">Terms</a><a href="/refund-policy">Refunds</a><a href="/shipping-policy">Delivery</a><a href="/contact">Contact</a><a href="mailto:ttdautofill@gmail.com">Email</a></div></div>
@@ -164,6 +169,27 @@
       return digits;
     }
     const btn = document.getElementById('get-pass');
+
+    // On a laptop screen the buy button sits below the fold. A copy pinned to the
+    // bottom mirrors it (label and disabled state) while it is out of sight below,
+    // and a click is a click on the real button, so the same checks run.
+    const stickyBar = document.getElementById('sticky-buy');
+    const stickyBtn = document.getElementById('sticky-get-pass');
+    function syncSticky() {
+      stickyBtn.textContent = btn.textContent;
+      stickyBtn.disabled = btn.disabled;
+    }
+    new MutationObserver(syncSticky).observe(btn, { childList: true, characterData: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+    syncSticky();
+    stickyBtn.addEventListener('click', () => {
+      btn.scrollIntoView({ block: 'center', behavior: 'smooth' });
+      btn.click();
+    });
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver(([entry]) => {
+        stickyBar.hidden = entry.isIntersecting || entry.boundingClientRect.top <= 0 || !btn.offsetParent;
+      }).observe(btn);
+    }
 
     // Published extension ID (fixed by the manifest key), also used by the
     // manifest's externally_connectable. Ask the extension directly instead of
