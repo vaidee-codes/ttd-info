@@ -352,7 +352,7 @@ test('config reports phonepe with multi-pass pricing', async (t) => {
   assert.ok(r.body.bulk && r.body.bulk.tiers.length);
 });
 
-test('PhonePe stays in the sandbox unless PHONEPE_MODE is exactly production; cashfree is switched off', async (t) => {
+test('PhonePe stays in the sandbox unless PHONEPE_MODE is exactly production; cashfree is selectable again', async (t) => {
   quiet(t);
   const { phonepeConfig, phonepeAttemptIds, nextPhonePeOrderId } = await import('../api/_phonepe.mjs');
   const { paymentProvider } = await import('../api/_razorpay.mjs');
@@ -367,5 +367,5 @@ test('PhonePe stays in the sandbox unless PHONEPE_MODE is exactly production; ca
   assert.equal(nextPhonePeOrderId('pp_ab'), 'pp_ab_a1');
   assert.equal(nextPhonePeOrderId('pp_ab_a1'), 'pp_ab_a2');
   process.env.PAYMENT_PROVIDER = 'cashfree';
-  try { assert.equal(paymentProvider(), 'dodo'); } finally { process.env.PAYMENT_PROVIDER = 'phonepe'; }
+  try { assert.equal(paymentProvider(), 'cashfree'); } finally { process.env.PAYMENT_PROVIDER = 'phonepe'; }
 });

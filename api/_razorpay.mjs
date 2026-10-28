@@ -14,11 +14,10 @@ export function razorpayConfig() {
   return { keyId, keySecret, live };
 }
 
-// 'razorpay' and 'phonepe' share the order/fulfilment pipeline; anything else is Dodo.
-// Cashfree is switched off for now (code kept, selection commented out).
+// 'razorpay', 'cashfree' and 'phonepe' share the order/fulfilment pipeline; anything else is Dodo.
 export function paymentProvider() {
   const value = String(process.env.PAYMENT_PROVIDER || '').trim().toLowerCase();
-  return value === 'razorpay' || /* value === 'cashfree' || */ value === 'phonepe' ? value : 'dodo';
+  return value === 'razorpay' || value === 'cashfree' || value === 'phonepe' ? value : 'dodo';
 }
 
 async function razorpay(path, { method = 'GET', body } = {}) {

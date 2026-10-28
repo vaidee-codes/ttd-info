@@ -580,7 +580,7 @@
           btn.textContent = 'Pass sales are temporarily unavailable';
           return;
         }
-        paymentProvider = ['razorpay', 'phonepe'].includes(config.payment_provider) ? config.payment_provider : 'dodo';
+        paymentProvider = ['razorpay', 'cashfree', 'phonepe'].includes(config.payment_provider) ? config.payment_provider : 'dodo';
         bulk = config.bulk && Array.isArray(config.bulk.tiers) ? config.bulk : null;
         for (const p of config.plans) PLAN_AMOUNT[p.code] = p.amount;
         if (bulk) {
@@ -603,6 +603,12 @@
         if (paymentProvider === 'razorpay') {
           const note = document.getElementById('checkout-note');
           if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Enter your email on the checkout — your licence key appears here right after payment and is also emailed to you.';
+        }
+        if (paymentProvider === 'cashfree') {
+          document.getElementById('contact-fields').hidden = false;
+          loadCashfreeScript().catch(() => {}); // warm up, so the click does not wait for it
+          const note = document.getElementById('checkout-note');
+          if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Your licence key appears here right after payment and is also emailed to you.';
         }
         if (paymentProvider === 'phonepe') {
           document.getElementById('contact-fields').hidden = false;
@@ -648,6 +654,10 @@
         }
         if (paymentProvider === 'razorpay') {
           await razorpayFlow(autoActivate);
+          return;
+        }
+        if (paymentProvider === 'cashfree') {
+          await cashfreeFlow(autoActivate);
           return;
         }
         if (paymentProvider === 'phonepe') {
