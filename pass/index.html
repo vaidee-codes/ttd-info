@@ -97,6 +97,11 @@
         <label for="buyer-email">Email <small>— your licence key and receipt are sent here</small></label>
         <input type="email" id="buyer-email" autocomplete="email" maxlength="254" placeholder="you@example.com" aria-describedby="buyer-email-error">
         <p class="pass-field-error" id="buyer-email-error" role="alert" hidden></p>
+        <div class="pass-contact-mobile" id="mobile-field" hidden>
+          <label for="buyer-mobile">Mobile <small>(optional) — only for payment updates from the payment gateway; we don't store it</small></label>
+          <input type="tel" id="buyer-mobile" autocomplete="tel-national" inputmode="numeric" maxlength="16" placeholder="10-digit mobile number" aria-describedby="buyer-mobile-error">
+          <p class="pass-field-error" id="buyer-mobile-error" role="alert" hidden></p>
+        </div>
       </div>
 
       <button class="pass-btn" id="get-pass">Get 7-day pass · ₹99</button>
@@ -123,28 +128,41 @@
     const activateBox = document.getElementById('activate');
     const activateNote = document.getElementById('activate-note');
     const errorEl = document.getElementById('error');
-    const emailInput = document.getElementById('buyer-email');
-    const emailErrorEl = document.getElementById('buyer-email-error');
+    const FIELD_INPUTS = { email: 'buyer-email', mobile: 'buyer-mobile' };
 
-    // An email problem is shown on the field itself, not in the box under the button.
-    function emailError(message) {
+    // A contact-field problem is shown on the field itself, not in the box under the button.
+    function fieldError(field, message) {
       const error = new Error(message);
-      error.field = 'email';
+      error.field = field;
       return error;
     }
-    function showEmailError(message) {
-      emailInput.classList.add('invalid');
-      emailInput.setAttribute('aria-invalid', 'true');
-      emailErrorEl.textContent = message;
-      emailErrorEl.hidden = false;
-      emailInput.focus();
+    function showFieldError(field, message) {
+      const input = document.getElementById(FIELD_INPUTS[field]);
+      const note = document.getElementById(FIELD_INPUTS[field] + '-error');
+      input.classList.add('invalid');
+      input.setAttribute('aria-invalid', 'true');
+      note.textContent = message;
+      note.hidden = false;
+      input.focus();
     }
-    function clearEmailError() {
-      emailInput.classList.remove('invalid');
-      emailInput.removeAttribute('aria-invalid');
-      emailErrorEl.hidden = true;
+    function clearFieldError(field) {
+      const input = document.getElementById(FIELD_INPUTS[field]);
+      input.classList.remove('invalid');
+      input.removeAttribute('aria-invalid');
+      document.getElementById(FIELD_INPUTS[field] + '-error').hidden = true;
     }
-    emailInput.addEventListener('input', clearEmailError);
+    for (const field of Object.keys(FIELD_INPUTS)) {
+      document.getElementById(FIELD_INPUTS[field]).addEventListener('input', () => clearFieldError(field));
+    }
+    // Optional Indian mobile: "+91 98765 43210", "098765-43210" and so on -> "9876543210".
+    // Empty stays empty; anything else that is not 10 digits from 6-9 is refused.
+    function readMobile() {
+      const raw = document.getElementById('buyer-mobile').value.trim();
+      if (!raw) return '';
+      const digits = raw.replace(/[\s()-]/g, '').replace(/^(\+91|91|0)(?=\d{10}$)/, '');
+      if (!/^[6-9]\d{9}$/.test(digits)) throw fieldError('mobile', 'Enter a 10-digit mobile number, or leave it empty.');
+      return digits;
+    }
     const btn = document.getElementById('get-pass');
 
     // Published extension ID (fixed by the manifest key), also used by the
@@ -443,7 +461,7 @@
     // /pass/success, which confirms with the server using the pending purchase below.
     async function phonepeFlow(autoActivate) {
       const email = document.getElementById('buyer-email').value.trim();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw emailError('Enter a valid email address — your licence key is sent there.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fieldError('email', 'Enter a valid email address — your licence key is sent there.');
       const multi = selectedPlan === 'multi' ? multiPrice() : null;
       const planCode = multi ? multiPlan.value : selectedPlan;
       const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), email, activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
@@ -523,16 +541,18 @@
 
     async function cashfreeFlow(autoActivate) {
       const email = document.getElementById('buyer-email').value.trim();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw emailError('Enter a valid email address — your licence key is sent there.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fieldError('email', 'Enter a valid email address — your licence key is sent there.');
+      const mobile = readMobile();
       await loadCashfreeScript();
       const multi = selectedPlan === 'multi' ? multiPrice() : null;
       const planCode = multi ? multiPlan.value : selectedPlan;
-      const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), email, activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
+      const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), email, ...(mobile ? { phone: mobile } : {}), activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
       let { res, data } = await startCheckout(body);
       if (res.status === 409 && data.error === 'request_conflict') {
         sessionStorage.removeItem('ttdafCheckoutRequestId');
         ({ res, data } = await startCheckout({ ...body, request_id: requestId() }));
       }
+      if (data.error === 'invalid_phone') throw fieldError('mobile', data.message);
       if (!res.ok || !data.payment_session_id) throw new Error(data.message || 'Could not start checkout. Please try again.');
 
       // If the buyer leaves for the payment page (or an app) and comes back, the success
@@ -629,6 +649,7 @@
         }
         if (paymentProvider === 'cashfree') {
           document.getElementById('contact-fields').hidden = false;
+          document.getElementById('mobile-field').hidden = false;
           loadCashfreeScript().catch(() => {}); // warm up, so the click does not wait for it
           const note = document.getElementById('checkout-note');
           if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Your licence key appears here right after payment and is also emailed to you.';
@@ -659,7 +680,8 @@
 
     btn.addEventListener('click', async () => {
       errorEl.classList.remove('show');
-      clearEmailError();
+      clearFieldError('email');
+      clearFieldError('mobile');
       btn.disabled = true;
       btn.textContent = 'Opening secure checkout…';
       try {
@@ -702,8 +724,8 @@
         if (!res.ok || !data.checkout_url) throw new Error(data.message || 'Could not start checkout. Please try again.');
         location.href = data.checkout_url;
       } catch (e) {
-        if (e.field === 'email') {
-          showEmailError(e.message);
+        if (e.field) {
+          showFieldError(e.field, e.message);
         } else {
           errorEl.textContent = e.message;
           errorEl.classList.add('show');

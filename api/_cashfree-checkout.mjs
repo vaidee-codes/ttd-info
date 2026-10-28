@@ -8,8 +8,17 @@ import { cashfreeConfig, createCashfreeOrder, getCashfreeOrder } from './_cashfr
 
 const EMAIL = /^[^\s@<>()[\]\\,;:"]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
 // Cashfree requires a customer phone number, but its docs allow dummy details
-// when the merchant does not need them (we do not): the buyer is never asked.
+// when the merchant does not need them (we do not). The buyer may give one for
+// Cashfree's own payment updates; it goes to Cashfree only and is never stored.
 const PLACEHOLDER_PHONE = '9999999999';
+
+// Optional Indian mobile: "+91 98765 43210" -> "9876543210"; empty -> null.
+export function buyerPhone(value) {
+  const raw = String(value == null ? '' : value).trim();
+  if (!raw) return null;
+  const digits = raw.replace(/[\s()-]/g, '').replace(/^(\+91|91|0)(?=\d{10}$)/, '');
+  return /^[6-9]\d{9}$/.test(digits) ? digits : undefined;
+}
 
 function appOrigin() {
   const host = String(process.env.VERCEL_PROJECT_PRODUCTION_URL || '').trim();
@@ -34,6 +43,8 @@ export async function cashfreeCheckout(res, { plan, body, requestId, extensionId
   } catch (error) {
     return handleRequestError(res, error);
   }
+  const phone = buyerPhone(body.phone);
+  if (phone === undefined) return sendError(res, 400, 'invalid_phone', 'Enter a 10-digit mobile number, or leave it empty.');
   const price = priceFor(plan, body.quantity == null ? 1 : Number(body.quantity));
   if (!price) return sendError(res, 400, 'invalid_quantity', `Choose between 1 and ${MAX_QUANTITY} passes.`);
   // A multi-pass key is shared across browsers: never auto-activate the buyer's one.
@@ -69,7 +80,7 @@ export async function cashfreeCheckout(res, { plan, body, requestId, extensionId
         amountPaise: order.amount_paise,
         customerId: 'c_' + createHash('sha256').update(email.toLowerCase()).digest('hex').slice(0, 24),
         email,
-        phone: PLACEHOLDER_PHONE,
+        phone: phone || PLACEHOLDER_PHONE,
         // The buyer returns to the site domain they started on; the webhook stays on the app origin.
         returnUrl: (siteOrigin || origin) + '/pass/success?plan=' + encodeURIComponent(plan.code) + (extensionId ? '&extension_id=' + encodeURIComponent(extensionId) : ''),
         notifyUrl: origin + '/api/cashfree-webhook',

@@ -236,14 +236,24 @@ test('cashfree sells several passes on one key at the tiered price', async (t) =
   assert.equal(bad.body.error, 'invalid_quantity');
 });
 
-test('cashfree checkout needs a valid email; the buyer is never asked for a phone number', async (t) => {
+test('cashfree checkout needs a valid email; the mobile is optional, goes to Cashfree only and is never stored', async (t) => {
   quiet(t);
   const w = world(t);
   assert.equal((await start('7d', randomUUID(), { email: 'nope' })).statusCode, 400);
-  const ok = await start('7d', randomUUID(), { phone: '12345' });
-  assert.equal(ok.statusCode, 200);
-  // Whatever the page sends, Cashfree only ever gets the placeholder number.
-  assert.equal(w.cfOrders[ok.body.order_id].customer_details.customer_phone, '9999999999');
+  // No mobile: Cashfree gets the placeholder number.
+  const none = await start('7d', randomUUID());
+  assert.equal(none.statusCode, 200);
+  assert.equal(w.cfOrders[none.body.order_id].customer_details.customer_phone, '9999999999');
+  // A given mobile is normalised and passed to Cashfree.
+  const given = await start('7d', randomUUID(), { phone: '+91 98765-43210' });
+  assert.equal(given.statusCode, 200);
+  assert.equal(w.cfOrders[given.body.order_id].customer_details.customer_phone, '9876543210');
+  // A wrong one is refused, not silently replaced.
+  const bad = await start('7d', randomUUID(), { phone: '12345' });
+  assert.equal(bad.statusCode, 400);
+  assert.equal(bad.body.error, 'invalid_phone');
+  // We keep no copy of it.
+  assert.ok(!JSON.stringify(w.tables).includes('9876543210'));
 });
 
 test('re-opening the same checkout reuses the Cashfree order and issues a fresh token', async (t) => {

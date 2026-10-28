@@ -81,3 +81,5 @@
 .pass-contact input.invalid:focus{outline-color:#dc2626}
 .pass-field-error{margin:0 0 8px;color:#b91c1c;font-size:.85rem;font-weight:600}
 .pass-field-error[hidden]{display:none}
+.pass-contact-mobile{display:grid;gap:6px}
+.pass-contact-mobile[hidden]{display:none}
