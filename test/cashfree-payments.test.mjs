@@ -276,6 +276,9 @@ test('payment-confirm fulfils a paid Cashfree order and is idempotent', async (t
   assert.equal(w.tables.orders[0].status, 'fulfilled');
   assert.equal(w.tables.licence_authority[0].source, 'cashfree');
   assert.equal(w.tables.licence_authority[0].authority, 'keygen');
+  // The invoice names Cashfree, not the Razorpay fallback.
+  assert.equal(w.tables.invoices.length, 1);
+  assert.equal(w.tables.invoices[0].payment_method, 'Cashfree');
 });
 
 test('a wrong token, a short payment or a failed payment never fulfils', async (t) => {

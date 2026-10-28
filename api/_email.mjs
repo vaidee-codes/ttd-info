@@ -2,7 +2,7 @@ import { PLANS } from './_dodo.mjs';
 import { ensureOfflineInvoice, ensureOrderInvoice } from './_invoice.mjs';
 import { getLicense } from './_keygen.mjs';
 import { getPayment, paymentProvider } from './_razorpay.mjs';
-// import { listCashfreePayments } from './_cashfree.mjs';
+import { listCashfreePayments } from './_cashfree.mjs';
 import { getPhonePeOrder, phonepeMethodLabel } from './_phonepe.mjs';
 import { openSecret, rpc, selectMany, selectOne, updateWhere } from './_ledger.mjs';
 
@@ -279,10 +279,10 @@ const CASHFREE_METHODS = { upi: 'UPI', card: 'Card', netbanking: 'Netbanking', a
 async function paymentMethod(paymentId, order) {
   if (!paymentId) return null;
   try {
-    // if (paymentProvider() === 'cashfree') {
-    //   const payment = (await listCashfreePayments(order.razorpay_order_id)).find((p) => String(p.cf_payment_id) === String(paymentId));
-    //   return CASHFREE_METHODS[Object.keys(payment && payment.payment_method || {})[0]] || null;
-    // }
+    if (paymentProvider() === 'cashfree') {
+      const payment = (await listCashfreePayments(order.razorpay_order_id)).find((p) => String(p.cf_payment_id) === String(paymentId));
+      return CASHFREE_METHODS[Object.keys(payment && payment.payment_method || {})[0]] || null;
+    }
     if (paymentProvider() === 'phonepe') return phonepeMethodLabel(await getPhonePeOrder(order.razorpay_order_id));
     const payment = await getPayment(paymentId);
     return METHOD_LABELS[payment && payment.method] || (payment && payment.method) || null;
