@@ -17,6 +17,7 @@ process.env.KEYGEN_PRODUCT_TOKEN = 'prod-token';
 process.env.KEYGEN_PRODUCT_ID = 'kg-product';
 process.env.KEYGEN_PLAN_POLICIES = JSON.stringify({ '7d': 'pol-7', '30d': 'pol-30', '90d': 'pol-90' });
 process.env.CRON_SECRET = 'cron-secret';
+process.env.RELEASE_REMINDERS_ENABLED = 'true';
 delete process.env.VERCEL;
 delete process.env.VERCEL_ENV;
 
@@ -26,10 +27,14 @@ const webhook = (await import('../api/cashfree-webhook.mjs')).default;
 const reconcile = (await import('../api/payments-reconcile.mjs')).default;
 const config = (await import('../api/config.mjs')).default;
 const { openSecret } = await import('../api/_ledger.mjs');
+const releaseReminders = (await import('../api/release-reminders.mjs')).default;
+const unsubscribe = (await import('../api/reminders-unsubscribe.mjs')).default;
+const opsReleases = (await import('../api/ops/releases.mjs')).default;
+const { queueDueReleases, readUnsubscribe, reminderEmail, unsubscribeLinks } = await import('../api/_reminders.mjs');
 
 // ---- in-memory world: PostgREST subset, Razorpay, Keygen -------------------
 function world(t) {
-  const w = { tables: { orders: [], payment_events: [], fulfilments: [], email_outbox: [], licence_authority: [], invoices: [] }, invoiceSeq: 0,
+  const w = { tables: { orders: [], payment_events: [], fulfilments: [], email_outbox: [], licence_authority: [], invoices: [], reminder_subscribers: [], quota_releases: [], audit_events: [] }, invoiceSeq: 0,
     cfOrders: {}, payments: {}, licenses: [], emails: [], resendStatus: [], keygenDown: false, keygenLoseResponse: false, calls: [] };
   const json = (v, s = 200) => new Response(JSON.stringify(v), { status: s, headers: { 'Content-Type': 'application/json' } });
   const uniques = { orders: [['request_id'], ['razorpay_order_id']], payment_events: [['event_id']], fulfilments: [['order_id']],
@@ -80,8 +85,35 @@ function world(t) {
         if (free) row.claimed_until = new Date(Date.now() + 120e3).toISOString();
         return json(!!free);
       }
+      if (u.pathname.endsWith('/rpc/note_reminder_purchase')) {
+        const email = body.p_email.toLowerCase();
+        const s = w.tables.reminder_subscribers.find((r) => r.email === email);
+        const later = (a, b) => (a == null ? b : b == null ? a : (a > b ? a : b));
+        if (body.p_opt_in && !s) w.tables.reminder_subscribers.push({ email, opted_in_at: new Date().toISOString(), unsubscribed_at: null, covered_until: body.p_covered_until, last_order_id: body.p_order_id });
+        else if (s) Object.assign(s, { covered_until: later(s.covered_until, body.p_covered_until), last_order_id: body.p_order_id, ...(body.p_opt_in ? { unsubscribed_at: null } : {}) });
+        return json(null);
+      }
+      if (u.pathname.endsWith('/rpc/queue_release_reminders')) {
+        const r = w.tables.quota_releases.find((x) => x.id === body.p_release_id && !x.cancelled_at && !x.reminders_queued_at);
+        if (!r) return json(null);
+        r.reminders_queued_at = new Date().toISOString();
+        let n = 0;
+        for (const s of w.tables.reminder_subscribers) {
+          if (s.unsubscribed_at || (s.covered_until && s.covered_until >= r.release_at)) continue;
+          if (w.tables.email_outbox.some((o) => o.release_id === r.id && o.to_email === s.email)) continue;
+          w.tables.email_outbox.push({ id: randomUUID(), kind: 'release_reminder', release_id: r.id, to_email: s.email, status: 'queued', attempts: 0,
+            created_at: new Date().toISOString(), next_attempt_at: new Date().toISOString() });
+          n++;
+        }
+        r.reminders_queued = n;
+        return json(n);
+      }
       const table = u.pathname.split('/').pop();
       const rows = w.tables[table];
+      if (method === 'HEAD') {
+        const hit = rows.filter((r) => [...u.searchParams].filter(([k]) => k !== 'select').every((f) => match(r, f)));
+        return new Response(null, { status: 200, headers: { 'Content-Range': `0-${Math.max(0, hit.length - 1)}/${hit.length}` } });
+      }
       const filters = [...u.searchParams].filter(([k]) => !['select', 'limit', 'on_conflict', 'order'].includes(k));
       if (method === 'GET') return json(sortBy(rows.filter((r) => filters.every((f) => match(r, f))), u.searchParams.get('order')).slice(0, Number(u.searchParams.get('limit') || 1e9)));
       if (method === 'POST') {
@@ -120,6 +152,10 @@ function world(t) {
     if (u.host === 'keygen.test') {
       if (w.keygenDown) throw new TypeError('fetch failed');
       const path = u.pathname.replace('/v1/accounts/acct-1', '');
+      if (path === '/me') {
+        if (opts.headers.Authorization === 'Bearer admin-token') return json({ data: { id: 'admin-1', type: 'users', attributes: { email: 'owner@example.com', role: 'admin' } } });
+        return json({ errors: [{ code: 'TOKEN_INVALID' }] }, 401);
+      }
       if (path === '/licenses' && method === 'POST') {
         const a = body.data.attributes;
         // Hold overlapping creates before the unique insert. A real database
@@ -368,4 +404,161 @@ test('a production key cannot run against the sandbox, or a test key against pro
   } finally {
     process.env.CASHFREE_APP_ID = save.id; process.env.CASHFREE_MODE = save.mode;
   }
+});
+
+// ---- release reminders (opt-in) ------------------------------------------
+const useResend = (t) => {
+  Object.assign(process.env, { EMAIL_PROVIDERS: 'resend', RESEND_API_KEY: 're_test', RESEND_FROM: 'TTD Autofill <hello@ttd-autofill.com>' });
+  t.after(() => { for (const k of ['EMAIL_PROVIDERS', 'RESEND_API_KEY', 'RESEND_FROM']) delete process.env[k]; });
+};
+const addRelease = (w, hoursAhead, title = '₹300 darshan for February') => {
+  const row = { id: randomUUID(), release_at: new Date(istMorning() + hoursAhead * 3600e3).toISOString(), title, created_by: 'admin-1', created_at: new Date().toISOString(), cancelled_at: null, reminders_queued_at: null };
+  w.tables.quota_releases.push(row);
+  return row;
+};
+// The next 10:00 IST: inside the 7 am–9 pm sending hours, and never in the past.
+const istMorning = () => { const d = new Date(); d.setUTCHours(4, 30, 0, 0); return d.getTime() + (d.getTime() < Date.now() ? 86400e3 : 0); };
+const cron = async () => { const r = res(); await releaseReminders({ method: 'GET', headers: { authorization: 'Bearer cron-secret' } }, r); return r; };
+async function buy(w, extra = {}) {
+  const c = (await start('7d', randomUUID(), extra)).body;
+  w.pay(c.order_id);
+  await post(confirm, { razorpay_order_id: c.order_id, purchase_token: c.purchase_token });
+  return c;
+}
+
+test('the reminder box is stored on the order and only a ticked box subscribes the buyer', async (t) => {
+  quiet(t);
+  const w = world(t);
+  await buy(w);
+  assert.equal(w.tables.orders[0].reminder_opt_in, false);
+  assert.equal(w.tables.reminder_subscribers.length, 0);
+  // Re-opening checkout with the box now ticked updates the order.
+  const id = randomUUID();
+  await start('7d', id);
+  const c = (await start('7d', id, { reminders: true })).body;
+  assert.equal(w.tables.orders[1].reminder_opt_in, true);
+  w.pay(c.order_id);
+  await post(confirm, { razorpay_order_id: c.order_id, purchase_token: c.purchase_token });
+  assert.equal(w.tables.reminder_subscribers.length, 1);
+  const s = w.tables.reminder_subscribers[0];
+  assert.equal(s.email, 'buyer+ttd@example.com');
+  // Covered for the pass length from fulfilment.
+  const days = (Date.parse(s.covered_until) - Date.now()) / 86400e3;
+  assert.ok(days > 6.9 && days <= 7.01);
+});
+
+test('a release queues one reminder per subscriber whose pass ends before it, and sends it with an unsubscribe link', async (t) => {
+  quiet(t);
+  useResend(t);
+  const w = world(t);
+  w.tables.reminder_subscribers.push(
+    { email: 'lapsed@example.com', covered_until: new Date(Date.now() - 86400e3).toISOString(), unsubscribed_at: null },
+    { email: 'covered@example.com', covered_until: new Date(Date.now() + 5 * 86400e3).toISOString(), unsubscribed_at: null },
+    { email: 'gone@example.com', covered_until: null, unsubscribed_at: new Date().toISOString() });
+  const release = addRelease(w, 30);
+  addRelease(w, 60, 'later release');
+  const queued = await queueDueReleases(istMorning());
+  assert.deepEqual(queued, { quiet: false, releases: 1, queued: 1 });
+  // Queued once only.
+  assert.equal((await queueDueReleases(istMorning())).queued, 0);
+  const r = await cron();
+  assert.equal(r.statusCode, 200);
+  assert.equal(r.body.sent, 1);
+  assert.equal(w.emails.length, 1);
+  const sent = w.emails[0].body;
+  assert.deepEqual(sent.to, ['lapsed@example.com']);
+  assert.match(sent.subject, /₹300 darshan for February/);
+  assert.match(sent.text, /\/pass\/unsubscribe\?e=/);
+  assert.match(sent.headers['List-Unsubscribe'], /\/api\/reminders-unsubscribe\?e=/);
+  assert.equal(sent.headers['List-Unsubscribe-Post'], 'List-Unsubscribe=One-Click');
+  assert.equal(w.tables.email_outbox.find((o) => o.release_id === release.id).status, 'sent');
+  // Nothing more to send.
+  assert.equal((await cron()).body.sent, 0);
+  assert.equal(w.emails.length, 1);
+});
+
+test('reminders are not queued at night, and the cron needs its secret', async (t) => {
+  quiet(t);
+  const w = world(t);
+  w.tables.reminder_subscribers.push({ email: 'a@example.com', covered_until: null, unsubscribed_at: null });
+  addRelease(w, 20);
+  const night = new Date(); night.setUTCHours(18, 0, 0, 0); // 11:30 pm IST
+  assert.deepEqual(await queueDueReleases(night.getTime()), { quiet: true, releases: 0, queued: 0 });
+  assert.equal(w.tables.email_outbox.length, 0);
+  const r = res();
+  await releaseReminders({ method: 'GET', headers: {} }, r);
+  assert.equal(r.statusCode, 401);
+  // A deployment without the switch never sends (staging and prod share the ledger).
+  delete process.env.RELEASE_REMINDERS_ENABLED;
+  t.after(() => { process.env.RELEASE_REMINDERS_ENABLED = 'true'; });
+  assert.equal((await cron()).body.skipped, 'reminders_disabled');
+});
+
+test('a cancelled release or an unsubscribed address drops a queued reminder unsent', async (t) => {
+  quiet(t);
+  useResend(t);
+  const w = world(t);
+  w.tables.reminder_subscribers.push({ email: 'a@example.com', covered_until: null, unsubscribed_at: null }, { email: 'b@example.com', covered_until: null, unsubscribed_at: null });
+  const release = addRelease(w, 30);
+  await queueDueReleases(istMorning());
+  assert.equal(w.tables.email_outbox.length, 2);
+  // b unsubscribes through the link in the email.
+  const links = unsubscribeLinks('b@example.com');
+  const u = new URL(links.oneClick);
+  const r = res();
+  await unsubscribe({ method: 'POST', url: u.pathname + u.search, headers: {} }, r);
+  assert.equal(r.statusCode, 200);
+  assert.ok(w.tables.reminder_subscribers.find((s) => s.email === 'b@example.com').unsubscribed_at);
+  await cron();
+  assert.deepEqual(w.emails.map((e) => e.body.to[0]), ['a@example.com']);
+  assert.equal(w.tables.email_outbox.find((o) => o.to_email === 'b@example.com').last_error, 'unsubscribed');
+  // A release cancelled after queuing sends nothing more.
+  const second = addRelease(w, 31, 'Angapradakshinam tokens');
+  await queueDueReleases(istMorning());
+  second.cancelled_at = new Date().toISOString();
+  await cron();
+  assert.equal(w.emails.length, 1);
+  assert.equal(w.tables.email_outbox.find((o) => o.release_id === second.id).last_error, 'release_cancelled');
+  assert.ok(release);
+});
+
+test('unsubscribe links are signed: GET only shows the page, a tampered link is refused', async (t) => {
+  quiet(t);
+  world(t);
+  const { oneClick, page } = unsubscribeLinks('Someone@Example.com');
+  const q = new URL(oneClick).searchParams;
+  assert.equal(readUnsubscribe(q.get('e'), q.get('t')), 'someone@example.com');
+  assert.equal(readUnsubscribe(q.get('e'), 'x'.repeat(32)), null);
+  assert.equal(readUnsubscribe(Buffer.from('other@example.com').toString('base64url'), q.get('t')), null);
+  assert.match(page, /\/pass\/unsubscribe\?e=/);
+  const get = res();
+  await unsubscribe({ method: 'GET', url: '/api/reminders-unsubscribe?' + q, headers: {} }, get);
+  assert.equal(get.statusCode, 303);
+  assert.match(get.headers.location, /^\/pass\/unsubscribe\?e=/);
+  const bad = res();
+  await unsubscribe({ method: 'POST', url: '/api/reminders-unsubscribe?e=' + q.get('e') + '&t=nope', headers: {} }, bad);
+  assert.equal(bad.statusCode, 400);
+  const email = reminderEmail({ release: { title: 'X tokens', release_at: '2026-11-24T04:30:00Z' }, email: 'a@example.com' });
+  assert.match(email.subject, /10:00 am IST/i);
+  assert.match(email.text, /Thanks,\nTTD Autofill/);
+});
+
+test('ops: only an operator can add or cancel a release; times are IST', async (t) => {
+  quiet(t);
+  const w = world(t);
+  const ops = (body, token = 'admin-token') => post(opsReleases, body, { authorization: 'Bearer ' + token });
+  assert.equal((await ops({ action: 'list' }, 'wrong')).statusCode, 401);
+  const day = new Date(Date.now() + 10 * 86400e3).toISOString().slice(0, 10);
+  const added = await ops({ action: 'add', date: day, time: '10:00', title: '₹300 darshan for February' });
+  assert.equal(added.statusCode, 200);
+  assert.equal(added.body.releases.length, 1);
+  assert.equal(w.tables.quota_releases[0].release_at, new Date(day + 'T04:30:00Z').toISOString());
+  assert.equal(w.tables.audit_events.at(-1).action, 'quota_release_added');
+  assert.equal((await ops({ action: 'add', date: '2020-01-01', time: '10:00', title: 'past release' })).statusCode, 400);
+  assert.equal((await ops({ action: 'add', date: day, time: '25:00', title: 'bad time' })).statusCode, 400);
+  const cancelled = await ops({ action: 'cancel', id: w.tables.quota_releases[0].id });
+  assert.equal(cancelled.statusCode, 200);
+  assert.ok(w.tables.quota_releases[0].cancelled_at);
+  assert.equal((await ops({ action: 'cancel', id: w.tables.quota_releases[0].id })).statusCode, 404);
+  assert.equal(added.body.subscribers, 0);
 });

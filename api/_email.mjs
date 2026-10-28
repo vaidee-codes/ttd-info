@@ -5,6 +5,7 @@ import { getPayment, paymentProvider } from './_razorpay.mjs';
 import { listCashfreePayments } from './_cashfree.mjs';
 import { getPhonePeOrder, phonepeMethodLabel } from './_phonepe.mjs';
 import { openSecret, rpc, selectMany, selectOne, updateWhere } from './_ledger.mjs';
+import { releaseReminderMessage, remindersEnabled } from './_reminders.mjs';
 
 // Outbox retry: 5 min, 10 min, 20 min … capped at 3 h between tries, for up to
 // 7 days. Daily provider limits reset within a day, so a missed email still goes.
@@ -127,7 +128,7 @@ ${payCard ? `<tr><td style="padding:14px 24px 0">${payCard}</td></tr>` : ''}
   return { subject, text, html };
 }
 
-async function sendViaResend({ to, subject, text, html, idempotencyKey, attachments }) {
+async function sendViaResend({ to, subject, text, html, idempotencyKey, attachments, headers }) {
   const apiKey = String(process.env.RESEND_API_KEY || '').trim();
   const from = String(process.env.RESEND_FROM || '').trim();
   if (!apiKey || !from) return { ok: false, retry: true, error: 'email_not_configured' };
@@ -136,7 +137,7 @@ async function sendViaResend({ to, subject, text, html, idempotencyKey, attachme
     response = await fetch('https://api.resend.com/emails', {
       method: 'POST',
       headers: { Authorization: 'Bearer ' + apiKey, 'Content-Type': 'application/json', 'Idempotency-Key': idempotencyKey },
-      body: JSON.stringify({ from, to: [to], reply_to: SUPPORT_EMAIL, subject, text, html, ...(attachments && attachments.length ? { attachments } : {}) }),
+      body: JSON.stringify({ from, to: [to], reply_to: SUPPORT_EMAIL, subject, text, html, ...(attachments && attachments.length ? { attachments } : {}), ...(headers ? { headers } : {}) }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
     });
   } catch {
@@ -155,11 +156,11 @@ const b64 = (value) => Buffer.from(value).toString('base64').replace(/.{1,76}/g,
 const header = (value) => (/^[\x20-\x7e]*$/.test(value) ? value : `=?UTF-8?B?${Buffer.from(value).toString('base64')}?=`);
 
 // RFC 5322 message: text + HTML alternatives, plus base64 attachments.
-export function buildMime({ from, to, replyTo, subject, text, html, attachments = [], boundary = 'ttdaf' + Date.now().toString(36) }) {
+export function buildMime({ from, to, replyTo, subject, text, html, attachments = [], headers = {}, boundary = 'ttdaf' + Date.now().toString(36) }) {
   const alt = boundary + '-alt';
   const lines = [
     `From: ${from}`, `To: ${to}`, `Reply-To: ${replyTo}`, `Subject: ${header(subject)}`,
-    `Date: ${new Date().toUTCString()}`, 'MIME-Version: 1.0',
+    `Date: ${new Date().toUTCString()}`, ...Object.entries(headers).map(([k, v]) => `${k}: ${v}`), 'MIME-Version: 1.0',
     `Content-Type: multipart/mixed; boundary="${boundary}"`, '',
     `--${boundary}`, `Content-Type: multipart/alternative; boundary="${alt}"`, '',
     `--${alt}`, 'Content-Type: text/plain; charset=UTF-8', 'Content-Transfer-Encoding: base64', '', b64(text), '',
@@ -193,10 +194,10 @@ async function sesSender() {
 const sesConfigured = () => !!(String(process.env.SES_ACCESS_KEY_ID || '').trim() && String(process.env.SES_SECRET_ACCESS_KEY || '').trim()
   && String(process.env.SES_FROM || process.env.RESEND_FROM || '').trim());
 
-async function sendViaSes({ to, subject, text, html, attachments }) {
+async function sendViaSes({ to, subject, text, html, attachments, headers }) {
   if (!sesConfigured() && !sesSend) return { ok: false, retry: true, error: 'email_not_configured' };
   const from = String(process.env.SES_FROM || process.env.RESEND_FROM || '').trim();
-  const raw = buildMime({ from, to, replyTo: SUPPORT_EMAIL, subject, text, html, attachments });
+  const raw = buildMime({ from, to, replyTo: SUPPORT_EMAIL, subject, text, html, attachments, headers });
   try {
     const send = await sesSender();
     const configurationSet = String(process.env.SES_CONFIGURATION_SET || '').trim();
@@ -219,7 +220,7 @@ function parseFrom(value) {
   return m ? { name: m[1].replace(/^"|"$/g, '') || undefined, email: m[2].trim() } : { email: value.trim() };
 }
 
-async function sendViaBrevo({ to, subject, text, html, attachments }) {
+async function sendViaBrevo({ to, subject, text, html, attachments, headers }) {
   const apiKey = String(process.env.BREVO_API_KEY || '').trim();
   const from = String(process.env.BREVO_FROM || process.env.SES_FROM || process.env.RESEND_FROM || '').trim();
   if (!apiKey || !from) return { ok: false, retry: true, error: 'email_not_configured' };
@@ -230,7 +231,8 @@ async function sendViaBrevo({ to, subject, text, html, attachments }) {
       headers: { 'api-key': apiKey, 'Content-Type': 'application/json', Accept: 'application/json' },
       body: JSON.stringify({
         sender: parseFrom(from), to: [{ email: to }], replyTo: { email: SUPPORT_EMAIL }, subject, textContent: text, htmlContent: html,
-        ...(attachments && attachments.length ? { attachment: attachments.map((a) => ({ name: a.filename, content: a.content })) } : {})
+        ...(attachments && attachments.length ? { attachment: attachments.map((a) => ({ name: a.filename, content: a.content })) } : {}),
+        ...(headers ? { headers } : {})
       }),
       signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
     });
@@ -341,13 +343,21 @@ export async function deliverOutboxRow(row) {
     const sale = await selectOne('offline_sales', { id: row.offline_sale_id });
     if (!sale || sale.status !== 'provisioned') return false;
     message = await offlineEmail(sale);
+  } else if (row.kind === 'release_reminder') {
+    if (!remindersEnabled()) return false;
+    const prepared = await releaseReminderMessage(row);
+    if (prepared.skip) {
+      await updateWhere('email_outbox', { id: row.id, status: 'queued' }, { status: 'failed', last_error: prepared.skip });
+      return false;
+    }
+    message = prepared.message;
   } else {
     return false;
   }
   // Claim the row first: only one concurrent sender (page confirm, webhooks,
   // cron) may send it. Losing the claim means someone else is sending it now.
   if (!await rpc('claim_outbox_row', { p_id: row.id })) return false;
-  const result = await sendEmail({ to: row.to_email, ...message, idempotencyKey: `${row.kind}/${row.order_id || row.offline_sale_id}` });
+  const result = await sendEmail({ to: row.to_email, ...message, idempotencyKey: `${row.kind}/${row.order_id || row.offline_sale_id || row.id}` });
   if (result.error === 'email_not_configured') {
     await updateWhere('email_outbox', { id: row.id, status: 'queued' }, { claimed_until: null }).catch(() => []);
     return false;

@@ -1,4 +1,4 @@
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto';
+import { createCipheriv, createDecipheriv, createHash, createHmac, randomBytes } from 'node:crypto';
 import { ProviderError } from './_dodo.mjs';
 
 const REQUEST_TIMEOUT_MS = 5000;
@@ -63,6 +63,26 @@ export function selectMany(table, query) {
   return rest('GET', table, { query });
 }
 
+// Exact row count for a PostgREST filter (from Content-Range), without the rows.
+export async function countRows(table, query = {}) {
+  const config = ledgerConfig();
+  if (!config) throw new ProviderError(503, 'LEDGER_NOT_CONFIGURED');
+  const params = new URLSearchParams({ select: '*', ...query });
+  let response;
+  try {
+    response = await fetch(`${config.url}/rest/v1/${table}?${params}`, {
+      method: 'HEAD',
+      headers: { apikey: config.key, Authorization: 'Bearer ' + config.key, Prefer: 'count=exact' },
+      signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS)
+    });
+  } catch {
+    throw new ProviderError(503, 'LEDGER_UNAVAILABLE');
+  }
+  if (!response.ok) throw new ProviderError(503, 'LEDGER_ERROR');
+  const total = Number(String(response.headers.get('content-range') || '').split('/')[1]);
+  return Number.isFinite(total) ? total : 0;
+}
+
 export async function insertOne(table, row, { onConflict, ignoreDuplicates = false } = {}) {
   const rows = await rest('POST', table, {
     query: onConflict ? { on_conflict: onConflict } : {},
@@ -123,6 +143,12 @@ export function sealSecret(plaintext) {
   const cipher = createCipheriv('aes-256-gcm', secretKey(), iv);
   const data = Buffer.concat([cipher.update(String(plaintext), 'utf8'), cipher.final()]);
   return ['v1', iv.toString('base64url'), cipher.getAuthTag().toString('base64url'), data.toString('base64url')].join('.');
+}
+
+// Keyed hash for signed links (e.g. unsubscribe), derived from the ledger key
+// so no extra secret is needed. `purpose` keeps each use separate.
+export function signedTag(purpose, value) {
+  return createHmac('sha256', secretKey()).update(purpose + '\n' + String(value)).digest('base64url').slice(0, 32);
 }
 
 export function openSecret(sealed) {

@@ -99,6 +99,7 @@
           <input type="tel" id="buyer-mobile" autocomplete="tel-national" inputmode="numeric" maxlength="16" placeholder="10-digit mobile number" aria-describedby="buyer-mobile-error">
           <p class="pass-field-error" id="buyer-mobile-error" role="alert" hidden></p>
         </div>
+        <label class="pass-optin" for="buyer-reminders"><input type="checkbox" id="buyer-reminders"><span>Email me the day before TTD's next quota release <small>(optional — unsubscribe any time)</small></span></label>
       </div>
 
       <button class="pass-btn" id="get-pass">Get 7-day pass · ₹99</button>
@@ -158,6 +159,11 @@
     }
     // Optional Indian mobile: "+91 98765 43210", "098765-43210" and so on -> "9876543210".
     // Empty stays empty; anything else that is not 10 digits from 6-9 is refused.
+    // Opt-in release reminders; off unless the buyer ticks the box.
+    function wantsReminders() {
+      return document.getElementById('buyer-reminders').checked;
+    }
+
     function readMobile() {
       const raw = document.getElementById('buyer-mobile').value.trim();
       if (!raw) return '';
@@ -479,7 +485,7 @@
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fieldError('email', 'Enter a valid email address — your licence key is sent there.');
       const multi = selectedPlan === 'multi' ? multiPrice() : null;
       const planCode = multi ? multiPlan.value : selectedPlan;
-      const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), email, activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
+      const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), email, reminders: wantsReminders(), activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
       let { res, data } = await startCheckout(body);
       if (res.status === 409 && data.error === 'request_conflict') {
         sessionStorage.removeItem('ttdafCheckoutRequestId');
@@ -561,7 +567,7 @@
       await loadCashfreeScript();
       const multi = selectedPlan === 'multi' ? multiPrice() : null;
       const planCode = multi ? multiPlan.value : selectedPlan;
-      const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), email, ...(mobile ? { phone: mobile } : {}), activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
+      const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), email, ...(mobile ? { phone: mobile } : {}), reminders: wantsReminders(), activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
       let { res, data } = await startCheckout(body);
       if (res.status === 409 && data.error === 'request_conflict') {
         sessionStorage.removeItem('ttdafCheckoutRequestId');

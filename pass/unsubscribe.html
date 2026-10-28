@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="robots" content="noindex, nofollow">
+  <meta name="theme-color" content="#5b21b6">
+  <title>Unsubscribe — TTD Autofill</title>
+  <link rel="stylesheet" href="/site.css">
+  <link rel="stylesheet" href="/planning.css">
+  <link rel="stylesheet" href="/pass/pass.css">
+</head>
+<body>
+  <a class="skip-link" href="#main">Skip to content</a>
+  <nav class="site-nav" aria-label="Main navigation">
+    <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a>
+    <div class="nav-links"><a href="/">Home</a><a class="nav-pass" href="/pass">Pass</a><a href="/demos">Demos</a><a href="/guides">Guides</a><a href="/support">Support</a></div>
+  </nav>
+
+  <main id="main" class="inner-main pass-wrap">
+    <header class="pass-head">
+      <p class="eyebrow">Release reminders</p>
+      <h1 id="heading">Stop release reminder emails?</h1>
+      <p id="subline">You will no longer get an email before TTD quota releases. Your licence emails and passes are not affected.</p>
+    </header>
+    <section class="pass-card">
+      <button class="pass-btn" id="unsubscribe" type="button">Unsubscribe</button>
+      <div class="pass-error" id="error"></div>
+      <p class="pass-note">Changed your mind later? Tick the reminder box the next time you buy a pass.</p>
+    </section>
+  </main>
+
+  <script>
+    const params = new URLSearchParams(location.search);
+    const btn = document.getElementById('unsubscribe');
+    const error = document.getElementById('error');
+    if (!params.get('e') || !params.get('t')) {
+      btn.hidden = true;
+      error.textContent = 'This unsubscribe link is incomplete. Reply to any reminder email and we will remove you.';
+      error.style.display = 'block';
+    }
+    btn.addEventListener('click', async () => {
+      btn.disabled = true;
+      btn.textContent = 'Unsubscribing…';
+      error.style.display = 'none';
+      try {
+        const query = new URLSearchParams({ e: params.get('e'), t: params.get('t') });
+        const res = await fetch('/api/reminders-unsubscribe?' + query, { method: 'POST' });
+        const data = await res.json().catch(() => ({}));
+        if (!res.ok) throw new Error(data.message || 'Could not unsubscribe right now. Try again in a minute.');
+        document.getElementById('heading').textContent = 'You are unsubscribed';
+        document.getElementById('subline').textContent = 'We will not send you release reminders again. Your licence emails and passes are not affected.';
+        btn.hidden = true;
+      } catch (e) {
+        error.textContent = e.message;
+        error.style.display = 'block';
+        btn.disabled = false;
+        btn.textContent = 'Unsubscribe';
+      }
+    });
+  </script>
+</body>
+</html>

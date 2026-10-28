@@ -1,6 +1,7 @@
 import { randomBytes, timingSafeEqual } from 'node:crypto';
 import { PLANS, ProviderConfigurationError, ProviderError } from './_dodo.mjs';
 import { deliverForOrder } from './_email.mjs';
+import { noteReminderPurchase } from './_reminders.mjs';
 import { createLicenseWithKey } from './_keygen.mjs';
 import { insertOne, licenceKeyHash, openSecret, sealSecret, selectOne, sha256Hex, updateWhere } from './_ledger.mjs';
 import { capturePayment, getPayment, listOrderPayments, paymentMatchesOrder, paymentProvider } from './_razorpay.mjs';
@@ -123,7 +124,11 @@ export async function fulfilOrder(order) {
     await insertOne('email_outbox', { kind: 'licence_key', order_id: order.id, to_email: order.email },
       { onConflict: 'kind,order_id', ignoreDuplicates: true });
   }
-  await updateWhere('orders', { id: order.id, status: 'paid' }, { status: 'fulfilled', fulfilled_at: new Date().toISOString() });
+  const [fulfilled] = await updateWhere('orders', { id: order.id, status: 'paid' }, { status: 'fulfilled', fulfilled_at: new Date().toISOString() });
+  // Release reminders (opt-in) are a side matter: never fail an order over them.
+  if (fulfilled) {
+    await noteReminderPurchase(fulfilled).catch((error) => log('reminder_note_failed', { code: String(error && error.code || '').slice(0, 40) }));
+  }
   return licenseKey;
 }
 

@@ -76,6 +76,18 @@
         <p class="ops-msg" id="sale-msg"></p>
         <div id="sale-result"></div>
       </section>
+      <section class="ops-card">
+        <h2>TTD quota releases (reminder emails)</h2>
+        <p class="ops-meta" style="margin:0 0 12px">Opted-in buyers get one email the day before each release (from 7 am IST), unless their last pass still covers the release day. Enter the time TTD announced, in IST. <span id="r-counts"></span></p>
+        <div class="ops-row">
+          <div style="flex:0 1 170px"><label for="r-date">Release date</label><input class="pass-field" id="r-date" type="date"></div>
+          <div style="flex:0 1 120px"><label for="r-time">Time (IST)</label><input class="pass-field" id="r-time" type="time" value="10:00"></div>
+          <div style="flex:3 1 260px"><label for="r-title">What is releasing</label><input class="pass-field" id="r-title" maxlength="120" placeholder="₹300 Special Entry Darshan for February"></div>
+          <div style="flex:0 0 auto"><button class="pass-btn" id="r-add" style="margin:0">Add release</button></div>
+        </div>
+        <p class="ops-msg" id="r-msg"></p>
+        <ul class="ops-machines" id="r-list"></ul>
+      </section>
       <p class="ops-meta"><button class="ops-small" id="logout">Sign out</button></p>
     </div>
   </main>
@@ -110,6 +122,7 @@
       $('signin').hidden = true;
       $('app').hidden = false;
       $('who').textContent = email ? 'Signed in as ' + email + '. Every action is recorded in the audit log.' : 'Signed in. Every action is recorded in the audit log.';
+      loadReleases();
     }
     function signOut() {
       token = '';
@@ -242,6 +255,31 @@
         $('sale-result').replaceChildren(el('div', { class: 'ops-result' }, [code, ' ',
           el('button', { class: 'ops-small', text: 'Copy', onclick: () => navigator.clipboard.writeText(data.license_key).catch(() => {}) })]));
       } catch (e) { msg('sale-msg', e.message, 'err'); }
+    });
+
+    function renderReleases(data) {
+      $('r-counts').textContent = data.subscribers + ' subscribed · ' + data.unsubscribed + ' unsubscribed.';
+      const ist = (ts) => new Date(ts).toLocaleString('en-IN', { timeZone: 'Asia/Kolkata', weekday: 'short', day: 'numeric', month: 'short', year: 'numeric', hour: 'numeric', minute: '2-digit' }) + ' IST';
+      $('r-list').replaceChildren(...(data.releases.length ? data.releases.map((r) => {
+        const state = r.cancelled_at ? 'cancelled' : r.reminders_queued_at ? (r.reminders_queued || 0) + ' reminder(s) queued ' + fmt(r.reminders_queued_at) : Date.parse(r.release_at) < Date.now() ? 'passed' : 'reminders go out the day before';
+        return el('li', {}, [el('span', { text: ist(r.release_at) + ' · ' + r.title + ' · ' + state }),
+          !r.cancelled_at && Date.parse(r.release_at) > Date.now() ? el('button', { class: 'ops-small danger', text: 'Cancel', onclick: () => cancelRelease(r) }) : '']);
+      }) : [el('li', {}, [el('span', { class: 'ops-meta', text: 'No upcoming releases. Add one above.' })])]));
+    }
+    async function loadReleases() {
+      try { renderReleases(await api('/api/ops/releases', { action: 'list' })); } catch (e) { msg('r-msg', e.message, 'err'); }
+    }
+    async function cancelRelease(r) {
+      if (!confirm('Cancel "' + r.title + '"? Reminders not yet sent for it will be dropped.')) return;
+      try { renderReleases(await api('/api/ops/releases', { action: 'cancel', id: r.id })); msg('r-msg', 'Release cancelled.', 'ok'); } catch (e) { msg('r-msg', e.message, 'err'); }
+    }
+    $('r-add').addEventListener('click', async () => {
+      msg('r-msg', 'Adding…');
+      try {
+        renderReleases(await api('/api/ops/releases', { action: 'add', date: $('r-date').value, time: $('r-time').value, title: $('r-title').value.trim() }));
+        $('r-title').value = '';
+        msg('r-msg', 'Release added.', 'ok');
+      } catch (e) { msg('r-msg', e.message, 'err'); }
     });
 
     if (token) showApp('');

@@ -4,6 +4,7 @@ import { insertOne, selectOne, sha256Hex, updateWhere } from './_ledger.mjs';
 import { newPurchaseToken, normaliseEmail, settleOrder } from './_payments.mjs';
 import { MAX_QUANTITY, priceFor } from './_pricing.mjs';
 import { createPhonePeOrder, MAX_PHONEPE_ATTEMPTS, nextPhonePeOrderId, phonepeAttemptIds, phonepeConfig } from './_phonepe.mjs';
+import { reminderOptIn } from './_reminders.mjs';
 
 const EMAIL = /^[^\s@<>()[\]\\,;:"]{1,64}@[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?(?:\.[A-Za-z0-9](?:[A-Za-z0-9-]{0,61}[A-Za-z0-9])?)+$/;
 
@@ -45,11 +46,15 @@ export async function phonepeCheckout(res, { plan, body, requestId, extensionId,
     await insertOne('orders', {
       request_id: requestId, plan: plan.code, amount_paise: price.total, quantity: price.quantity, discount_pct: price.discountPct, currency: 'INR', email,
       razorpay_mode: live ? 'live' : 'test',
-      activate: !!extensionId, extension_id: extensionId || null
+      activate: !!extensionId, extension_id: extensionId || null, reminder_opt_in: reminderOptIn(body)
     }, { onConflict: 'request_id', ignoreDuplicates: true });
     let order = await selectOne('orders', { request_id: requestId });
     if (!order || order.plan !== plan.code || order.email !== email || Number(order.quantity || 1) !== price.quantity) {
       return sendError(res, 409, 'request_conflict', 'This checkout was already started with different details. Reload the page and try again.');
+    }
+    // The reminder box may have been changed before checkout was re-opened.
+    if (order.status === 'created' && !!order.reminder_opt_in !== reminderOptIn(body)) {
+      await updateWhere('orders', { id: order.id, status: 'created' }, { reminder_opt_in: reminderOptIn(body) });
     }
     if (order.status !== 'created') {
       return sendError(res, 409, 'already_paid', 'This checkout is already paid. Your licence key is on the success page.');

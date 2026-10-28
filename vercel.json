@@ -78,6 +78,9 @@
     },
     "api/health-watch.mjs": {
       "maxDuration": 60
+    },
+    "api/release-reminders.mjs": {
+      "maxDuration": 60
     }
   },
   "headers": [
@@ -150,6 +153,10 @@
     {
       "path": "/api/health-watch",
       "schedule": "*/5 * * * *"
+    },
+    {
+      "path": "/api/release-reminders",
+      "schedule": "*/15 * * * *"
     }
   ]
 }
