@@ -95,7 +95,8 @@
 
       <div class="pass-contact" id="contact-fields" hidden>
         <label for="buyer-email">Email <small>— your licence key and receipt are sent here</small></label>
-        <input type="email" id="buyer-email" autocomplete="email" maxlength="254" placeholder="you@example.com">
+        <input type="email" id="buyer-email" autocomplete="email" maxlength="254" placeholder="you@example.com" aria-describedby="buyer-email-error">
+        <p class="pass-field-error" id="buyer-email-error" role="alert" hidden></p>
       </div>
 
       <button class="pass-btn" id="get-pass">Get 7-day pass · ₹99</button>
@@ -122,6 +123,28 @@
     const activateBox = document.getElementById('activate');
     const activateNote = document.getElementById('activate-note');
     const errorEl = document.getElementById('error');
+    const emailInput = document.getElementById('buyer-email');
+    const emailErrorEl = document.getElementById('buyer-email-error');
+
+    // An email problem is shown on the field itself, not in the box under the button.
+    function emailError(message) {
+      const error = new Error(message);
+      error.field = 'email';
+      return error;
+    }
+    function showEmailError(message) {
+      emailInput.classList.add('invalid');
+      emailInput.setAttribute('aria-invalid', 'true');
+      emailErrorEl.textContent = message;
+      emailErrorEl.hidden = false;
+      emailInput.focus();
+    }
+    function clearEmailError() {
+      emailInput.classList.remove('invalid');
+      emailInput.removeAttribute('aria-invalid');
+      emailErrorEl.hidden = true;
+    }
+    emailInput.addEventListener('input', clearEmailError);
     const btn = document.getElementById('get-pass');
 
     // Published extension ID (fixed by the manifest key), also used by the
@@ -420,7 +443,7 @@
     // /pass/success, which confirms with the server using the pending purchase below.
     async function phonepeFlow(autoActivate) {
       const email = document.getElementById('buyer-email').value.trim();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid email address — your licence key is sent there.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw emailError('Enter a valid email address — your licence key is sent there.');
       const multi = selectedPlan === 'multi' ? multiPrice() : null;
       const planCode = multi ? multiPlan.value : selectedPlan;
       const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), email, activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
@@ -500,7 +523,7 @@
 
     async function cashfreeFlow(autoActivate) {
       const email = document.getElementById('buyer-email').value.trim();
-      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid email address — your licence key is sent there.');
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw emailError('Enter a valid email address — your licence key is sent there.');
       await loadCashfreeScript();
       const multi = selectedPlan === 'multi' ? multiPrice() : null;
       const planCode = multi ? multiPlan.value : selectedPlan;
@@ -636,6 +659,7 @@
 
     btn.addEventListener('click', async () => {
       errorEl.classList.remove('show');
+      clearEmailError();
       btn.disabled = true;
       btn.textContent = 'Opening secure checkout…';
       try {
@@ -678,8 +702,12 @@
         if (!res.ok || !data.checkout_url) throw new Error(data.message || 'Could not start checkout. Please try again.');
         location.href = data.checkout_url;
       } catch (e) {
-        errorEl.textContent = e.message;
-        errorEl.classList.add('show');
+        if (e.field === 'email') {
+          showEmailError(e.message);
+        } else {
+          errorEl.textContent = e.message;
+          errorEl.classList.add('show');
+        }
         btn.disabled = false;
         renderPlan(selectedPlan);
       }
