@@ -151,8 +151,8 @@ export function machineView(machine) {
 }
 
 // Creates a licence with a key we chose, so a retried fulfilment can find it.
-// A duplicate key (a retry after Keygen already committed) returns the existing
-// licence instead of failing.
+// Keygen reports a concurrent unique-key insert as 409 and a later duplicate
+// as 422. Recover only the licence for this key, policy and fulfilment identity.
 export async function createLicenseWithKey({ key, policyId, metadata, maxMachines }) {
   try {
     const json = await keygen('/licenses', {
@@ -163,9 +163,18 @@ export async function createLicenseWithKey({ key, policyId, metadata, maxMachine
     });
     return json && json.data || null;
   } catch (error) {
-    if (!(error instanceof ProviderError && error.status === 422)) throw error;
+    if (!(error instanceof ProviderError && [409, 422].includes(error.status))) throw error;
     const existing = await validateKey(key, null, { timeoutMs: ACTIVATION_CALL_TIMEOUT_MS });
-    if (existing.license) return existing.license;
+    const license = existing.license;
+    const attributes = license && license.attributes || {};
+    const existingPolicy = license && license.relationships && license.relationships.policy &&
+      license.relationships.policy.data && license.relationships.policy.data.id;
+    const sameIdentity = ['source', 'orderId', 'offlineSaleId', 'publicProductId'].every((field) =>
+      metadata && metadata[field] != null ? (attributes.metadata || {})[field] === metadata[field] : true);
+    // A late callback can find an expired or unactivated licence. Reuse it
+    // without changing its expiry or machines; validation validity is separate.
+    if (license && license.id && attributes.key === key && existingPolicy === policyId &&
+        existing.reason !== 'product_not_accepted' && sameIdentity) return license;
     throw error;
   }
 }
