@@ -101,6 +101,7 @@ export async function payuCheckout(res, { plan, body, requestId, extensionId, si
       provider: 'payu',
       mode: live ? 'production' : 'test',
       action: form.action,
+      bolt: form.bolt,
       fields: form.fields,
       order_id: txnid,
       amount: order.amount_paise,

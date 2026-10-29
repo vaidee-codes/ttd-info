@@ -4,8 +4,8 @@ import { ProviderConfigurationError, ProviderError } from './_dodo.mjs';
 const REQUEST_TIMEOUT_MS = 10000;
 const MAX_BODY_BYTES = 64 * 1024;
 const HOSTS = {
-  test: { pay: 'https://test.payu.in/_payment', api: 'https://test.payu.in/merchant/postservice.php?form=2' },
-  production: { pay: 'https://secure.payu.in/_payment', api: 'https://info.payu.in/merchant/postservice.php?form=2' }
+  test: { pay: 'https://test.payu.in/_payment', api: 'https://test.payu.in/merchant/postservice.php?form=2', bolt: 'https://jssdk-uat.payu.in/bolt/bolt.min.js' },
+  production: { pay: 'https://secure.payu.in/_payment', api: 'https://info.payu.in/merchant/postservice.php?form=2', bolt: 'https://jssdk.payu.in/bolt/bolt.min.js' }
 };
 
 // Test unless PAYU_MODE is exactly "production": a test key can never be
@@ -42,12 +42,14 @@ export function payuResponseHash(fields, salt) {
   return sha512(parts.map((p) => p == null ? '' : String(p)).join('|'));
 }
 
-// The hosted-checkout form the pass page posts to PayU. The salt never leaves
-// the server; the hash only proves these exact fields came from us.
+// The hosted-checkout form the pass page posts to PayU. The same signed fields
+// open PayU's in-page checkout (Checkout Plus, bolt.launch) from the `bolt`
+// script. The salt never leaves the server; the hash only proves these exact
+// fields came from us.
 export function payuCheckoutForm({ txnid, amountPaise, productinfo, email, phone, surl, furl }) {
   const { key, salt, hosts } = payuConfig();
   const fields = { key, txnid, amount: payuAmount(amountPaise), productinfo, firstname: 'Customer', email, phone, surl, furl };
-  return { action: hosts.pay, fields: { ...fields, hash: payuRequestHash(fields, salt) } };
+  return { action: hosts.pay, bolt: hosts.bolt, fields: { ...fields, hash: payuRequestHash(fields, salt) } };
 }
 
 export function verifyPayUResponse(fields) {

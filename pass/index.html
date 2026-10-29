@@ -361,6 +361,9 @@
 
     let paymentProvider = 'dodo';
     const cashfreeModal = params.get('cf') !== 'redirect';
+    // PayU opens in-page (Checkout Plus) except where PayU advises against it
+    // (in-app browsers), with ?pu=redirect, or after the in-page window failed here once.
+    const payuInPage = params.get('pu') !== 'redirect' && !/\bwv\b|FBAN|FBAV|Instagram|Line\//.test(navigator.userAgent);
 
     function loadRazorpayScript() {
       if (window.Razorpay) return Promise.resolve();
@@ -560,9 +563,23 @@
       finish(confirmed);
     }
 
-    // PayU: post the server-signed form to PayU's hosted checkout (same tab). PayU
-    // posts the buyer back to /api/payu-return, which redirects to /pass/success;
-    // that page confirms with the server using the pending purchase below.
+    function loadPayUBolt(src) {
+      if (window.bolt && window.bolt.launch) return Promise.resolve();
+      return new Promise((resolve, reject) => {
+        const script = document.createElement('script');
+        script.src = src;
+        script.onload = () => resolve();
+        script.onerror = () => reject(new Error('Could not load the secure payment window.'));
+        document.head.appendChild(script);
+      });
+    }
+
+    // PayU: by default the payment window opens on this page (Checkout Plus,
+    // bolt.launch, like Razorpay's), so there is no hosted-page round trip and
+    // no wait on PayU's redirect screen. Otherwise, or if that window cannot
+    // open, post the same server-signed form to PayU's hosted checkout (same
+    // tab); PayU posts the buyer back to /api/payu-return, which redirects to
+    // /pass/success, and that page confirms using the pending purchase below.
     async function payuFlow(autoActivate) {
       const email = document.getElementById('buyer-email').value.trim();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fieldError('email', 'Enter a valid email address — your licence key is sent there.');
@@ -583,6 +600,21 @@
         status: 'pending', plan: planCode, quantity: data.quantity || 1, license_key: '',
         razorpay_order_id: data.order_id, purchase_token: data.purchase_token
       }));
+
+      let boltFailed = false;
+      try { boltFailed = sessionStorage.getItem('ttdafPayuRedirect') === '1'; } catch {}
+      if (payuInPage && !boltFailed && /^https:\/\/jssdk(-uat)?\.payu\.in\//.test(data.bolt || '')) {
+        let ready = false;
+        try {
+          await loadPayUBolt(data.bolt);
+          ready = !!(window.bolt && window.bolt.launch);
+        } catch {}
+        if (ready) {
+          await payuInPageCheckout(data, planCode, autoActivate);
+          return;
+        }
+      }
+
       btn.textContent = 'Redirecting to secure checkout…';
       const form = document.createElement('form');
       form.method = 'POST';
@@ -596,6 +628,69 @@
       }
       document.body.appendChild(form);
       form.submit();
+    }
+
+    // PayU's window reports SUCCESS / FAILED / CANCEL to responseHandler. Nothing
+    // in it is trusted: the server re-checks the payment with PayU's verify API.
+    // As with Cashfree, our server also hears of the payment (webhook / API) while
+    // PayU's window may still be showing its own screens, so watch for that too.
+    async function payuInPageCheckout(data, planCode, autoActivate) {
+      const purchase = { razorpay_order_id: data.order_id, purchase_token: data.purchase_token };
+      const finish = (result) => {
+        sessionStorage.removeItem('ttdafCheckoutRequestId');
+        sessionStorage.setItem('ttdafPurchase', JSON.stringify({
+          status: 'succeeded', plan: planCode, quantity: data.quantity || 1, license_key: result ? result.license_key : '', ...purchase
+        }));
+        const next = new URLSearchParams({ plan: planCode });
+        if (autoActivate && installExtensionId) next.set('extension_id', installExtensionId);
+        location.href = '/pass/success?' + next;
+      };
+
+      let windowClosed = false;
+      const early = (async () => {
+        for (let i = 0; i < 100 && !windowClosed; i++) {
+          await new Promise((r) => setTimeout(r, 2000));
+          if (windowClosed) break;
+          const res = await fetch('/api/payment-confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(purchase) }).catch(() => null);
+          const body = res && res.ok ? await res.json().catch(() => ({})) : {};
+          if (body.license_key) return body;
+        }
+        return null;
+      })();
+
+      btn.textContent = 'Complete the payment in the secure window…';
+      const closed = new Promise((resolve) => {
+        try {
+          window.bolt.launch({ ...data.fields }, {
+            responseHandler: (BOLT) => resolve({ status: String(BOLT && BOLT.response && BOLT.response.txnStatus || '').toUpperCase() }),
+            catchException: () => resolve({ status: 'EXCEPTION' })
+          });
+        } catch {
+          resolve({ status: 'EXCEPTION' });
+        }
+      });
+      const first = await Promise.race([closed, early.then((result) => result ? { result } : new Promise(() => {}))]);
+      windowClosed = true;
+      if (first.result) {
+        btn.textContent = 'Payment received — opening your key…';
+        finish(first.result);
+        return;
+      }
+      if (first.status === 'EXCEPTION') {
+        // Use the hosted checkout from now on in this tab.
+        try { sessionStorage.setItem('ttdafPayuRedirect', '1'); } catch {}
+        throw new Error('The secure payment window could not open. Press the button again to pay on PayU’s page.');
+      }
+      if (first.status === 'CANCEL') throw new Error('Payment was cancelled. You have not been charged.');
+      if (first.status !== 'SUCCESS') {
+        // A failed attempt can still turn out paid (bank delay): the server decides.
+        const res = await fetch('/api/payment-confirm', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(purchase) }).catch(() => null);
+        const body = res && res.ok ? await res.json().catch(() => ({})) : {};
+        if (body.license_key) return finish(body);
+        throw new Error('Payment was not completed. You have not been charged.');
+      }
+      btn.textContent = 'Confirming payment…';
+      finish(await confirmPayment(purchase));
     }
 
     async function cashfreeFlow(autoActivate) {

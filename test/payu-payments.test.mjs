@@ -194,6 +194,7 @@ test('payu checkout returns a signed hosted-checkout form for a server-priced or
   assert.equal(r.body.provider, 'payu');
   assert.equal(r.body.mode, 'test');
   assert.equal(r.body.action, 'https://test.payu.in/_payment');
+  assert.equal(r.body.bolt, 'https://jssdk-uat.payu.in/bolt/bolt.min.js');
   assert.match(r.body.order_id, /^pu_[0-9a-f]{18}$/);
   const f = r.body.fields;
   assert.equal(f.key, 'PUTESTKEY');
