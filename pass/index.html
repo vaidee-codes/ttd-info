@@ -560,6 +560,44 @@
       finish(confirmed);
     }
 
+    // PayU: post the server-signed form to PayU's hosted checkout (same tab). PayU
+    // posts the buyer back to /api/payu-return, which redirects to /pass/success;
+    // that page confirms with the server using the pending purchase below.
+    async function payuFlow(autoActivate) {
+      const email = document.getElementById('buyer-email').value.trim();
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fieldError('email', 'Enter a valid email address — your licence key is sent there.');
+      const mobile = readMobile();
+      const multi = selectedPlan === 'multi' ? multiPrice() : null;
+      const planCode = multi ? multiPlan.value : selectedPlan;
+      const body = { plan: planCode, quantity: multi ? multi.q : 1, request_id: requestId(), email, ...(mobile ? { phone: mobile } : {}), reminders: wantsReminders(), activate: autoActivate, extension_id: autoActivate ? installExtensionId : '' };
+      let { res, data } = await startCheckout(body);
+      if (res.status === 409 && data.error === 'request_conflict') {
+        sessionStorage.removeItem('ttdafCheckoutRequestId');
+        ({ res, data } = await startCheckout({ ...body, request_id: requestId() }));
+      }
+      if (data.error === 'invalid_phone') throw fieldError('mobile', data.message);
+      if (!res.ok || !data.action || !data.fields) throw new Error(data.message || 'Could not start checkout. Please try again.');
+      const action = new URL(data.action);
+      if (action.protocol !== 'https:' || !/(^|\.)payu\.in$/.test(action.hostname)) throw new Error('Could not start checkout. Please try again.');
+      sessionStorage.setItem('ttdafPurchase', JSON.stringify({
+        status: 'pending', plan: planCode, quantity: data.quantity || 1, license_key: '',
+        razorpay_order_id: data.order_id, purchase_token: data.purchase_token
+      }));
+      btn.textContent = 'Redirecting to secure checkout…';
+      const form = document.createElement('form');
+      form.method = 'POST';
+      form.action = action.href;
+      for (const [name, value] of Object.entries(data.fields)) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = name;
+        input.value = String(value);
+        form.appendChild(input);
+      }
+      document.body.appendChild(form);
+      form.submit();
+    }
+
     async function cashfreeFlow(autoActivate) {
       const email = document.getElementById('buyer-email').value.trim();
       if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw fieldError('email', 'Enter a valid email address — your licence key is sent there.');
@@ -644,7 +682,7 @@
           btn.textContent = 'Pass sales are temporarily unavailable';
           return;
         }
-        paymentProvider = ['razorpay', 'cashfree', 'phonepe'].includes(config.payment_provider) ? config.payment_provider : 'dodo';
+        paymentProvider = ['razorpay', 'cashfree', 'phonepe', 'payu'].includes(config.payment_provider) ? config.payment_provider : 'dodo';
         bulk = config.bulk && Array.isArray(config.bulk.tiers) ? config.bulk : null;
         for (const p of config.plans) PLAN_AMOUNT[p.code] = p.amount;
         if (bulk) {
@@ -672,6 +710,12 @@
           document.getElementById('contact-fields').hidden = false;
           document.getElementById('mobile-field').hidden = false;
           loadCashfreeScript().catch(() => {}); // warm up, so the click does not wait for it
+          const note = document.getElementById('checkout-note');
+          if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Your licence key appears here right after payment and is also emailed to you.';
+        }
+        if (paymentProvider === 'payu') {
+          document.getElementById('contact-fields').hidden = false;
+          document.getElementById('mobile-field').hidden = false;
           const note = document.getElementById('checkout-note');
           if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Your licence key appears here right after payment and is also emailed to you.';
         }
@@ -731,6 +775,10 @@
           await phonepeFlow(autoActivate);
           return;
         }
+        if (paymentProvider === 'payu') {
+          await payuFlow(autoActivate);
+          return;
+        }
         const res = await fetch('/api/checkout', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
@@ -755,6 +803,13 @@
         renderPlan(selectedPlan);
       }
     });
+
+    // Back from PayU's failure page (/api/payu-return?result=failed).
+    if (params.get('payment') === 'failed') {
+      errorEl.textContent = 'The payment did not go through. If money left your account, your bank returns it automatically. You can try again.';
+      errorEl.classList.add('show');
+      history.replaceState(null, '', location.pathname + location.hash);
+    }
 
     loadConfig();
   </script>

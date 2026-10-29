@@ -3,7 +3,8 @@ import { ensureOfflineInvoice, ensureOrderInvoice } from './_invoice.mjs';
 import { getLicense } from './_keygen.mjs';
 import { getPayment, paymentProvider } from './_razorpay.mjs';
 import { listCashfreePayments } from './_cashfree.mjs';
-import { getPhonePeOrder, phonepeMethodLabel } from './_phonepe.mjs';
+import { getPhonePeOrder, phonepeAttemptIds, phonepeMethodLabel } from './_phonepe.mjs';
+import { payuMethodLabel, verifyPayUTransactions } from './_payu.mjs';
 import { openSecret, rpc, selectMany, selectOne, updateWhere } from './_ledger.mjs';
 import { releaseReminderMessage, remindersEnabled } from './_reminders.mjs';
 
@@ -286,6 +287,11 @@ async function paymentMethod(paymentId, order) {
       return CASHFREE_METHODS[Object.keys(payment && payment.payment_method || {})[0]] || null;
     }
     if (paymentProvider() === 'phonepe') return phonepeMethodLabel(await getPhonePeOrder(order.razorpay_order_id));
+    if (paymentProvider() === 'payu') {
+      const attempts = phonepeAttemptIds(order.razorpay_order_id);
+      const details = await verifyPayUTransactions(attempts);
+      return payuMethodLabel(attempts.map((id) => details[id]).find((txn) => txn && String(txn.mihpayid) === String(paymentId)));
+    }
     const payment = await getPayment(paymentId);
     return METHOD_LABELS[payment && payment.method] || (payment && payment.method) || null;
   } catch {

@@ -14,10 +14,10 @@ export function razorpayConfig() {
   return { keyId, keySecret, live };
 }
 
-// 'razorpay', 'cashfree' and 'phonepe' share the order/fulfilment pipeline; anything else is Dodo.
+// 'razorpay', 'cashfree', 'phonepe' and 'payu' share the order/fulfilment pipeline; anything else is Dodo.
 export function paymentProvider() {
   const value = String(process.env.PAYMENT_PROVIDER || '').trim().toLowerCase();
-  return value === 'razorpay' || value === 'cashfree' || value === 'phonepe' ? value : 'dodo';
+  return value === 'razorpay' || value === 'cashfree' || value === 'phonepe' || value === 'payu' ? value : 'dodo';
 }
 
 async function razorpay(path, { method = 'GET', body } = {}) {

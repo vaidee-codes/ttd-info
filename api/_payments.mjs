@@ -7,6 +7,7 @@ import { insertOne, licenceKeyHash, openSecret, sealSecret, selectOne, sha256Hex
 import { capturePayment, getPayment, listOrderPayments, paymentMatchesOrder, paymentProvider } from './_razorpay.mjs';
 import { cashfreePaymentMatchesOrder, listCashfreePayments } from './_cashfree.mjs';
 import { getPhonePeOrder, phonepeAttemptIds, phonepeOrderMatches, phonepePaymentId } from './_phonepe.mjs';
+import { payuTransactionMatches, verifyPayUTransactions } from './_payu.mjs';
 
 export function normaliseEmail(value) {
   const email = String(value || '').trim();
@@ -72,6 +73,14 @@ async function capturedPaymentFor(order, paymentId) {
       if (phonepeOrderMatches(status, order)) return { id: phonepePaymentId(status), status: 'captured', email: null };
     }
     return null;
+  }
+  if (paymentProvider() === 'payu') {
+    // One verify call covers every attempt (re-opened checkouts get new txnids).
+    const attempts = phonepeAttemptIds(order.razorpay_order_id);
+    const details = await verifyPayUTransactions(attempts);
+    const paid = attempts.map((id) => details[id]).find((txn) => payuTransactionMatches(txn, order));
+    // Same shape as a captured Razorpay payment; the buyer's email is already ours.
+    return paid ? { id: String(paid.mihpayid), status: 'captured', email: null } : null;
   }
   const candidates = paymentId ? [await getPayment(paymentId)] : await listOrderPayments(order.razorpay_order_id);
   const matching = candidates.filter((p) => paymentMatchesOrder(p, order));

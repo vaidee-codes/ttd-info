@@ -73,6 +73,9 @@
     "api/phonepe-webhook.mjs": {
       "maxDuration": 30
     },
+    "api/payu-webhook.mjs": {
+      "maxDuration": 30
+    },
     "api/payments-reconcile.mjs": {
       "maxDuration": 60
     },
@@ -89,7 +92,7 @@
       "headers": [
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://cdn.razorpay.com https://sdk.cashfree.com https://mercury.phonepe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.razorpay.com https://sdk.cashfree.com https://payments.cashfree.com; connect-src 'self' https://mercury.phonepe.com https://mercury-uat.phonepe.com https://api.razorpay.com https://lumberjack.razorpay.com https://sdk.cashfree.com https://api.cashfree.com https://sandbox.cashfree.com https://payments.cashfree.com; frame-src https://player.vimeo.com https://mercury.phonepe.com https://mercury-uat.phonepe.com https://api.cashfree.com https://sandbox.cashfree.com https://api.razorpay.com https://checkout.razorpay.com https://sdk.cashfree.com https://payments.cashfree.com; object-src 'none'; base-uri 'self'; form-action 'self' https://api.cashfree.com https://sandbox.cashfree.com; frame-ancestors 'none'; upgrade-insecure-requests"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://checkout.razorpay.com https://cdn.razorpay.com https://sdk.cashfree.com https://mercury.phonepe.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: https://cdn.razorpay.com https://sdk.cashfree.com https://payments.cashfree.com; connect-src 'self' https://mercury.phonepe.com https://mercury-uat.phonepe.com https://api.razorpay.com https://lumberjack.razorpay.com https://sdk.cashfree.com https://api.cashfree.com https://sandbox.cashfree.com https://payments.cashfree.com; frame-src https://player.vimeo.com https://mercury.phonepe.com https://mercury-uat.phonepe.com https://api.cashfree.com https://sandbox.cashfree.com https://api.razorpay.com https://checkout.razorpay.com https://sdk.cashfree.com https://payments.cashfree.com; object-src 'none'; base-uri 'self'; form-action 'self' https://api.cashfree.com https://sandbox.cashfree.com https://test.payu.in https://secure.payu.in https://*.payu.in; frame-ancestors 'none'; upgrade-insecure-requests"
         },
         {
           "key": "X-Content-Type-Options",

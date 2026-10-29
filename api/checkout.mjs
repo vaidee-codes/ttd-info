@@ -8,6 +8,7 @@ import {
 import { logCheckoutCreated, logCheckoutRejected } from './_diagnostics.mjs';
 import { cashfreeCheckout } from './_cashfree-checkout.mjs';
 import { phonepeCheckout } from './_phonepe-checkout.mjs';
+import { payuCheckout } from './_payu-checkout.mjs';
 import { razorpayCheckout } from './_razorpay-checkout.mjs';
 import { paymentProvider } from './_razorpay.mjs';
 import {
@@ -67,6 +68,9 @@ export default async function handler(req, res) {
   }
   if (paymentProvider() === 'phonepe') {
     return phonepeCheckout(res, { plan, body, requestId, extensionId, siteOrigin: siteOriginFor(req) });
+  }
+  if (paymentProvider() === 'payu') {
+    return payuCheckout(res, { plan, body, requestId, extensionId, siteOrigin: siteOriginFor(req) });
   }
 
   const returnParams = new URLSearchParams({ plan: plan.code });

@@ -53,7 +53,7 @@ async function ensureInvoice({ link, issuedAt, buyerEmail, plan, amountPaise, pa
 export function ensureOrderInvoice(order) {
   return ensureInvoice({
     link: { order_id: order.id }, issuedAt: order.paid_at || order.fulfilled_at || new Date(), buyerEmail: order.email,
-    plan: order.plan, amountPaise: order.amount_paise, paymentRef: order.razorpay_payment_id, paymentMethod: { phonepe: 'PhonePe', cashfree: 'Cashfree' }[paymentProvider()] || 'Razorpay',
+    plan: order.plan, amountPaise: order.amount_paise, paymentRef: order.razorpay_payment_id, paymentMethod: { phonepe: 'PhonePe', cashfree: 'Cashfree', payu: 'PayU' }[paymentProvider()] || 'Razorpay',
     quantity: Number(order.quantity || 1), discountPct: Number(order.discount_pct || 0)
   });
 }
