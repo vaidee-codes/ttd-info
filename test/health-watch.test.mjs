@@ -14,7 +14,7 @@ process.env.ALERT_EMAIL = 'owner@example.com';
 const watch = (await import('../api/health-watch.mjs')).default;
 
 function world(t) {
-  const w = { tables: { backup_runs: [{ at: new Date().toISOString(), ok: true }], orders: [], email_outbox: [], alert_state: [] }, keygenUp: true, keygenDbUp: true, ledgerDown: false, emails: [] };
+  const w = { tables: { backup_runs: [{ at: new Date().toISOString(), ok: true }], orders: [], email_outbox: [], alert_state: [] }, keygenUp: true, keygenDbUp: true, keygenWrites: 'ok', ledgerDown: false, emails: [] };
   const json = (v, s = 200) => new Response(JSON.stringify(v), { status: s });
   const match = (row, [k, v]) => v.startsWith('neq.') ? String(row[k]) !== v.slice(4) : v.startsWith('eq.') ? String(row[k]) === v.slice(3) : v.startsWith('lt.') ? row[k] < v.slice(3) : v.startsWith('gte.') ? row[k] >= v.slice(4) : true;
   t.mock.method(globalThis, 'fetch', async (url, opts = {}) => {
@@ -23,6 +23,10 @@ function world(t) {
     const body = opts.body ? JSON.parse(opts.body) : null;
     if (u.host === 'keygen.test') {
       if (!w.keygenUp) throw new TypeError('down');
+      if (u.pathname.endsWith('/validate-key') && body.meta.key === 'TTDAF-HEALTH-PROBE-SUSPENDED') {
+        if (w.keygenWrites === 'oom') return json({ errors: [{ title: 'Internal server error' }] }, 500);
+        return json({ data: null, meta: { valid: false, code: w.keygenWrites === 'missing' ? 'NOT_FOUND' : 'SUSPENDED' } });
+      }
       if (u.pathname.endsWith('/validate-key')) return w.keygenDbUp ? json({ data: null, meta: { valid: false, code: 'NOT_FOUND' } }) : json({ errors: [{ code: 'INTERNAL' }] }, 500);
       return new Response(null, { status: 204 });
     }
@@ -65,17 +69,36 @@ test('health-watch: Keygen down alerts once, stays quiet while failing, then rep
   quiet(t);
   const w = world(t);
   w.keygenUp = false;
-  assert.deepEqual((await run()).body.alerts.sort(), ['keygen', 'keygen_db']);
+  assert.deepEqual((await run()).body.alerts.sort(), ['keygen', 'keygen_db', 'keygen_writes']);
   await run();
-  assert.equal(w.emails.length, 2);
+  assert.equal(w.emails.length, 3);
   assert.match(w.emails[0].subject, /ALERT: keygen/);
   assert.deepEqual(w.emails[0].to, ['owner@example.com']);
   w.keygenUp = true;
   await run();
-  assert.equal(w.emails.length, 4);
-  assert.ok(w.emails.slice(2).every((e) => /RECOVERED: keygen/.test(e.subject)));
+  assert.equal(w.emails.length, 6);
+  assert.ok(w.emails.slice(3).every((e) => /RECOVERED: keygen/.test(e.subject)));
   await run();
-  assert.equal(w.emails.length, 4);
+  assert.equal(w.emails.length, 6);
+});
+
+test('health-watch: Keygen up but unable to validate (Redis full) alerts keygen_writes only', async (t) => {
+  quiet(t);
+  const w = world(t);
+  w.keygenWrites = 'oom';
+  assert.deepEqual((await run()).body.alerts, ['keygen_writes']);
+  assert.equal(w.emails.length, 1);
+  assert.match(w.emails[0].subject, /ALERT: keygen writes/);
+  assert.match(w.emails[0].text, /HTTP 500/);
+  assert.match(w.emails[0].text, /redis-cli INFO errorstats/);
+});
+
+test('health-watch: a missing probe licence says how to create it', async (t) => {
+  quiet(t);
+  const w = world(t);
+  w.keygenWrites = 'missing';
+  assert.deepEqual((await run()).body.alerts, ['keygen_writes']);
+  assert.match(w.emails[0].text, /create-health-probe\.mjs/);
 });
 
 test('health-watch: a stale backup and a paid order without a licence both alert', async (t) => {
