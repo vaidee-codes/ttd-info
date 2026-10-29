@@ -65,6 +65,32 @@ async function checkKeygenDatabase() {
   }
 }
 
+// Validates a suspended licence kept for this check (ops/keygen/create-health-probe.mjs).
+// Unlike a missing key, an existing licence makes Keygen queue an event in Redis,
+// so this fails when Redis refuses writes: on 2026-10-29 Redis filled up and every
+// real validation returned 500 for ~13 h while the two checks above stayed green.
+const PROBE_KEY = 'TTDAF-HEALTH-PROBE-SUSPENDED';
+
+async function checkKeygenWrites() {
+  const base = String(process.env.KEYGEN_API_URL || '').trim().replace(/\/$/, '');
+  const account = String(process.env.KEYGEN_ACCOUNT_ID || '').trim();
+  if (!base || !account) return null;
+  try {
+    const r = await fetch(`${base}/v1/accounts/${account}/licenses/actions/validate-key`, {
+      method: 'POST', dispatcher: noKeepAlive, signal: AbortSignal.timeout(10000),
+      headers: { 'Content-Type': 'application/vnd.api+json', Accept: 'application/vnd.api+json', 'Keygen-Version': '1.8' },
+      body: JSON.stringify({ meta: { key: PROBE_KEY } })
+    });
+    const json = await r.json().catch(() => null);
+    const code = json && json.meta && json.meta.code;
+    if (r.ok && code === 'SUSPENDED') return { ok: true };
+    if (r.ok && code === 'NOT_FOUND') return { ok: false, detail: 'The health-probe licence is missing from Keygen. Run: node ops/keygen/create-health-probe.mjs' };
+    return { ok: false, detail: `Keygen cannot validate licences (HTTP ${r.status}${code ? ', ' + code : ''}); real licence checks are failing. If Redis is full: ssh ubuntu@13.205.179.101 and run docker exec keygen-redis-1 redis-cli INFO errorstats.` };
+  } catch {
+    return { ok: false, detail: 'Keygen licence validation timed out.' };
+  }
+}
+
 async function checkBackup() {
   const [last] = await selectMany('backup_runs', { select: 'at,ok', ok: 'eq.true', order: 'at.desc', limit: '1' });
   if (!last) return { ok: false, detail: 'No successful database backup has been recorded' };
@@ -132,7 +158,7 @@ export async function restorePausedSupabase() {
   return actions;
 }
 
-const CHECKS = { keygen: checkKeygen, keygen_db: checkKeygenDatabase, backup: checkBackup, paid_unfulfilled: checkPaidUnfulfilled, email_failures: checkEmailFailures, email_backlog: checkEmailBacklog, email_on_ses: checkEmailOnSes };
+const CHECKS = { keygen: checkKeygen, keygen_db: checkKeygenDatabase, keygen_writes: checkKeygenWrites, backup: checkBackup, paid_unfulfilled: checkPaidUnfulfilled, email_failures: checkEmailFailures, email_backlog: checkEmailBacklog, email_on_ses: checkEmailOnSes };
 
 async function notify(subject, lines, idempotencyKey) {
   const to = String(process.env.ALERT_EMAIL || '').trim();

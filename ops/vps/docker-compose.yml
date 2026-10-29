@@ -25,9 +25,9 @@ services:
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "64mb", "--maxmemory-policy", "noeviction"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "128mb", "--maxmemory-policy", "allkeys-lru"]
     volumes: [redis-data:/data]
-    mem_limit: 96m
+    mem_limit: 192m
 
   caddy:
     image: caddy:2.10-alpine
