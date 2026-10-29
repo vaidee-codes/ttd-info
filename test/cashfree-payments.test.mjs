@@ -305,6 +305,19 @@ test('re-opening the same checkout reuses the Cashfree order and issues a fresh 
   assert.equal(Object.keys(w.cfOrders).length, 1);
 });
 
+test('a checkout begun under another gateway is not re-opened at Cashfree', async (t) => {
+  quiet(t);
+  const w = world(t);
+  const id = randomUUID();
+  await start('7d', id);
+  w.tables.orders[0].razorpay_order_id = 'pu_0123456789abcdef01';
+  const again = await start('7d', id);
+  assert.equal(again.statusCode, 409);
+  assert.equal(again.body.error, 'request_conflict');
+  const fresh = await start('7d', randomUUID());
+  assert.equal(fresh.statusCode, 200);
+});
+
 // ---- confirm --------------------------------------------------------------
 test('payment-confirm fulfils a paid Cashfree order and is idempotent', async (t) => {
   quiet(t);

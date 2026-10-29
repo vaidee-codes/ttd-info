@@ -66,6 +66,11 @@ export async function cashfreeCheckout(res, { plan, body, requestId, extensionId
     if (order.status === 'created' && !!order.reminder_opt_in !== reminderOptIn(body)) {
       await updateWhere('orders', { id: order.id, status: 'created' }, { reminder_opt_in: reminderOptIn(body) });
     }
+    // A tab can carry a checkout begun under another gateway (the site switched
+    // gateways meanwhile): that order is not ours to re-open; start a fresh one.
+    if (order.status === 'created' && order.razorpay_order_id && !order.razorpay_order_id.startsWith('ttd_')) {
+      return sendError(res, 409, 'request_conflict', 'This checkout was started earlier with another payment method. Reload the page and try again.');
+    }
     if (order.status !== 'created') {
       return sendError(res, 409, 'already_paid', 'This checkout is already paid. Your licence key is on the success page.');
     }
