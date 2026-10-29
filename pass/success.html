@@ -128,7 +128,8 @@
     // licence service was slow). Keep asking for a few minutes.
     async function pollForKey(purchase, fast) {
       for (let attempt = 0; attempt < (fast ? 45 : 36); attempt++) {
-        await new Promise((r) => setTimeout(r, fast ? (attempt ? 2000 : 800) : 5000));
+        // Back from the payment page: ask at once, then every 2 s.
+        if (attempt || !fast) await new Promise((r) => setTimeout(r, fast ? 2000 : 5000));
         try {
           const res = await fetch('/api/payment-confirm', {
             method: 'POST', headers: { 'Content-Type': 'application/json' },

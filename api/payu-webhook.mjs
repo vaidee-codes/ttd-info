@@ -20,7 +20,11 @@ export default async function handler(req, res) {
   } catch (error) {
     return res.status(error.status || 400).json({ ok: false, error: 'invalid_body' });
   }
-  if (!verifyPayUResponse(fields)) return res.status(401).json({ ok: false, error: 'invalid_hash' });
+  if (!verifyPayUResponse(fields)) {
+    // Field names only (no values): enough to see how PayU's webhook differs from the surl post.
+    console.log(JSON.stringify({ event: 'payu_webhook_rejected', type: String(req.headers['content-type'] || '').slice(0, 60), fields: Object.keys(fields || {}).slice(0, 80) }));
+    return res.status(401).json({ ok: false, error: 'invalid_hash' });
+  }
 
   const txnid = fields.txnid ? String(fields.txnid).slice(0, 40) : null;
   const status = String(fields.status || 'unknown').slice(0, 20);
