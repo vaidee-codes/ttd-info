@@ -94,6 +94,15 @@ async function capturedPaymentFor(order, paymentId) {
   return captured && captured.status === 'captured' ? captured : null;
 }
 
+// Work the buyer need not wait for (the licence email, the reminder note). On
+// Vercel it runs on after the response is sent; elsewhere (tests, scripts) it
+// is awaited as before. Same request-context hook @vercel/firewall reads.
+async function afterResponse(task) {
+  const context = globalThis[Symbol.for('@vercel/request-context')]?.get?.();
+  if (context && typeof context.waitUntil === 'function') context.waitUntil(task);
+  else await task;
+}
+
 // Idempotent: any number of concurrent/retried calls produce one licence.
 export async function fulfilOrder(order) {
   if (!PLANS[order.plan]) throw new ProviderConfigurationError();
@@ -136,7 +145,7 @@ export async function fulfilOrder(order) {
   const [fulfilled] = await updateWhere('orders', { id: order.id, status: 'paid' }, { status: 'fulfilled', fulfilled_at: new Date().toISOString() });
   // Release reminders (opt-in) are a side matter: never fail an order over them.
   if (fulfilled) {
-    await noteReminderPurchase(fulfilled).catch((error) => log('reminder_note_failed', { code: String(error && error.code || '').slice(0, 40) }));
+    await afterResponse(noteReminderPurchase(fulfilled).catch((error) => log('reminder_note_failed', { code: String(error && error.code || '').slice(0, 40) })));
   }
   return licenseKey;
 }
@@ -144,6 +153,7 @@ export async function fulfilOrder(order) {
 // Verifies payment with Razorpay, marks the order paid, and fulfils it.
 // Returns { state: 'fulfilled', licenseKey } | { state: 'unpaid' }.
 export async function settleOrder(order, { paymentId } = {}) {
+  const started = Date.now();
   if (order.status === 'created') {
     const payment = await capturedPaymentFor(order, paymentId);
     if (!payment) return { state: 'unpaid' };
@@ -153,13 +163,13 @@ export async function settleOrder(order, { paymentId } = {}) {
       ? normaliseEmail(payment.email).slice(0, 254) : null;
     await updateWhere('orders', { id: order.id, status: 'created' },
       { status: 'paid', razorpay_payment_id: payment.id, paid_at: new Date().toISOString(), ...(!order.email && fromRazorpay ? { email: fromRazorpay } : {}) });
-    log('payment_verified', { order_id: order.id, plan: order.plan });
+    log('payment_verified', { order_id: order.id, plan: order.plan, ms: Date.now() - started });
   }
   const current = await selectOne('orders', { id: order.id });
   if (!current || current.status === 'created') return { state: 'unpaid' };
   const licenseKey = await fulfilOrder(current);
-  log('order_fulfilled', { order_id: order.id, plan: order.plan });
-  // Best effort: the key is already shown on the page; the outbox retries.
-  await deliverForOrder(order.id).catch(() => false);
+  log('order_fulfilled', { order_id: order.id, plan: order.plan, ms: Date.now() - started });
+  // Best effort, after the response: the key is already shown on the page; the outbox retries.
+  await afterResponse(deliverForOrder(order.id).catch(() => false));
   return { state: 'fulfilled', licenseKey };
 }

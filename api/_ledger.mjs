@@ -113,7 +113,9 @@ export async function rpc(fn, args) {
     throw new ProviderError(503, 'LEDGER_UNAVAILABLE');
   }
   if (!response.ok) throw new ProviderError(response.status >= 500 ? 503 : response.status, 'LEDGER_ERROR');
-  return response.json();
+  // A `returns void` function (note_reminder_purchase) answers 204 with no body.
+  const text = await response.text();
+  return text ? JSON.parse(text) : null;
 }
 
 const AUTHORITY_COLUMNS = 'authority,public_license_id,keygen_license_id';
