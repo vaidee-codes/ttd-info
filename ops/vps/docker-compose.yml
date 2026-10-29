@@ -22,10 +22,13 @@ services:
       retries: 5
     logging: { driver: json-file, options: { max-size: "10m", max-file: "3" } }
 
+  # allkeys-lru, not noeviction: with no worker, Sidekiq queues and the Rails cache
+  # only grow, and under noeviction a full Redis turns every Keygen write (licence
+  # create, validate-key) into a 500. Nothing here needs to outlive eviction.
   redis:
     image: redis:7.4-alpine
     restart: unless-stopped
-    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "64mb", "--maxmemory-policy", "noeviction"]
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory", "64mb", "--maxmemory-policy", "allkeys-lru"]
     volumes: [redis-data:/data]
     mem_limit: 96m
 

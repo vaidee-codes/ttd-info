@@ -1,0 +1,6 @@
+# /etc/cron.d/keygen-queues on the Keygen VPS.
+# Keygen runs without a Sidekiq worker (see docker-compose.yml), so every
+# validate-key enqueues TouchLicenseWorker + EventNotificationWorker jobs that
+# nothing consumes. They filled Redis and took licensing down on 2026-10-29.
+# allkeys-lru is the backstop; this keeps the queues from growing at all.
+*/15 * * * * root for db in 0 1; do docker exec keygen-redis-1 redis-cli -n $db unlink queue:logs queue:default retry schedule dead >/dev/null; done
