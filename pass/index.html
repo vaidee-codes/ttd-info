@@ -371,6 +371,10 @@
     // the session's return_url (/pass/success), as the hosted page did.
     // Resolves false when the overlay cannot open (the caller redirects
     // instead); rejects when the buyer closes it without paying.
+    // The SDK keeps the onEvent of its first Initialize, so it is set up once
+    // and passes events to the overlay that is open now.
+    let dodoEvent = () => {};
+    let dodoReady = false;
     function openDodoOverlay(checkoutUrl) {
       const host = new URL(checkoutUrl).hostname;
       if (host !== 'checkout.dodopayments.com' && host !== 'test.checkout.dodopayments.com') return Promise.resolve(false);
@@ -379,17 +383,20 @@
           const sdk = window.DodoPaymentsCheckout && window.DodoPaymentsCheckout.DodoPayments;
           if (!sdk) return resolve(false);
           let opened = false;
+          dodoEvent = (type) => {
+            if (type === 'checkout.opened') opened = true;
+            if (type === 'checkout.closed') reject(new Error('Payment was not completed. You have not been charged.'));
+            if (type === 'checkout.error' && !opened) resolve(false);
+          };
           try {
-            sdk.Initialize({
-              mode: host === 'checkout.dodopayments.com' ? 'live' : 'test',
-              displayType: 'overlay',
-              onEvent: (event) => {
-                const type = event && event.event_type;
-                if (type === 'checkout.opened') opened = true;
-                if (type === 'checkout.closed') reject(new Error('Payment was not completed. You have not been charged.'));
-                if (type === 'checkout.error' && !opened) resolve(false);
-              }
-            });
+            if (!dodoReady) {
+              sdk.Initialize({
+                mode: host === 'checkout.dodopayments.com' ? 'live' : 'test',
+                displayType: 'overlay',
+                onEvent: (event) => dodoEvent(event && event.event_type)
+              });
+              dodoReady = true;
+            }
             sdk.Checkout.open({ checkoutUrl });
           } catch {
             resolve(false);
