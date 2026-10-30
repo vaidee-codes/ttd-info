@@ -364,6 +364,45 @@
     // PayU opens in-page (Checkout Plus) except where PayU advises against it
     // (in-app browsers), with ?pu=redirect, or after the in-page window failed here once.
     const payuInPage = params.get('pu') !== 'redirect' && !/\bwv\b|FBAN|FBAV|Instagram|Line\//.test(navigator.userAgent);
+    // Dodo opens as an overlay on this page unless ?dodo=redirect.
+    const dodoOverlay = params.get('dodo') !== 'redirect';
+
+    // Dodo's overlay checkout. After payment the SDK itself sends the buyer to
+    // the session's return_url (/pass/success), as the hosted page did.
+    // Resolves false when the overlay cannot open (the caller redirects
+    // instead); rejects when the buyer closes it without paying.
+    function openDodoOverlay(checkoutUrl) {
+      const host = new URL(checkoutUrl).hostname;
+      if (host !== 'checkout.dodopayments.com' && host !== 'test.checkout.dodopayments.com') return Promise.resolve(false);
+      return new Promise((resolve, reject) => {
+        const start = () => {
+          const sdk = window.DodoPaymentsCheckout && window.DodoPaymentsCheckout.DodoPayments;
+          if (!sdk) return resolve(false);
+          let opened = false;
+          try {
+            sdk.Initialize({
+              mode: host === 'checkout.dodopayments.com' ? 'live' : 'test',
+              displayType: 'overlay',
+              onEvent: (event) => {
+                const type = event && event.event_type;
+                if (type === 'checkout.opened') opened = true;
+                if (type === 'checkout.closed') reject(new Error('Payment was not completed. You have not been charged.'));
+                if (type === 'checkout.error' && !opened) resolve(false);
+              }
+            });
+            sdk.Checkout.open({ checkoutUrl });
+          } catch {
+            resolve(false);
+          }
+        };
+        if (window.DodoPaymentsCheckout) return start();
+        const script = document.createElement('script');
+        script.src = 'https://cdn.jsdelivr.net/npm/dodopayments-checkout@2.0.0/dist/index.js';
+        script.onload = start;
+        script.onerror = () => resolve(false);
+        document.head.appendChild(script);
+      });
+    }
 
     function loadRazorpayScript() {
       if (window.Razorpay) return Promise.resolve();
@@ -886,6 +925,10 @@
         });
         const data = await res.json();
         if (!res.ok || !data.checkout_url) throw new Error(data.message || 'Could not start checkout. Please try again.');
+        if (dodoOverlay) {
+          btn.textContent = 'Complete the payment in the secure window…';
+          if (await openDodoOverlay(data.checkout_url)) return;
+        }
         location.href = data.checkout_url;
       } catch (e) {
         if (e.field) {
