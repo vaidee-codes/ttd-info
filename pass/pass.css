@@ -15,6 +15,7 @@
 .pass-price-old{color:#b9a7e8;text-decoration:line-through;font-size:1.05rem}
 .pass-card{background:#fff;border:1px solid var(--line);border-radius:20px;padding:28px;margin-top:22px}
 .pass-card h2{margin-top:0;font-size:1.25rem}
+.pass-card .pass-after-buy{margin-top:28px}
 .pass-feature-list{display:grid;gap:12px;margin:0;padding:0;list-style:none}
 .pass-feature-list li{display:flex;gap:12px;align-items:flex-start;color:var(--muted);font-size:.95rem}
 .pass-feature-list li b{color:var(--ink)}

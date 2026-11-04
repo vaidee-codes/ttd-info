@@ -75,21 +75,6 @@
         <p class="pass-note" style="margin-top:8px">You get <b>one licence key</b> that works on this many browsers — share it with family or your group. Each browser activates it once.</p>
       </div>
 
-      <h2>What the pass unlocks</h2>
-      <ul class="pass-feature-list">
-        <li><span aria-hidden="true">⚡</span><span><b>Pilgrim booking autofill</b> on the official TTD pilgrim booking portal (<code>ttdevasthanams.ap.gov.in</code>) — the floating fill button and the Pilgrim tab.</span></li>
-        <li><span aria-hidden="true">🔑</span><span><b>Licence key delivered instantly</b> by email and on the success page — valid <b id="feat-days">7 days</b>, <span id="feat-browsers">1 browser activation</span>.</span></li>
-        <li><span aria-hidden="true">🕒</span><span><b>Renew after your current pass expires.</b> A new pass begins when it is purchased; it does not add time to an active pass.</span></li>
-      </ul>
-
-      <div class="pass-check" id="activate-row">
-        <input type="checkbox" id="activate" checked>
-        <div>
-          <label for="activate">Activate this extension automatically</label>
-          <small id="activate-note">After payment, the licence key is sent straight to your extension — no copy-paste needed. Uncheck to receive the key by email and on the success page instead.</small>
-        </div>
-      </div>
-
       <div class="pass-contact" id="contact-fields" hidden>
         <label for="buyer-email">Email <small>— your licence key and receipt are sent here</small></label>
         <input type="email" id="buyer-email" autocomplete="email" maxlength="254" placeholder="you@example.com" aria-describedby="buyer-email-error">
@@ -102,9 +87,25 @@
         <label class="pass-optin" for="buyer-reminders"><input type="checkbox" id="buyer-reminders"><span>Email me the day before TTD's next quota release <small><span class="pass-optional">(optional)</span> — unsubscribe any time</small></span></label>
       </div>
 
+      <div class="pass-check" id="activate-row">
+        <input type="checkbox" id="activate" checked>
+        <div>
+          <label for="activate">Activate this extension automatically</label>
+          <small id="activate-note">After payment, the licence key is sent straight to your extension — no copy-paste needed. Uncheck to receive the key by email and on the success page instead.</small>
+        </div>
+      </div>
+
       <button class="pass-btn" id="get-pass">Get 7-day pass · ₹99</button>
       <p class="pass-note" id="checkout-note">You'll enter your email and payment details on the secure checkout page.</p>
       <div class="pass-error" id="error"></div>
+
+      <h2 class="pass-after-buy">What the pass unlocks</h2>
+      <ul class="pass-feature-list">
+        <li><span aria-hidden="true">⚡</span><span><b>Pilgrim booking autofill</b> on the official TTD pilgrim booking portal (<code>ttdevasthanams.ap.gov.in</code>) — the floating fill button and the Pilgrim tab.</span></li>
+        <li><span aria-hidden="true">🔑</span><span><b>Licence key delivered instantly</b> by email and on the success page — valid <b id="feat-days">7 days</b>, <span id="feat-browsers">1 browser activation</span>.</span></li>
+        <li><span aria-hidden="true">🕒</span><span><b>Renew after your current pass expires.</b> A new pass begins when it is purchased; it does not add time to an active pass.</span></li>
+      </ul>
+
       <p class="pass-note">Refunds within 24 hours of purchase if the pass has not been used. See the <a class="pass-link" href="/refund-policy">refund policy</a>, <a class="pass-link" href="/shipping-policy">delivery policy</a> and <a class="pass-link" href="/terms">terms</a>.</p>
       <p class="pass-note">Prices are in Indian rupees and final — no taxes or shipping are added at checkout. Digital licence, delivered online. Sold by TTD Autofill, Bengaluru, India · <a class="pass-link" href="/contact">Contact us</a>.</p>
       <p class="pass-note">Already have a key? Open the extension and choose <b>Enter licence key</b>.</p>
