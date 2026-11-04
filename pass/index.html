@@ -16,14 +16,14 @@
     <a class="brand" href="/"><span class="brand-mark" aria-hidden="true">⚡</span> TTD Autofill</a>
     <div class="nav-links"><a href="/">Home</a><a class="nav-pass" href="/pass" aria-current="page">Pass</a><a href="/demos">Demos</a><a href="/guides">Guides</a><a href="/support">Support</a></div>
   </nav>
-  <aside class="advisory-bar" aria-label="Information disclaimer"><strong>Independent tool.</strong> Not affiliated with or endorsed by TTD. Does not book tickets, bypass CAPTCHA, OTP, queues or payments, and provides no booking guarantee.</aside>
 
   <main id="main" class="inner-main pass-wrap">
-    <!-- A slim title: prices live on the plan cards and the buy button. -->
+    <!-- A slim title: prices live on the plan cards and the buy button. The
+         scope line and the disclaimer sit below the button so it shows on a
+         laptop screen without scrolling. -->
     <header class="pass-head">
       <p class="eyebrow">Professional Access</p>
       <h1>Unlock pilgrim booking autofill</h1>
-      <p><span id="hero-scope">One payment, one browser, one licence key.</span> Personal and family use of the rest of the extension stays free.</p>
     </header>
 
     <section class="pass-card">
@@ -100,6 +100,7 @@
       <div class="pass-error" id="error"></div>
 
       <h2 class="pass-after-buy">What the pass unlocks</h2>
+      <p class="pass-scope"><span id="hero-scope">One payment, one browser, one licence key.</span> Personal and family use of the rest of the extension stays free.</p>
       <ul class="pass-feature-list">
         <li><span aria-hidden="true">⚡</span><span><b>Pilgrim booking autofill</b> on the official TTD pilgrim booking portal (<code>ttdevasthanams.ap.gov.in</code>) — the floating fill button and the Pilgrim tab.</span></li>
         <li><span aria-hidden="true">🔑</span><span><b>Licence key delivered instantly</b> by email and on the success page — valid <b id="feat-days">7 days</b>, <span id="feat-browsers">1 browser activation</span>.</span></li>
@@ -111,6 +112,7 @@
       <p class="pass-note">Already have a key? Open the extension and choose <b>Enter licence key</b>.</p>
     </section>
   </main>
+  <aside class="advisory-bar pass-advisory" aria-label="Information disclaimer"><strong>Independent tool.</strong> Not affiliated with or endorsed by TTD. Does not book tickets, bypass CAPTCHA, OTP, queues or payments, and provides no booking guarantee.</aside>
 
   <!-- Shown only while the buy button is below the visible part of the page. -->
   <div class="pass-sticky" id="sticky-buy" hidden>
