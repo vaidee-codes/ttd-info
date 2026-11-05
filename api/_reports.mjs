@@ -3,7 +3,7 @@ import { countRows, selectAll } from './_ledger.mjs';
 
 // Operations reports. Read-only, and built from the ledger alone: Keygen (the
 // one-worker VPS that serves every refresh) is never queried. Every licence
-// issued since the cutover has a ledger row — Razorpay orders and offline
+// issued since the cutover has a ledger row — online orders (any gateway) and offline
 // sales/grants — so the ledger is the complete record of new licences.
 
 const IST_MS = 330 * 60 * 1000; // India has no daylight saving: always UTC+5:30
@@ -110,7 +110,7 @@ export async function buildReport(span, mode) {
   const dodoMigrated = await countRows('licence_authority', [['source', 'eq.dodo-migrated']]);
 
   const seriesKeys = bucketsBetween(span.from, span.to, span.bucket);
-  const series = new Map(seriesKeys.map((k) => [k, { bucket: k, razorpay: 0, offline: 0, grant: 0, revenue_paise: 0 }]));
+  const series = new Map(seriesKeys.map((k) => [k, { bucket: k, online: 0, offline: 0, grant: 0, revenue_paise: 0 }]));
   const point = (ts) => series.get(bucketOf(Date.parse(ts), span.bucket));
   const plans = {};
   const planRow = (plan) => (plans[plan] ||= { plan, label: planLabel(plan), licences: 0, passes: 0, revenue_paise: 0 });
@@ -122,8 +122,8 @@ export async function buildReport(span, mode) {
     const row = planRow(o.plan);
     row.licences += 1; row.passes += quantity; row.revenue_paise += amount;
     const pt = point(o.paid_at);
-    if (pt) { pt.razorpay += 1; pt.revenue_paise += amount; }
-    licences.push({ at: o.paid_at, source: 'razorpay', plan: o.plan, passes: quantity, amount_paise: amount, email: o.email || null,
+    if (pt) { pt.online += 1; pt.revenue_paise += amount; }
+    licences.push({ at: o.paid_at, source: 'online', plan: o.plan, passes: quantity, amount_paise: amount, email: o.email || null,
       detail: [o.discount_pct ? o.discount_pct + '% bulk discount' : '', o.status === 'paid' ? 'licence pending' : '', o.razorpay_mode !== 'live' ? 'test mode' : '']
         .filter(Boolean).join(' · ') });
   }
@@ -142,7 +142,7 @@ export async function buildReport(span, mode) {
   const sum = (rows, f) => rows.reduce((t, r) => t + f(r), 0);
   const paidOffline = offline.filter((s) => s.kind === 'paid');
   const grants = offline.filter((s) => s.kind === 'grant');
-  const razorpayRevenue = sum(paid, (o) => Number(o.amount_paise || 0));
+  const onlineRevenue = sum(paid, (o) => Number(o.amount_paise || 0));
   const offlineRevenue = sum(paidOffline, (s) => Number(s.amount_inr || 0) * 100);
   const countBy = (rows, f) => Object.entries(rows.reduce((acc, r) => { const k = f(r) || 'unknown'; acc[k] = (acc[k] || 0) + 1; return acc; }, {}))
     .map(([key, count]) => ({ key, count })).sort((a, b) => b.count - a.count);
@@ -154,7 +154,7 @@ export async function buildReport(span, mode) {
     generated_at: new Date().toISOString(),
     licences: {
       total: paid.length + offline.length,
-      razorpay: paid.length,
+      online: paid.length,
       offline: paidOffline.length,
       grant: grants.length,
       passes: sum(paid, (o) => Number(o.quantity || 1)) + sum(offline, (s) => Number(s.activations || 1)),
@@ -162,10 +162,10 @@ export async function buildReport(span, mode) {
       awaiting_licence: paid.filter((o) => o.status === 'paid').length
     },
     revenue: {
-      total_paise: razorpayRevenue + offlineRevenue,
-      razorpay_paise: razorpayRevenue,
+      total_paise: onlineRevenue + offlineRevenue,
+      online_paise: onlineRevenue,
       offline_paise: offlineRevenue,
-      average_order_paise: paid.length ? Math.round(razorpayRevenue / paid.length) : 0
+      average_order_paise: paid.length ? Math.round(onlineRevenue / paid.length) : 0
     },
     checkouts: { started: started.length, completed, abandoned: started.length - completed },
     plans: Object.values(plans).sort((a, b) => (PLANS[a.plan] ? PLANS[a.plan].days : 1e9) - (PLANS[b.plan] ? PLANS[b.plan].days : 1e9)),

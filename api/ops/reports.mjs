@@ -10,7 +10,7 @@ const reports = new Map();
 
 // POST /api/ops/reports { range, from?, to?, mode?, fresh? } → licence, sales and ops figures.
 // range: today | yesterday | 7d | 30d | 90d | month | last_month | fy | all | custom (from/to YYYY-MM-DD, IST).
-// mode: live (default) | test | all — which Razorpay orders count. Read-only; ledger only.
+// mode: live (default) | test | all — which online (gateway) orders count. Read-only; ledger only.
 export default async function handler(req, res) {
   if (!beginRequest(req, res, ['POST'])) return;
   const operator = await requireOperator(req, res, { cacheMs: OPERATOR_CACHE_MS });

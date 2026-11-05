@@ -144,8 +144,8 @@ test('report: live licences, revenue and checkouts for a range, from the ledger 
   assert.equal(r.statusCode, 200, JSON.stringify(r.body));
   const rep = r.body.report;
   assert.equal(rep.mode, 'live');
-  assert.deepEqual(rep.licences, { total: 4, razorpay: 2, offline: 1, grant: 1, passes: 10, multi_pass: 2, awaiting_licence: 0 });
-  assert.deepEqual(rep.revenue, { total_paise: 9900 + 52600 + 29900, razorpay_paise: 62500, offline_paise: 29900, average_order_paise: 31250 });
+  assert.deepEqual(rep.licences, { total: 4, online: 2, offline: 1, grant: 1, passes: 10, multi_pass: 2, awaiting_licence: 0 });
+  assert.deepEqual(rep.revenue, { total_paise: 9900 + 52600 + 29900, online_paise: 62500, offline_paise: 29900, average_order_paise: 31250 });
   assert.deepEqual(rep.checkouts, { started: 3, completed: 2, abandoned: 1 });
   assert.deepEqual(rep.plans.map((p) => [p.plan, p.licences, p.passes, p.revenue_paise]), [['7d', 2, 7, 9900], ['30d', 2, 3, 82500]]);
   assert.deepEqual(rep.offline_methods, [{ key: 'upi', count: 1 }]);
@@ -157,19 +157,19 @@ test('report: live licences, revenue and checkouts for a range, from the ledger 
   assert.equal(rep.recent.length, 4);
   assert.equal(rep.recent[0].source, 'grant');
   assert.equal(rep.series.length, 2);
-  assert.deepEqual(rep.series.map((s) => [s.bucket, s.razorpay, s.offline, s.grant]), [['2026-10-04', 1, 0, 0], ['2026-10-05', 1, 1, 1]]);
+  assert.deepEqual(rep.series.map((s) => [s.bucket, s.online, s.offline, s.grant]), [['2026-10-04', 1, 0, 0], ['2026-10-05', 1, 1, 1]]);
   // Keygen: one admin check only. Ledger: reads only, one at a time.
   assert.deepEqual(w.calls.filter((c) => c.host === 'keygen.test').map((c) => c.path), ['/v1/accounts/acct-1/me']);
   assert.ok(w.calls.every((c) => c.host !== 'ledger.test' || ['GET', 'HEAD'].includes(c.method)));
 });
 
-test('report: test mode and all mode select which Razorpay orders count', async (t) => {
+test('report: test mode and all mode select which online orders count', async (t) => {
   world(t, ledger());
   const testMode = (await call({ range: 'custom', from: '2026-10-05', to: '2026-10-05', mode: 'test', fresh: true })).body.report;
-  assert.equal(testMode.licences.razorpay, 1);
-  assert.equal(testMode.recent.find((x) => x.source === 'razorpay').detail, 'test mode');
+  assert.equal(testMode.licences.online, 1);
+  assert.equal(testMode.recent.find((x) => x.source === 'online').detail, 'test mode');
   const all = (await call({ range: 'custom', from: '2026-10-05', to: '2026-10-05', mode: 'all', fresh: true })).body.report;
-  assert.equal(all.licences.razorpay, 2);
+  assert.equal(all.licences.online, 2);
 });
 
 test('report: repeat requests within a minute reuse the result and skip Keygen', async (t) => {

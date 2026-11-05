@@ -87,7 +87,7 @@
           <div><label for="c-to">To</label><input type="date" id="c-to"></div>
           <div><button class="ops-small" id="c-apply">Show dates</button></div>
           <div style="flex:1"></div>
-          <div><label for="mode">Razorpay payments</label><select id="mode"><option value="live">Live only</option><option value="test">Test only</option><option value="all">Live + test</option></select></div>
+          <div><label for="mode">Online payments</label><select id="mode"><option value="live">Live only</option><option value="test">Test only</option><option value="all">Live + test</option></select></div>
           <div><button class="ops-small" id="refresh">Refresh</button></div>
         </div>
         <p class="r-status" id="status"></p>
@@ -130,7 +130,7 @@
     const TOKEN_KEY = 'ttdafOpsToken';
     const PREF_KEY = 'ttdafReportPrefs';
     const SERIES = [
-      { key: 'razorpay', label: 'Razorpay', color: '#2a78d6' },
+      { key: 'online', label: 'Online', color: '#2a78d6' },
       { key: 'offline', label: 'Offline sale', color: '#eb6834' },
       { key: 'grant', label: 'Grant', color: '#1baf7a' }
     ];
@@ -242,21 +242,21 @@
       $('report').hidden = false;
       const L = r.licences;
       const notes = [];
-      if (L.awaiting_licence) notes.push(L.awaiting_licence + ' paid order(s) are still waiting for their licence. The reconcile job retries every 5 minutes; check the order in Razorpay if this persists.');
+      if (L.awaiting_licence) notes.push(L.awaiting_licence + ' paid order(s) are still waiting for their licence. The reconcile job retries every 5 minutes; check the order in the payment gateway if this persists.');
       if (r.truncated.length) notes.push('Very large period: only the first 20,000 rows of ' + r.truncated.join(', ') + ' were read. Pick a shorter period for exact figures.');
-      if (r.mode !== 'live') notes.push(r.mode === 'test' ? 'Showing Razorpay TEST payments only — not real money.' : 'Razorpay figures include TEST payments.');
+      if (r.mode !== 'live') notes.push(r.mode === 'test' ? 'Showing online TEST payments only — not real money.' : 'Online figures include TEST payments.');
       $('notes').replaceChildren(...notes.map((n) => el('div', { class: 'r-note', text: n })));
 
       const c = r.checkouts;
       const conv = c.started ? Math.round((c.completed / c.started) * 100) + '% paid' : 'no checkouts';
       const e = Object.fromEntries(r.emails.by_status.map((x) => [x.key, x.count]));
       $('tiles').replaceChildren(
-        tile('New licences', num(L.total), num(L.razorpay) + ' Razorpay · ' + num(L.offline) + ' offline · ' + num(L.grant) + ' grants'),
+        tile('New licences', num(L.total), num(L.online) + ' online · ' + num(L.offline) + ' offline · ' + num(L.grant) + ' grants'),
         tile('Passes (browsers)', num(L.passes), num(L.multi_pass) + ' multi-pass key' + (L.multi_pass === 1 ? '' : 's')),
-        tile('Revenue', inr(r.revenue.total_paise), inr(r.revenue.razorpay_paise) + ' Razorpay · ' + inr(r.revenue.offline_paise) + ' offline'),
-        tile('Average Razorpay order', L.razorpay ? inr(r.revenue.average_order_paise) : '—', num(L.razorpay) + ' paid order' + (L.razorpay === 1 ? '' : 's')),
+        tile('Revenue', inr(r.revenue.total_paise), inr(r.revenue.online_paise) + ' online · ' + inr(r.revenue.offline_paise) + ' offline'),
+        tile('Average online order', L.online ? inr(r.revenue.average_order_paise) : '—', num(L.online) + ' paid order' + (L.online === 1 ? '' : 's')),
         tile('Checkouts', num(c.completed) + ' / ' + num(c.started), conv + ' · ' + num(c.abandoned) + ' not paid'),
-        tile('Invoices issued', num(r.invoices_issued), 'Razorpay and offline paid sales'),
+        tile('Invoices issued', num(r.invoices_issued), 'Online and offline paid sales'),
         tile('Emails sent', num(e.sent || 0), num(e.queued || 0) + ' queued · ' + num(e.failed || 0) + ' failed in period')
       );
 
@@ -278,9 +278,13 @@
       $('activity').replaceChildren(r.ops_activity.length ? table(['Action', 'Count'], r.ops_activity.map((x) => [ACTION[x.key] || x.key.replace(/_/g, ' '), num(x.count)]), [1])
         : el('p', { class: 'r-empty', text: 'No operator actions in this period.' }));
       const rec = r.on_record;
+      // Online keys are tagged with the gateway that sold them (razorpay, cashfree, phonepe…).
+      const gateways = Object.keys(rec).filter((k) => !['dodo_migrated', 'offline', 'grant'].includes(k)).sort();
       $('onrecord').replaceChildren(table(['Source', 'Licences'], [
-        ['Imported from Dodo', num(rec.dodo_migrated || 0)], ['Razorpay', num(rec.razorpay || 0)], ['Offline sales', num(rec.offline || 0)], ['Grants', num(rec.grant || 0)]
-      ], [1]), el('p', { class: 'ops-meta', text: 'Every key the ledger knows, whatever the period. Razorpay includes test-mode keys.' }));
+        ['Imported from Dodo', num(rec.dodo_migrated || 0)],
+        ...gateways.map((k) => ['Online · ' + k.charAt(0).toUpperCase() + k.slice(1), num(rec[k])]),
+        ['Offline sales', num(rec.offline || 0)], ['Grants', num(rec.grant || 0)]
+      ], [1]), el('p', { class: 'ops-meta', text: 'Every key the ledger knows, whatever the period. Online includes test-mode keys.' }));
       renderRecent();
     }
 
