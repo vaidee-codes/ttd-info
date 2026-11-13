@@ -6,37 +6,6 @@
   <meta name="description" content="Get a TTD Autofill pass for 7, 30 or 90 days — unlock pilgrim-booking autofill with an instant licence key.">
   <meta name="theme-color" content="#5b21b6">
   <title>Pass — TTD Autofill Assistant</title>
-  <script>
-    // Buying moves to ttd-autofill.com (owner, 2026-11-13). Extension 7.7.0+ trusts that
-    // domain for the key hand-over; older installs only trust ttd-info.vercel.app, so a
-    // buyer with one of those stays here and still gets the key activated automatically.
-    (function () {
-      if (location.hostname !== 'ttd-info.vercel.app') return;
-      var target = 'https://ttd-autofill.com' + location.pathname + location.search + location.hash;
-      var root = document.documentElement;
-      var settled = false;
-      function finish(go) {
-        if (settled) return;
-        settled = true;
-        if (go) location.replace(target); else root.style.visibility = '';
-      }
-      function trustsNewDomain(version) {
-        var p = String(version || '').split('.').map(Number);
-        if (p.length < 2 || isNaN(p[0]) || isNaN(p[1])) return false;
-        return p[0] > 7 || (p[0] === 7 && p[1] >= 7);
-      }
-      var rt = window.chrome && window.chrome.runtime;
-      if (!rt || !rt.sendMessage) return finish(true);
-      root.style.visibility = 'hidden';
-      setTimeout(function () { finish(true); }, 1200);
-      try {
-        rt.sendMessage('piiegkjdfbbakjmjdckgdjbbohfjfolg', { type: 'TTDAF_PING' }, function (r) {
-          if (rt.lastError || !r || !r.ok) return finish(true);
-          finish(trustsNewDomain(r.version));
-        });
-      } catch (e) { finish(true); }
-    })();
-  </script>
   <link rel="stylesheet" href="/site.css">
   <link rel="stylesheet" href="/planning.css">
   <link rel="stylesheet" href="/pass/pass.css">
