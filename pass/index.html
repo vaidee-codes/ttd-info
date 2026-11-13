@@ -78,7 +78,6 @@
       <form class="pass-contact" id="contact-fields" autocomplete="on" novalidate hidden>
         <label for="buyer-email">Email <small>— your licence key and receipt are sent here</small></label>
         <input type="email" id="buyer-email" name="email" autocomplete="email" maxlength="254" placeholder="you@example.com" aria-describedby="buyer-email-error">
-        <button type="button" class="pass-last-email" id="last-email" hidden>Use <span id="last-email-value"></span></button>
         <p class="pass-field-error" id="buyer-email-error" role="alert" hidden></p>
         <div class="pass-contact-mobile" id="mobile-field" hidden>
           <label for="buyer-mobile">Mobile <small><span class="pass-optional">(optional)</span> — only for payment updates from the payment gateway; we don't store it</small></label>
@@ -186,9 +185,8 @@
     // The email box is a real form so Chrome can suggest saved or earlier emails:
     // Chrome remembers a typed value only when its form is submitted, so starting
     // checkout "submits" it (never sent anywhere; the submit is cancelled), and
-    // Enter in the box starts checkout like the button. The box starts empty so
-    // Chrome's list shows on click; the last email used in this browser is
-    // offered as a one-click "Use …" link under it.
+    // Enter in the box starts checkout like the button. The last email used in
+    // this browser is also filled in next time (clear it to see Chrome's list).
     const contactForm = document.getElementById('contact-fields');
     const buyerEmail = document.getElementById('buyer-email');
     const LAST_EMAIL = 'ttdafLastEmail';
@@ -212,23 +210,10 @@
       try { if (contactForm.requestSubmit) contactForm.requestSubmit(); } catch {}
       rememberingEmail = false;
     }
-    const lastEmailBtn = document.getElementById('last-email');
-    let lastEmail = '';
-    try { lastEmail = localStorage.getItem(LAST_EMAIL) || ''; } catch {}
-    function syncLastEmail() {
-      lastEmailBtn.hidden = !lastEmail || buyerEmail.value.trim().toLowerCase() === lastEmail.toLowerCase();
-    }
-    if (lastEmail) {
-      document.getElementById('last-email-value').textContent = lastEmail;
-      lastEmailBtn.addEventListener('click', () => {
-        buyerEmail.value = lastEmail;
-        clearFieldError('email');
-        syncLastEmail();
-        buyerEmail.focus();
-      });
-      buyerEmail.addEventListener('input', syncLastEmail);
-      syncLastEmail();
-    }
+    try {
+      const last = localStorage.getItem(LAST_EMAIL);
+      if (last && !buyerEmail.value) buyerEmail.value = last;
+    } catch {}
 
     // On a laptop screen the buy button sits below the fold. A copy pinned to the
     // bottom mirrors it (label and disabled state) while it is out of sight below,
