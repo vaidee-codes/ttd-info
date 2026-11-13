@@ -96,5 +96,6 @@
 .pass-contact-mobile[hidden]{display:none}
 .pass-contact .pass-optin{display:flex;gap:10px;align-items:flex-start;margin-top:6px;font-weight:600;font-size:.9rem;cursor:pointer}
 .pass-contact .pass-optin input{width:18px;height:18px;padding:0;margin:2px 0 0;flex:none;accent-color:#5b21b6}
+.pass-contact .pass-optin[hidden]{display:none}
 .pass-contact .pass-optin small{font-weight:400;color:var(--muted)}
 .pass-contact .pass-optional{font-weight:650;color:#4b5563}

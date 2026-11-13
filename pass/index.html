@@ -84,7 +84,7 @@
           <input type="tel" id="buyer-mobile" autocomplete="tel-national" inputmode="numeric" maxlength="16" placeholder="10-digit mobile number" aria-describedby="buyer-mobile-error">
           <p class="pass-field-error" id="buyer-mobile-error" role="alert" hidden></p>
         </div>
-        <label class="pass-optin" for="buyer-reminders"><input type="checkbox" id="buyer-reminders"><span>Email me the day before TTD's next quota release <small><span class="pass-optional">(optional)</span> — unsubscribe any time</small></span></label>
+        <label class="pass-optin" for="buyer-reminders" id="reminders-optin" hidden><input type="checkbox" id="buyer-reminders"><span>Email me the day before TTD's next quota release <small><span class="pass-optional">(optional)</span> — unsubscribe any time</small></span></label>
       </div>
 
       <div class="pass-check" id="activate-row">
@@ -135,6 +135,12 @@
     const activateNote = document.getElementById('activate-note');
     const errorEl = document.getElementById('error');
     const FIELD_INPUTS = { email: 'buyer-email', mobile: 'buyer-mobile' };
+    // Hidden for now (owner, 2026-11-09/13). Set true to show them again.
+    // Mobile: Cashfree/PayU only; while hidden the gateway gets the placeholder number.
+    // Release reminders: while hidden the box stays unticked, so no one is opted in.
+    const SHOW_MOBILE = false;
+    const SHOW_REMINDERS = false;
+    document.getElementById('reminders-optin').hidden = !SHOW_REMINDERS;
 
     // A contact-field problem is shown on the field itself, not in the box under the button.
     function fieldError(field, message) {
@@ -852,14 +858,14 @@
         }
         if (paymentProvider === 'cashfree') {
           document.getElementById('contact-fields').hidden = false;
-          document.getElementById('mobile-field').hidden = false;
+          document.getElementById('mobile-field').hidden = !SHOW_MOBILE;
           loadCashfreeScript().catch(() => {}); // warm up, so the click does not wait for it
           const note = document.getElementById('checkout-note');
           if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Your licence key appears here right after payment and is also emailed to you.';
         }
         if (paymentProvider === 'payu') {
           document.getElementById('contact-fields').hidden = false;
-          document.getElementById('mobile-field').hidden = false;
+          document.getElementById('mobile-field').hidden = !SHOW_MOBILE;
           const note = document.getElementById('checkout-note');
           if (note) note.textContent = 'Pay securely with UPI, card or netbanking. Your licence key appears here right after payment and is also emailed to you.';
         }
