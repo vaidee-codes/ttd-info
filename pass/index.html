@@ -75,17 +75,18 @@
         <p class="pass-note" style="margin-top:8px">You get <b>one licence key</b> that works on this many browsers — share it with family or your group. Each browser activates it once.</p>
       </div>
 
-      <div class="pass-contact" id="contact-fields" hidden>
+      <form class="pass-contact" id="contact-fields" autocomplete="on" novalidate hidden>
         <label for="buyer-email">Email <small>— your licence key and receipt are sent here</small></label>
-        <input type="email" id="buyer-email" autocomplete="email" maxlength="254" placeholder="you@example.com" aria-describedby="buyer-email-error">
+        <input type="email" id="buyer-email" name="email" autocomplete="email" maxlength="254" placeholder="you@example.com" aria-describedby="buyer-email-error">
+        <button type="button" class="pass-last-email" id="last-email" hidden>Use <span id="last-email-value"></span></button>
         <p class="pass-field-error" id="buyer-email-error" role="alert" hidden></p>
         <div class="pass-contact-mobile" id="mobile-field" hidden>
           <label for="buyer-mobile">Mobile <small><span class="pass-optional">(optional)</span> — only for payment updates from the payment gateway; we don't store it</small></label>
-          <input type="tel" id="buyer-mobile" autocomplete="tel-national" inputmode="numeric" maxlength="16" placeholder="10-digit mobile number" aria-describedby="buyer-mobile-error">
+          <input type="tel" id="buyer-mobile" name="mobile" autocomplete="tel-national" inputmode="numeric" maxlength="16" placeholder="10-digit mobile number" aria-describedby="buyer-mobile-error">
           <p class="pass-field-error" id="buyer-mobile-error" role="alert" hidden></p>
         </div>
         <label class="pass-optin" for="buyer-reminders" id="reminders-optin" hidden><input type="checkbox" id="buyer-reminders"><span>Email me the day before TTD's next quota release <small><span class="pass-optional">(optional)</span> — unsubscribe any time</small></span></label>
-      </div>
+      </form>
 
       <div class="pass-check" id="activate-row">
         <input type="checkbox" id="activate" checked>
@@ -181,6 +182,53 @@
       return digits;
     }
     const btn = document.getElementById('get-pass');
+
+    // The email box is a real form so Chrome can suggest saved or earlier emails:
+    // Chrome remembers a typed value only when its form is submitted, so starting
+    // checkout "submits" it (never sent anywhere; the submit is cancelled), and
+    // Enter in the box starts checkout like the button. The box starts empty so
+    // Chrome's list shows on click; the last email used in this browser is
+    // offered as a one-click "Use …" link under it.
+    const contactForm = document.getElementById('contact-fields');
+    const buyerEmail = document.getElementById('buyer-email');
+    const LAST_EMAIL = 'ttdafLastEmail';
+    let rememberingEmail = false;
+    contactForm.addEventListener('submit', (event) => {
+      event.preventDefault();
+      if (!rememberingEmail && !btn.disabled) btn.click();
+    });
+    // Browsers skip Enter-to-submit in a form with two text boxes (email +
+    // mobile) and no submit button, so Enter in either box presses the buy button.
+    contactForm.addEventListener('keydown', (event) => {
+      if (event.key !== 'Enter' || event.isComposing || event.target.tagName !== 'INPUT' || event.target.type === 'checkbox') return;
+      event.preventDefault();
+      if (!btn.disabled) btn.click();
+    });
+    function rememberEmail() {
+      const email = buyerEmail.value.trim();
+      if (contactForm.hidden || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return;
+      try { localStorage.setItem(LAST_EMAIL, email); } catch {}
+      rememberingEmail = true;
+      try { if (contactForm.requestSubmit) contactForm.requestSubmit(); } catch {}
+      rememberingEmail = false;
+    }
+    const lastEmailBtn = document.getElementById('last-email');
+    let lastEmail = '';
+    try { lastEmail = localStorage.getItem(LAST_EMAIL) || ''; } catch {}
+    function syncLastEmail() {
+      lastEmailBtn.hidden = !lastEmail || buyerEmail.value.trim().toLowerCase() === lastEmail.toLowerCase();
+    }
+    if (lastEmail) {
+      document.getElementById('last-email-value').textContent = lastEmail;
+      lastEmailBtn.addEventListener('click', () => {
+        buyerEmail.value = lastEmail;
+        clearFieldError('email');
+        syncLastEmail();
+        buyerEmail.focus();
+      });
+      buyerEmail.addEventListener('input', syncLastEmail);
+      syncLastEmail();
+    }
 
     // On a laptop screen the buy button sits below the fold. A copy pinned to the
     // bottom mirrors it (label and disabled state) while it is out of sight below,
@@ -894,6 +942,7 @@
     }
 
     btn.addEventListener('click', async () => {
+      rememberEmail();
       errorEl.classList.remove('show');
       clearFieldError('email');
       clearFieldError('mobile');
