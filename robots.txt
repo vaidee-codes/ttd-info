@@ -1,0 +1,9 @@
+User-agent: *
+Allow: /
+Disallow: /api/
+Disallow: /ops/
+Disallow: /pass/success
+Disallow: /pass/status
+Disallow: /pass/unsubscribe
+
+Sitemap: https://ttd-autofill.com/sitemap.xml

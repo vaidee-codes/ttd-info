@@ -54,6 +54,13 @@
       "destination": "/refund-policy"
     }
   ],
+  "redirects": [
+    {
+      "source": "/PRIVACY_POLICY.md",
+      "destination": "/PRIVACY_POLICY",
+      "permanent": true
+    }
+  ],
   "regions": [
     "bom1"
   ],
@@ -109,6 +116,24 @@
         {
           "key": "X-Frame-Options",
           "value": "DENY"
+        }
+      ]
+    },
+    {
+      "source": "/(.*)\\.(css|js|mjs)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=600"
+        }
+      ]
+    },
+    {
+      "source": "/(favicon\\.ico|assets/.*)",
+      "headers": [
+        {
+          "key": "Cache-Control",
+          "value": "public, max-age=86400"
         }
       ]
     },
