@@ -120,8 +120,12 @@ function entitlementBody({ view, installationUuid, licenseKeyId, instanceId }) {
 // Outage access (LICENSING_OUTAGE_ACCESS, on unless set to "false"): when Keygen
 // or the ledger is unreachable — e.g. Supabase paused a project — a browser that
 // already holds a validly signed entitlement keeps working on short 2 h tokens,
-// for at most 72 h from when its last real token ran out. Never past the pass's
-// own expiry, and never for a new activation.
+// for at most 72 h of outage. Never past the pass's own expiry, and never for a
+// new activation.
+// The 72 h runs from the browser's first outage refresh, not from when its last
+// real token ran out: on 2026-10-29, browsers opened after a few days away were
+// refused although their passes were still valid. A token without a recorded
+// pass expiry keeps the stricter rule (72 h from its last real token).
 export const OUTAGE_GRACE_SECONDS = 72 * 3600;
 const OUTAGE_TOKEN_SECONDS = 2 * 3600;
 
@@ -129,9 +133,10 @@ export function outageGrace(res, { claims, installationUuid, instanceId }, now =
   if (String(process.env.LICENSING_OUTAGE_ACCESS || '').trim().toLowerCase() === 'false') return false;
   if (!claims || !claims.exp) return false;
   const nowSeconds = Math.floor(now / 1000);
-  const since = Number(claims.grace_since) || Math.min(Number(claims.exp), nowSeconds);
+  const passExpiry = claims.provider_expiry ? Date.parse(claims.provider_expiry) : NaN;
+  if (claims.provider_expiry && !(passExpiry > now)) return false;
+  const since = Number(claims.grace_since) || (Number.isFinite(passExpiry) ? nowSeconds : Math.min(Number(claims.exp), nowSeconds));
   if (nowSeconds - since > OUTAGE_GRACE_SECONDS) return false;
-  if (claims.provider_expiry && Date.parse(claims.provider_expiry) <= now) return false;
   let entitlement;
   try {
     entitlement = issueEntitlement({

@@ -313,6 +313,40 @@ test('outage grace: an activated browser keeps working on short tokens while Key
   assert.equal(back.body.outage_grace, undefined);
 });
 
+test('outage grace: a browser opened after days away still works while Keygen is down (2026-10-29)', async (t) => {
+  quiet(t);
+  const w = fakeWorld(t);
+  const l = w.license({ expiry: inDays(20) });
+  const a = (await call(activate, { license_key: l.key, installation_uuid: INSTALL_A })).body;
+  w.keygenDown = true;
+  const nowS = Math.floor(Date.now() / 1000);
+  // Its last real token ran out 10 days ago; the pass itself is still valid.
+  const stale = issueEntitlement({ productId: WEEKLY, licenseKeyId: l.id, installationUuid: INSTALL_A, activationInstanceId: a.instance_id,
+    providerExpiry: new Date(Date.now() + 10 * 86400e3).toISOString() }, Date.now() - 10 * 86400e3 - 8 * 3600e3).token;
+  const body = (token) => ({ license_key: l.key, instance_id: a.instance_id, entitlement_token: token, installation_uuid: INSTALL_A });
+  const g = await call(refresh, body(stale));
+  assert.equal(g.statusCode, 200);
+  assert.equal(g.body.outage_grace, true);
+  const claims = JSON.parse(Buffer.from(g.body.entitlement_token.split('.')[1], 'base64url').toString());
+  assert.ok(Math.abs(claims.grace_since - nowS) <= 5, 'the 72 h starts now, at the first outage refresh');
+  // The grace chain still ends 72 h into the outage.
+  const late = issueEntitlement({ productId: WEEKLY, licenseKeyId: l.id, installationUuid: INSTALL_A, activationInstanceId: a.instance_id,
+    providerExpiry: claims.provider_expiry, graceSince: nowS - 73 * 3600, seconds: 3600 }).token;
+  assert.equal((await call(refresh, body(late))).statusCode, 502);
+});
+
+test('outage grace: a stale token with no recorded pass expiry keeps the 72 h-from-last-token rule', async (t) => {
+  quiet(t);
+  const w = fakeWorld(t);
+  const l = w.license({ expiry: inDays(20) });
+  const a = (await call(activate, { license_key: l.key, installation_uuid: INSTALL_A })).body;
+  w.keygenDown = true;
+  const stale = issueEntitlement({ productId: WEEKLY, licenseKeyId: l.id, installationUuid: INSTALL_A, activationInstanceId: a.instance_id,
+    providerExpiry: null }, Date.now() - 4 * 86400e3).token;
+  const r = await call(refresh, { license_key: l.key, instance_id: a.instance_id, entitlement_token: stale, installation_uuid: INSTALL_A });
+  assert.equal(r.statusCode, 502);
+});
+
 test('outage grace: never past the pass expiry, and not for a token from another installation', async (t) => {
   quiet(t);
   const w = fakeWorld(t);
