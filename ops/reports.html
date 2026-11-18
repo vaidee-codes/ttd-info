@@ -116,6 +116,17 @@
         </div>
 
         <section class="ops-card">
+          <h2>Buyer answers (success page)</h2>
+          <p class="ops-meta" id="fb-summary" style="margin-top:0"></p>
+          <div class="r-grid">
+            <div><h3 style="margin:0 0 6px;font-size:.95rem">How they heard about us</h3><div id="fb-heard"></div></div>
+            <div><h3 style="margin:0 0 6px;font-size:.95rem">Other temples they struggle to book</h3><div class="r-scroll" id="fb-temples"></div></div>
+          </div>
+          <div class="r-scroll" id="fb-recent" style="margin-top:14px"></div>
+          <p style="margin:10px 0 0"><button class="ops-small" id="fb-more" hidden>Show all</button></p>
+        </section>
+
+        <section class="ops-card">
           <div class="ops-head"><h2>Licences issued in this period</h2><button class="ops-small" id="csv">Download CSV</button></div>
           <div class="r-scroll" id="recent"></div>
           <p style="margin:10px 0 0"><button class="ops-small" id="more" hidden>Show all</button></p>
@@ -286,7 +297,30 @@
         ['Offline sales', num(rec.offline || 0)], ['Grants', num(rec.grant || 0)]
       ], [1]), el('p', { class: 'ops-meta', text: 'Every key the ledger knows, whatever the period. Online includes test-mode keys.' }));
       renderRecent();
+      renderFeedback();
     }
+
+    const HEARD = { chrome_web_store: 'Chrome Web Store', youtube: 'YouTube', whatsapp: 'WhatsApp', telegram: 'Telegram', instagram: 'Instagram',
+      facebook: 'Facebook', google: 'Google search', friend: 'Friend or family', other: 'Other' };
+    let showAllFeedback = false;
+    function renderFeedback() {
+      const f = current.feedback || { answers: 0, heard_from: [], temples: [], recent: [] };
+      const pct = (n) => f.answers ? ' (' + Math.round((n / f.answers) * 100) + '%)' : '';
+      $('fb-summary').textContent = f.answers
+        ? num(f.answers) + ' buyer' + (f.answers === 1 ? '' : 's') + ' answered in this period (optional questions after payment).'
+        : 'No answers in this period yet.';
+      $('fb-heard').replaceChildren(f.heard_from.length ? table(['Source', 'Buyers'], f.heard_from.map((x) => [HEARD[x.key] || x.key, num(x.count) + pct(x.count)]), [1])
+        : el('p', { class: 'r-empty', text: 'No answers.' }));
+      $('fb-temples').replaceChildren(f.temples.length ? table(['Answer', 'Buyers'], f.temples.slice(0, 25).map((x) => [x.key, num(x.count)]), [1])
+        : el('p', { class: 'r-empty', text: 'No answers.' }));
+      const rows = showAllFeedback ? f.recent : f.recent.slice(0, 50);
+      $('fb-recent').replaceChildren(f.recent.length ? table(['When', 'Buyer', 'Pass', 'Other temple', 'Heard from', 'Detail'], rows.map((x) => [
+        when(x.at), x.email || '—', PLAN[x.plan] || x.plan || '—', x.other_temple || '—', x.heard_from ? HEARD[x.heard_from] || x.heard_from : '—', x.heard_from_detail || ''
+      ])) : '');
+      $('fb-more').hidden = showAllFeedback || f.recent.length <= 50;
+      $('fb-more').textContent = 'Show all ' + num(f.recent.length) + ' answers';
+    }
+    $('fb-more').addEventListener('click', () => { showAllFeedback = true; renderFeedback(); });
 
     function renderRecent() {
       const rows = current.recent;

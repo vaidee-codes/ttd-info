@@ -99,3 +99,16 @@
 .pass-contact .pass-optin[hidden]{display:none}
 .pass-contact .pass-optin small{font-weight:400;color:var(--muted)}
 .pass-contact .pass-optional{font-weight:650;color:#4b5563}
+/* Optional questions on the success page */
+.pass-survey h2 small{font-weight:500;font-size:.8rem;color:var(--muted)}
+.pass-survey form[hidden],.pass-survey [hidden]{display:none}
+.pass-survey-q{display:block;margin:14px 0 0;padding:0;border:0;font-weight:700;font-size:.95rem}
+.pass-survey-q legend{padding:0;font-weight:700}
+.pass-chips{display:flex;flex-wrap:wrap;gap:8px;margin-top:10px}
+.pass-chips label{cursor:pointer}
+.pass-chips input{position:absolute;opacity:0;pointer-events:none}
+.pass-chips span{display:inline-block;padding:8px 13px;border:1px solid var(--line);border-radius:999px;font-weight:600;font-size:.88rem;background:#fff}
+.pass-chips input:checked+span{background:#5b21b6;border-color:#5b21b6;color:#fff}
+.pass-chips input:focus-visible+span{outline:2px solid #b798ec;outline-offset:2px}
+.pass-survey .pass-btn.ghost{margin-top:14px}
+.pass-survey-done{margin:6px 0 0;font-weight:700;color:#166534}

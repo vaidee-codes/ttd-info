@@ -8,11 +8,11 @@ const script = html.match(/<script>([\s\S]*?)<\/script>/)?.[1];
 assert.ok(script, 'success page inline activation script exists');
 const EXTENSION = 'piiegkjdfbbakjmjdckgdjbbohfjfolg';
 
-async function runSuccessPage(query, replies = [], { extensionPresent = true } = {}) {
+async function runSuccessPage(query, replies = [], { extensionPresent = true, session = null, fetch = undefined } = {}) {
   const elements = new Map();
   const element = (id) => {
     if (!elements.has(id)) elements.set(id, {
-      id, style: {}, textContent: '', className: '', listeners: {},
+      id, style: {}, textContent: '', className: '', listeners: {}, hidden: id === 'survey-detail' || id === 'survey-done', elements: {},
       addEventListener(type, fn) { this.listeners[type] = fn; }
     });
     return elements.get(id);
@@ -33,6 +33,8 @@ async function runSuccessPage(query, replies = [], { extensionPresent = true } =
     document: { getElementById: element },
     window: { chrome: runtime ? { runtime } : undefined },
     navigator: { clipboard: { writeText: async () => {} } },
+    sessionStorage: session ? { getItem: (k) => session[k] ?? null, setItem: (k, v) => { session[k] = String(v); }, removeItem: (k) => { delete session[k]; } } : undefined,
+    fetch,
     setTimeout: (fn) => { fn(); return 1; },
     Promise
   };
@@ -100,4 +102,40 @@ test('activation not requested (checkbox unticked): the key is shown but never s
   assert.equal(page.element('license-card').style.display, 'block');
   assert.equal(page.sends.length, 0, 'nothing sent to the extension');
   assert.match(page.element('activation-status').textContent, /paste it into the extension/);
+});
+
+test('optional questions appear only for a purchase this tab paid for, and post with its token', async () => {
+  const plain = await runSuccessPage('?status=succeeded&license_key=QA-KEY');
+  assert.notEqual(plain.element('survey-card').style.display, 'block', 'no token: no questions');
+
+  const session = { ttdafPurchase: JSON.stringify({ status: 'succeeded', license_key: 'QA-KEY', plan: '7d', razorpay_order_id: 'ttd_abc', purchase_token: 'T'.repeat(43) }) };
+  const posts = [];
+  const page = await runSuccessPage('', [], { session, fetch: async (url, opts) => { posts.push({ url, body: JSON.parse(opts.body) }); return { ok: true, json: async () => ({ ok: true }) }; } });
+  assert.equal(page.element('survey-card').style.display, 'block');
+
+  const form = page.element('survey-form');
+  form.elements = { other_temple: { value: '  Srisailam  ' }, heard_from: { value: 'other' } };
+  form.listeners.change();
+  assert.equal(page.element('survey-detail').hidden, false, 'Other shows the detail box');
+  page.element('survey-detail').value = 'Temple forum';
+
+  // Nothing answered: a gentle note, nothing sent.
+  form.elements.other_temple.value = '';
+  form.elements.heard_from.value = '';
+  await form.listeners.submit({ preventDefault() {} });
+  assert.equal(posts.length, 0);
+  assert.equal(page.element('survey-error').hidden, false);
+
+  form.elements.other_temple.value = '  Srisailam  ';
+  form.elements.heard_from.value = 'other';
+  await form.listeners.submit({ preventDefault() {} });
+  assert.equal(posts.length, 1);
+  assert.equal(posts[0].url, '/api/purchase-feedback');
+  assert.deepEqual(posts[0].body, { razorpay_order_id: 'ttd_abc', purchase_token: 'T'.repeat(43), other_temple: 'Srisailam', heard_from: 'other', heard_from_detail: 'Temple forum' });
+  assert.equal(page.element('survey-form').hidden, true);
+  assert.equal(page.element('survey-done').hidden, false);
+  assert.equal(session['ttdafFeedback:ttd_abc'], '1');
+
+  const again = await runSuccessPage('', [], { session });
+  assert.notEqual(again.element('survey-card').style.display, 'block', 'answered once per order per tab');
 });

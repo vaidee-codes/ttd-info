@@ -100,11 +100,12 @@ export async function countRows(table, query = {}) {
   return total;
 }
 
-export async function insertOne(table, row, { onConflict, ignoreDuplicates = false } = {}) {
+export async function insertOne(table, row, { onConflict, ignoreDuplicates = false, mergeDuplicates = false } = {}) {
+  const resolution = ignoreDuplicates ? 'resolution=ignore-duplicates' : mergeDuplicates ? 'resolution=merge-duplicates' : '';
   const rows = await rest('POST', table, {
     query: onConflict ? { on_conflict: onConflict } : {},
     body: row,
-    prefer: ['return=representation', ignoreDuplicates ? 'resolution=ignore-duplicates' : ''].filter(Boolean).join(',')
+    prefer: ['return=representation', resolution].filter(Boolean).join(',')
   });
   return rows[0] || null;
 }

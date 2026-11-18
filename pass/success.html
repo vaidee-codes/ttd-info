@@ -37,6 +37,32 @@
       <p class="pass-note">A new pass begins when purchased. We recommend buying after this pass expires.</p>
     </section>
 
+    <section class="pass-card pass-survey" id="survey-card" style="display:none">
+      <h2>Two quick questions <small>(optional)</small></h2>
+      <form id="survey-form" novalidate>
+        <label class="pass-survey-q" for="survey-temple">Which other temple do you struggle to book?</label>
+        <input class="pass-field" id="survey-temple" name="other_temple" maxlength="300" autocomplete="off" placeholder="Another temple, another booking site — anything">
+        <fieldset class="pass-survey-q">
+          <legend>How did you hear about us?</legend>
+          <div class="pass-chips">
+            <label><input type="radio" name="heard_from" value="chrome_web_store"><span>Chrome Web Store</span></label>
+            <label><input type="radio" name="heard_from" value="youtube"><span>YouTube</span></label>
+            <label><input type="radio" name="heard_from" value="whatsapp"><span>WhatsApp</span></label>
+            <label><input type="radio" name="heard_from" value="telegram"><span>Telegram</span></label>
+            <label><input type="radio" name="heard_from" value="instagram"><span>Instagram</span></label>
+            <label><input type="radio" name="heard_from" value="facebook"><span>Facebook</span></label>
+            <label><input type="radio" name="heard_from" value="google"><span>Google search</span></label>
+            <label><input type="radio" name="heard_from" value="friend"><span>Friend or family</span></label>
+            <label><input type="radio" name="heard_from" value="other"><span>Other</span></label>
+          </div>
+          <input class="pass-field" id="survey-detail" name="heard_from_detail" maxlength="200" autocomplete="off" placeholder="Where? (optional)" hidden>
+        </fieldset>
+        <p class="pass-field-error" id="survey-error" hidden></p>
+        <button class="pass-btn ghost" id="survey-send" type="submit">Send</button>
+      </form>
+      <p class="pass-survey-done" id="survey-done" hidden>Thank you — this helps us decide what to build next.</p>
+    </section>
+
     <section class="pass-card" id="waiting-card" style="display:none">
       <h2>Almost there</h2>
       <p class="pass-muted">If you've just paid, your key can take a few seconds to appear. Your licence key is also emailed to you automatically.</p>
@@ -96,7 +122,59 @@
       const quantity = Number(stored && stored.quantity) || 1;
       document.getElementById('pass-duration').textContent = plan.duration + (quantity > 1 ? ' · works on ' + quantity + ' browsers (share this key)' : '');
       showEl(keyCard);
+      showSurvey();
       deliverToExtension(key);
+    }
+
+    // Two optional questions, only for a purchase this tab paid for (the
+    // purchase token proves it). Answered once per order per tab.
+    function showSurvey() {
+      if (!(stored && stored.razorpay_order_id && stored.purchase_token)) return;
+      const doneKey = 'ttdafFeedback:' + stored.razorpay_order_id;
+      try { if (sessionStorage.getItem(doneKey)) return; } catch {}
+      const card = document.getElementById('survey-card');
+      const form = document.getElementById('survey-form');
+      const detail = document.getElementById('survey-detail');
+      const error = document.getElementById('survey-error');
+      const send = document.getElementById('survey-send');
+      card.style.display = 'block';
+      form.addEventListener('change', () => {
+        const picked = form.elements.heard_from.value;
+        detail.hidden = picked !== 'other' && picked !== 'friend';
+        detail.placeholder = picked === 'friend' ? 'Where did they hear of it? (optional)' : 'Where? (optional)';
+      });
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const answer = {
+          other_temple: form.elements.other_temple.value.trim(),
+          heard_from: form.elements.heard_from.value,
+          heard_from_detail: detail.hidden ? '' : detail.value.trim()
+        };
+        error.hidden = true;
+        if (!answer.other_temple && !answer.heard_from) {
+          error.textContent = 'Answer either question, or just skip this — it is optional.';
+          error.hidden = false;
+          return;
+        }
+        send.disabled = true;
+        send.textContent = 'Sending…';
+        try {
+          const res = await fetch('/api/purchase-feedback', {
+            method: 'POST', headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ razorpay_order_id: stored.razorpay_order_id, purchase_token: stored.purchase_token, ...answer })
+          });
+          const data = await res.json().catch(() => ({}));
+          if (!res.ok) throw new Error(data.message || 'Could not send. Please try again.');
+          try { sessionStorage.setItem(doneKey, '1'); } catch {}
+          form.hidden = true;
+          document.getElementById('survey-done').hidden = false;
+        } catch (err) {
+          error.textContent = err.message || 'Could not send. Please try again.';
+          error.hidden = false;
+          send.disabled = false;
+          send.textContent = 'Send';
+        }
+      });
     }
 
     function load() {

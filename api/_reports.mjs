@@ -87,6 +87,20 @@ const between = (column, from, to) => [[column, 'gte.' + new Date(from).toISOStr
 const modeFilter = (mode) => mode === 'live' ? [['razorpay_mode', 'eq.live']] : mode === 'test' ? [['razorpay_mode', 'neq.live']] : [];
 const planLabel = (plan) => (PLANS[plan] && PLANS[plan].label) || plan || 'unknown';
 
+// "Srisailam", "srisailam " and "SRISAILAM" are one answer; shown as first written.
+function templeCounts(feedback) {
+  const groups = new Map();
+  for (const f of feedback) {
+    const text = String(f.other_temple || '').trim();
+    if (!text) continue;
+    const key = text.toLowerCase().replace(/[^\p{L}\p{N}]+/gu, ' ').trim();
+    const g = groups.get(key) || { key: text, count: 0 };
+    g.count += 1;
+    groups.set(key, g);
+  }
+  return [...groups.values()].sort((a, b) => b.count - a.count || a.key.localeCompare(b.key));
+}
+
 // Reads the ledger one query at a time (never in parallel), so a report holds
 // at most one ledger connection and checkout/refresh traffic is unaffected.
 export async function buildReport(span, mode) {
@@ -104,6 +118,17 @@ export async function buildReport(span, mode) {
     ...between('created_at', span.from, span.to), ['status', 'eq.provisioned']], 'created_at.asc,id.asc');
   const emails = await read('email_outbox', [['select', 'status,kind,provider'], ...between('created_at', span.from, span.to)], 'created_at.asc,id.asc');
   const audits = await read('audit_events', [['select', 'action'], ...between('at', span.from, span.to)], 'at.asc,id.asc');
+  const feedbackRows = await read('purchase_feedback', [['select', 'order_id,other_temple,heard_from,heard_from_detail,updated_at'],
+    ...between('updated_at', span.from, span.to)], 'updated_at.desc,order_id.asc');
+  // The order each answer belongs to (buyer email, pass, live/test), a hundred ids per read.
+  const feedbackOrders = new Map();
+  const ids = [...new Set(feedbackRows.map((f) => f.order_id))];
+  for (let i = 0; i < ids.length; i += 100) {
+    for (const o of await read('orders', [['select', 'id,email,plan,razorpay_mode'], ['id', 'in.(' + ids.slice(i, i + 100).join(',') + ')']], 'id.asc')) feedbackOrders.set(o.id, o);
+  }
+  const feedback = feedbackRows.map((f) => ({ ...f, order: feedbackOrders.get(f.order_id) || {} }))
+    .filter((f) => mode === 'all' || (mode === 'live' ? f.order.razorpay_mode === 'live' : f.order.razorpay_mode !== 'live'))
+    .sort((a, b) => Date.parse(b.updated_at) - Date.parse(a.updated_at));
   const invoicesIssued = await countRows('invoices', between('issued_at', span.from, span.to));
   const emailBacklog = await countRows('email_outbox', [['status', 'eq.queued']]);
   const onRecord = await read('licence_authority', [['select', 'source'], ['source', 'neq.dodo-migrated']], 'key_hash.asc');
@@ -173,6 +198,13 @@ export async function buildReport(span, mode) {
     emails: { by_status: countBy(emails, (e) => e.status), by_provider: countBy(emails.filter((e) => e.status === 'sent'), (e) => e.provider), queued_now: emailBacklog },
     invoices_issued: invoicesIssued,
     ops_activity: countBy(audits, (a) => a.action),
+    feedback: {
+      answers: feedback.length,
+      heard_from: countBy(feedback.filter((f) => f.heard_from), (f) => f.heard_from),
+      temples: templeCounts(feedback),
+      recent: feedback.map((f) => ({ at: f.updated_at, email: f.order.email || null, plan: f.order.plan || null,
+        other_temple: f.other_temple || null, heard_from: f.heard_from || null, heard_from_detail: f.heard_from_detail || null }))
+    },
     on_record: { dodo_migrated: dodoMigrated, ...Object.fromEntries(countBy(onRecord, (r) => r.source).map((x) => [x.key, x.count])) },
     series: [...series.values()],
     recent: licences,

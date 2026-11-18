@@ -76,6 +76,12 @@ const ledger = () => ({
     { id: 2, action: 'grant_created', at: '2026-10-05T07:00:00Z' },
     { id: 3, action: 'ops_login', at: '2026-10-05T08:00:00Z' }
   ],
+  purchase_feedback: [
+    { order_id: 'o1', other_temple: 'Srisailam', heard_from: 'youtube', heard_from_detail: null, updated_at: '2026-10-05T03:05:00Z' },
+    { order_id: 'o2', other_temple: ' srisailam. ', heard_from: 'friend', heard_from_detail: 'cousin', updated_at: '2026-10-04T05:10:00Z' },
+    { order_id: 'o4', other_temple: 'Sabarimala', heard_from: null, heard_from_detail: null, updated_at: '2026-10-05T05:05:00Z' },
+    { order_id: 'o5', other_temple: null, heard_from: 'google', heard_from_detail: null, updated_at: '2026-09-01T05:05:00Z' }
+  ],
   invoices: [{ id: 'i1', issued_at: '2026-10-05T03:01:00Z' }, { id: 'i2', issued_at: '2026-10-04T05:02:00Z' }],
   licence_authority: [
     { key_hash: 'a', source: 'dodo-migrated' }, { key_hash: 'b', source: 'dodo-migrated' },
@@ -155,6 +161,11 @@ test('report: live licences, revenue and checkouts for a range, from the ledger 
   assert.equal(rep.emails.queued_now, 1);
   assert.deepEqual(rep.on_record, { dodo_migrated: 2, razorpay: 1, grant: 1 });
   assert.equal(rep.recent.length, 4);
+  // Buyer answers: live orders only, temples grouped ignoring case/punctuation, newest first.
+  assert.equal(rep.feedback.answers, 2);
+  assert.deepEqual(rep.feedback.heard_from.map((x) => x.key).sort(), ['friend', 'youtube']);
+  assert.deepEqual(rep.feedback.temples, [{ key: 'Srisailam', count: 2 }]);
+  assert.deepEqual(rep.feedback.recent.map((x) => [x.email, x.plan, x.heard_from_detail]), [['a@example.com', '7d', null], ['b@example.com', '30d', 'cousin']]);
   assert.equal(rep.recent[0].source, 'grant');
   assert.equal(rep.series.length, 2);
   assert.deepEqual(rep.series.map((s) => [s.bucket, s.online, s.offline, s.grant]), [['2026-10-04', 1, 0, 0], ['2026-10-05', 1, 1, 1]]);
@@ -170,6 +181,9 @@ test('report: test mode and all mode select which online orders count', async (t
   assert.equal(testMode.recent.find((x) => x.source === 'online').detail, 'test mode');
   const all = (await call({ range: 'custom', from: '2026-10-05', to: '2026-10-05', mode: 'all', fresh: true })).body.report;
   assert.equal(all.licences.online, 2);
+  assert.equal(testMode.feedback.answers, 1);
+  assert.equal(testMode.feedback.temples[0].key, 'Sabarimala');
+  assert.equal(all.feedback.answers, 2);
 });
 
 test('report: repeat requests within a minute reuse the result and skip Keygen', async (t) => {
