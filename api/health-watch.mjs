@@ -169,6 +169,43 @@ async function notify(subject, lines, idempotencyKey) {
   return result.ok;
 }
 
+// The ledger outage alert cannot be stored (the ledger is down), so every run
+// that reaches the ledger stamps alert_state 'ledger'.updated_at instead. Cron
+// runs every 5 min: a stamp older than this means the ledger did not answer in
+// between, and the next run that reaches it says it is back.
+const LEDGER_GAP_MS = 9 * 60e3;
+
+// { row } when the ledger answers (row is null before the first stamp), null
+// when it does not. Rechecked once, like the other checks, so one dropped
+// request does not page anyone.
+async function readLedgerHeartbeat() {
+  for (let attempt = 0; attempt < 2; attempt++) {
+    if (attempt) await new Promise((r) => setTimeout(r, RECHECK_DELAY_MS));
+    try {
+      const rows = await selectMany('alert_state', { select: 'updated_at', check_name: 'eq.ledger', limit: '1' });
+      return { row: rows[0] || null };
+    } catch { /* retry once */ }
+  }
+  return null;
+}
+
+async function recordLedgerUp(row, now) {
+  try {
+    if (!row) {
+      await insertOne('alert_state', { check_name: 'ledger', updated_at: now.toISOString() }, { onConflict: 'check_name', ignoreDuplicates: true });
+      return;
+    }
+    const last = Date.parse(row.updated_at);
+    if (now - last > LEDGER_GAP_MS) {
+      await notify('[TTD Autofill] RECOVERED: ledger database', [
+        `The ttd-ledger database is answering again (${ist(now)}).`,
+        `The last check that reached it was at ${ist(last)}, about ${Math.round((now - last) / 60e3)} min earlier (checks run every 5 min).`
+      ], 'recovered/ledger/' + now.toISOString().slice(0, 16));
+    }
+    await updateWhere('alert_state', { check_name: 'ledger' }, { updated_at: now.toISOString() });
+  } catch { /* the stamp is best-effort; the checks below still run */ }
+}
+
 // Vercel Cron (every 5 min). Emails ALERT_EMAIL when a check starts failing,
 // reminds every 6 h while it keeps failing, and says when it recovers.
 export default async function handler(req, res) {
@@ -179,9 +216,8 @@ export default async function handler(req, res) {
   const now = new Date();
   // The ledger holds alert state, so if it is unreachable (e.g. Supabase paused
   // the project) alert directly, at most once an hour.
-  try {
-    await selectMany('alert_state', { select: 'check_name', limit: '1' });
-  } catch {
+  const ledger = await readLedgerHeartbeat();
+  if (!ledger) {
     const healed = await restorePausedSupabase();
     await notify('[TTD Autofill] ALERT: ledger database unreachable', [
       'The ttd-ledger database did not answer. Payments cannot be recorded and licences for new purchases cannot be issued.',
@@ -190,6 +226,7 @@ export default async function handler(req, res) {
     ], 'alert/ledger/' + now.toISOString().slice(0, 13));
     return res.status(200).json({ ok: false, alerts: ['ledger'] });
   }
+  await recordLedgerUp(ledger.row, now);
   const results = {};
   await Promise.all(Object.entries(CHECKS).map(async ([name, check]) => { results[name] = await runCheck(name, check); }));
 

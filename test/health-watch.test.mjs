@@ -14,7 +14,7 @@ process.env.ALERT_EMAIL = 'owner@example.com';
 const watch = (await import('../api/health-watch.mjs')).default;
 
 function world(t) {
-  const w = { tables: { backup_runs: [{ at: new Date().toISOString(), ok: true }], orders: [], email_outbox: [], alert_state: [] }, keygenUp: true, keygenDbUp: true, keygenWrites: 'ok', ledgerDown: false, emails: [] };
+  const w = { tables: { backup_runs: [{ at: new Date().toISOString(), ok: true }], orders: [], email_outbox: [], alert_state: [] }, keygenUp: true, keygenDbUp: true, keygenWrites: 'ok', ledgerDown: false, ledgerBlips: 0, emails: [] };
   const json = (v, s = 200) => new Response(JSON.stringify(v), { status: s });
   const match = (row, [k, v]) => v.startsWith('neq.') ? String(row[k]) !== v.slice(4) : v.startsWith('eq.') ? String(row[k]) === v.slice(3) : v.startsWith('lt.') ? row[k] < v.slice(3) : v.startsWith('gte.') ? row[k] >= v.slice(4) : true;
   t.mock.method(globalThis, 'fetch', async (url, opts = {}) => {
@@ -32,6 +32,7 @@ function world(t) {
     }
     if (u.host === 'api.resend.com') { w.emails.push(body); return json({ id: 'x' }); }
     if (w.ledgerDown) throw new TypeError('ledger down');
+    if (w.ledgerBlips > 0) { w.ledgerBlips--; throw new TypeError('ledger blip'); }
     const table = u.pathname.split('/').pop();
     const rows = w.tables[table];
     const filters = [...u.searchParams].filter(([k]) => !['select', 'limit', 'on_conflict', 'order'].includes(k));
@@ -136,6 +137,42 @@ test('health-watch: an unreachable ledger still alerts, with an hourly idempoten
   assert.deepEqual(r.body.alerts, ['ledger']);
   assert.equal(w.emails.length, 1);
   assert.match(w.emails[0].subject, /ledger database unreachable/);
+});
+
+test('health-watch: the ledger coming back after an outage sends one RECOVERED email', async (t) => {
+  quiet(t);
+  const w = world(t);
+  await run();
+  const stamp = w.tables.alert_state.find((r) => r.check_name === 'ledger');
+  assert.ok(stamp, 'a successful run stamps the ledger row');
+  stamp.updated_at = new Date(Date.now() - 20 * 60e3).toISOString();
+  w.ledgerDown = true;
+  await run();
+  assert.equal(w.emails.length, 1);
+  w.ledgerDown = false;
+  assert.deepEqual((await run()).body.alerts, []);
+  assert.equal(w.emails.length, 2);
+  assert.match(w.emails[1].subject, /RECOVERED: ledger database/);
+  assert.match(w.emails[1].text, /about 20 min earlier/);
+  await run();
+  assert.equal(w.emails.length, 2);
+});
+
+test('health-watch: a normal 5-minute gap between runs sends nothing', async (t) => {
+  quiet(t);
+  const w = world(t);
+  await run();
+  w.tables.alert_state.find((r) => r.check_name === 'ledger').updated_at = new Date(Date.now() - 5 * 60e3).toISOString();
+  await run();
+  assert.equal(w.emails.length, 0);
+});
+
+test('health-watch: one dropped ledger request is rechecked and does not alert', async (t) => {
+  quiet(t);
+  const w = world(t);
+  w.ledgerBlips = 1;
+  assert.deepEqual((await run()).body.alerts, []);
+  assert.equal(w.emails.length, 0);
 });
 
 test('supabase self-heal: a paused project is restored when a token is configured; nothing happens without one', async (t) => {
