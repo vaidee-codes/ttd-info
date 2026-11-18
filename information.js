@@ -1,4 +1,4 @@
-import { indiaDate, matches, eventStatus } from './information-filters.mjs';
+import { indiaDate, matches, eventStatus, releaseStatus } from './information-filters.mjs';
 for (const scope of document.querySelectorAll('[data-filter-scope]')) {
   const controls = scope.querySelector('[data-controls]');
   const search = scope.querySelector('[data-search]');
@@ -35,4 +35,13 @@ for (const scope of document.querySelectorAll('[data-filter-scope]')) {
   window.addEventListener('hashchange',revealHash);
   document.addEventListener('visibilitychange',()=>{ if(!document.hidden) update(); });
   update(); revealHash();
+}
+for (const item of document.querySelectorAll('[data-release-start]')) {
+  const status = item.querySelector('[data-release-status]');
+  const refresh = () => {
+    status.textContent = releaseStatus(item.dataset.releaseStart, item.dataset.releaseEnd || '');
+    item.dataset.state = status.textContent.split(' ')[0].toLowerCase();
+  };
+  refresh();
+  document.addEventListener('visibilitychange', () => { if(!document.hidden) refresh(); });
 }

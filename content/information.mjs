@@ -102,3 +102,21 @@ export const counters = [
  {title:'Vishnu Nivasam',area:'Opposite Tirupati railway station',type:'SSD reference location',map:'https://maps.app.goo.gl/ESc8dYiH5siXjVVS8'},
  {title:'Bhudevi Complex',area:'Near Alipiri',type:'SSD / DD reference location',map:'https://maps.app.goo.gl/GF1MLA6nNeSz6UqN9'}
 ];
+// TTD booking release dates, copied from the "Latest updates" notices on the official booking portal.
+// Times are IST. Replace the list each month when TTD posts the next month's schedule.
+export const releases = {
+ reviewed: '2026-11-18',
+ source: 'booking',
+ items: [
+  {id:'edip-feb-2027',start:'2026-11-18T10:00',end:'2026-11-20T10:00',forMonth:'February 2027',title:'Arjitha Seva Electronic DIP (lucky dip) registration',detail:'Registration stays open until 20 Nov, 10:00 AM.'},
+  {id:'arjitha-feb-2027',start:'2026-11-21T10:00',forMonth:'February 2027',title:'Arjitha Seva tickets',detail:'Kalyanam, Unjal Seva, Arjitha Brahmotsavam and Sahasra Deepalankara Seva.'},
+  {id:'virtual-feb-2027',start:'2026-11-21T15:00',forMonth:'February 2027',title:'Online Seva (virtual participation) and connected darshan',detail:'Kalyanotsavam, Unjal Seva, Arjitha Brahmotsavam and Sahasra Deepalankara Seva.'},
+  {id:'angapradakshinam-feb-2027',start:'2026-11-23T10:00',forMonth:'February 2027',title:'Angapradakshinam tokens'},
+  {id:'senior-feb-2027',start:'2026-11-23T15:00',forMonth:'February 2027',title:'Senior Citizens / Physically challenged quota'},
+  {id:'sed-feb-2027',start:'2026-11-24T10:00',forMonth:'February 2027',title:'Special Entry Darshan (₹300)'},
+  {id:'tiruchanoor-sed-dec-2026',start:'2026-11-24T10:00',forMonth:'December 2026',title:'Tiruchanoor Special Entry Darshan (₹200)',detail:'Sri Padmavathi Ammavari Temple, Tiruchanoor.'},
+  {id:'accommodation-feb-2027',start:'2026-11-24T15:00',forMonth:'February 2027',title:'Tirumala and Tirupati accommodation'},
+  {id:'homam-dec-2026',start:'2026-11-25T10:00',forMonth:'December 2026',title:'Sri Srinivasa Divyanugraha Visesha Homam',detail:'Saptha Gau Pradakshina Shala, Alipiri.'},
+  {id:'local-temples-dec-2026',start:'2026-11-25T10:00',forMonth:'December 2026',title:'TTD Local Temples Seva quota'}
+ ]
+};

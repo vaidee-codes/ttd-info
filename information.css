@@ -56,3 +56,16 @@
 .token-refresh:disabled{cursor:wait;opacity:.62}
 @media(max-width:760px){.token-live-panel{padding:22px 18px}.token-live-heading{display:block}.token-live-heading>p{margin-top:12px}.token-live-grid{grid-template-columns:1fr}.token-status-card{padding:22px}.token-status-details{grid-template-columns:1fr 1fr}.token-status-details>div:last-child{grid-column:1/-1}}
 @media(max-width:620px){.daily-timetable{padding:20px 16px}.daily-timetable th{width:112px;font-size:.85rem}.daily-timetable td{font-size:.9rem}}
+.release-intro{max-width:720px;color:var(--muted);font-size:.95rem}
+.release-list{border-top:1px solid var(--line)}
+.release-card{display:grid;grid-template-columns:72px minmax(0,1fr) auto;gap:24px;align-items:start;padding:22px 0;border-bottom:1px solid var(--line)}
+.release-card .eyebrow{margin-bottom:6px}
+.release-card h3{margin-bottom:6px}
+.release-card p{font-size:.86rem;color:var(--muted);margin-bottom:4px}
+.release-card .release-time{font-weight:750;color:var(--ink)}
+.release-status{align-self:center;margin:0!important;padding:5px 10px;border-radius:999px;background:#ebe6dc;font-size:.7rem!important;font-weight:700;white-space:nowrap}
+.release-card[data-state=open] .release-status{background:#dcfce7;color:#14532d}
+.release-card[data-state=upcoming] .release-status{background:var(--violet-soft);color:var(--violet-dark)}
+.release-card[data-state=released] .release-status,.release-card[data-state=closed] .release-status{color:var(--muted)}
+.release-section .source-line{margin-top:18px}
+@media(max-width:680px){.release-card{grid-template-columns:54px minmax(0,1fr);gap:16px}.release-status{grid-column:2;justify-self:start}}

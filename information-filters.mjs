@@ -14,3 +14,11 @@ export function eventStatus(date, endDate, today) {
   if(date <= today && (endDate || date) >= today) return 'Scheduled today · confirm with TTD';
   return 'Upcoming · published schedule';
 }
+// Booking-release status. start/end are IST wall-clock times ("YYYY-MM-DDTHH:MM").
+export function releaseStatus(start, end, now = new Date()) {
+  const at = value => new Date(`${value}:00+05:30`).getTime();
+  const t = now.getTime();
+  if(t < at(start)) return 'Upcoming';
+  if(end && t < at(end)) return 'Open now';
+  return end ? 'Closed' : 'Released · check availability on TTD';
+}

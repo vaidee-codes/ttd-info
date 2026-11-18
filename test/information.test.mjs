@@ -85,3 +85,16 @@ test('event dates use India midnight, including multi-day and past events',()=>{
  assert.match(eventStatus('2026-09-11',null,'2026-09-10'),/Upcoming/);
  assert.equal(eventStatus(null,null,'2026-09-10'),'Date awaiting confirmation');
 });
+test('booking releases render on the home page with IST status windows',async()=>{
+ const { releaseStatus } = await import('../information-filters.mjs');
+ const { releases } = await import('../content/information.mjs');
+ const home=outputs.get('index.html');
+ assert.match(home,/id="releases"/);
+ for(const r of releases.items) assert.ok(home.includes(`id="release-${r.id}"`));
+ assert.match(home,/Special Entry Darshan \(₹300\)/);
+ assert.match(home,/10:00 AM IST/);
+ assert.equal(releaseStatus('2026-11-24T10:00','',new Date('2026-11-24T04:29:00Z')),'Upcoming');
+ assert.equal(releaseStatus('2026-11-24T10:00','',new Date('2026-11-24T04:30:00Z')),'Released · check availability on TTD');
+ assert.equal(releaseStatus('2026-11-18T10:00','2026-11-20T10:00',new Date('2026-11-19T00:00:00Z')),'Open now');
+ assert.equal(releaseStatus('2026-11-18T10:00','2026-11-20T10:00',new Date('2026-11-20T05:00:00Z')),'Closed');
+});
