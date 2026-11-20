@@ -5,7 +5,7 @@ delete process.env.VERCEL;
 delete process.env.VERCEL_ENV;
 delete process.env.VERCEL_PROJECT_PRODUCTION_URL;
 
-const { allowedOrigins, siteOriginFor, CANONICAL_ORIGIN } = await import('../api/_http.mjs');
+const { allowedOrigins, beginRequest, originAllowed, siteOriginFor, CANONICAL_ORIGIN } = await import('../api/_http.mjs');
 
 const req = (origin) => ({ headers: origin === undefined ? {} : { origin } });
 
@@ -20,6 +20,25 @@ test('both site domains are allowed origins', () => {
 test('checkout returns buyers to the site domain they came from', () => {
   assert.equal(siteOriginFor(req('https://ttd-autofill.com')), 'https://ttd-autofill.com');
   assert.equal(siteOriginFor(req('https://ttd-info.vercel.app')), 'https://ttd-info.vercel.app');
+});
+
+test('a Firefox install origin is allowed and lookalikes are not', () => {
+  const firefox = 'moz-extension://3e4f5a6b-1111-4222-8333-abcdefabcdef';
+  assert.equal(originAllowed(firefox), true);
+  assert.equal(originAllowed('chrome-extension://piiegkjdfbbakjmjdckgdjbbohfjfolg'), true);
+  assert.equal(originAllowed('moz-extension://not-a-uuid'), false);
+  assert.equal(originAllowed('moz-extension://3e4f5a6b-1111-4222-8333-abcdefabcdef.evil.example'), false);
+  assert.equal(originAllowed('chrome-extension://someoneelse'), false);
+
+  const headers = {};
+  const res = {
+    setHeader(name, value) { headers[name] = value; },
+    status() { return this; },
+    json() { return this; },
+    end() { return this; }
+  };
+  assert.equal(beginRequest({ method: 'POST', headers: { origin: firefox } }, res, ['POST']), true);
+  assert.equal(headers['Access-Control-Allow-Origin'], firefox);
 });
 
 test('anything else falls back to the canonical origin', () => {

@@ -2,6 +2,10 @@ const CANONICAL_ORIGIN = 'https://ttd-info.vercel.app';
 // Domains that serve the same app. Checkout returns the buyer to the one they came from.
 const SITE_ORIGINS = [CANONICAL_ORIGIN, 'https://ttd-autofill.com'];
 const EXTENSION_ORIGIN = 'chrome-extension://piiegkjdfbbakjmjdckgdjbbohfjfolg';
+// Firefox gives each install its own moz-extension UUID, so the origin cannot
+// be pinned to one id the way the Chrome extension is. A web page cannot send
+// this origin. The licence key is still required.
+const FIREFOX_EXTENSION_ORIGIN = /^moz-extension:\/\/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
 export const MAX_BODY_BYTES = 4096;
 export const MAX_LICENSE_KEY_LENGTH = 128;
@@ -75,6 +79,11 @@ export function allowedOrigins() {
   return new Set([...SITE_ORIGINS, EXTENSION_ORIGIN, ...productionOrigin(), ...previewOrigins()]);
 }
 
+export function originAllowed(origin) {
+  const value = String(origin || '');
+  return allowedOrigins().has(value) || FIREFOX_EXTENSION_ORIGIN.test(value);
+}
+
 export function applyResponseHeaders(req, res) {
   for (const [name, value] of Object.entries(SECURITY_HEADERS)) res.setHeader(name, value);
   res.setHeader('Vary', 'Origin');
@@ -83,7 +92,7 @@ export function applyResponseHeaders(req, res) {
   res.setHeader('Access-Control-Max-Age', '600');
 
   const origin = String(header(req, 'origin') || '');
-  if (origin && allowedOrigins().has(origin)) {
+  if (originAllowed(origin)) {
     res.setHeader('Access-Control-Allow-Origin', origin);
   }
 }
@@ -91,7 +100,7 @@ export function applyResponseHeaders(req, res) {
 export function beginRequest(req, res, methods) {
   applyResponseHeaders(req, res);
   const origin = String(header(req, 'origin') || '');
-  if (origin && !allowedOrigins().has(origin)) {
+  if (origin && !originAllowed(origin)) {
     sendError(res, 403, 'origin_not_allowed', 'Origin is not allowed.');
     return false;
   }
