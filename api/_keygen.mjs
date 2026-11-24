@@ -153,12 +153,13 @@ export function machineView(machine) {
 // Creates a licence with a key we chose, so a retried fulfilment can find it.
 // Keygen reports a concurrent unique-key insert as 409 and a later duplicate
 // as 422. Recover only the licence for this key, policy and fulfilment identity.
-export async function createLicenseWithKey({ key, policyId, metadata, maxMachines }) {
+// `expiry` (optional ISO time) fixes when the pass ends instead of the policy's clock.
+export async function createLicenseWithKey({ key, policyId, metadata, maxMachines, expiry }) {
   try {
     const json = await keygen('/licenses', {
       method: 'POST',
       timeoutMs: ACTIVATION_CALL_TIMEOUT_MS,
-      body: { data: { type: 'licenses', attributes: { key, metadata, ...(maxMachines && maxMachines !== 1 ? { maxMachines } : {}) },
+      body: { data: { type: 'licenses', attributes: { key, metadata, ...(maxMachines && maxMachines !== 1 ? { maxMachines } : {}), ...(expiry ? { expiry } : {}) },
         relationships: { policy: { data: { type: 'policies', id: policyId } } } } }
     });
     return json && json.data || null;

@@ -21,6 +21,8 @@
     .ops-machines li{display:flex;justify-content:space-between;gap:10px;align-items:center;padding:8px 0;border-top:1px solid var(--line)}
     .ops-small{padding:7px 12px;border-radius:10px;border:1px solid var(--line);background:#fff;cursor:pointer;font-weight:650}
     .ops-small.danger{border-color:#fecaca;color:#b91c1c}
+    .ops-small.ops-quick{background:var(--violet,#6d28d9);border-color:transparent;color:#fff;margin:3px 0}
+    .ops-small:disabled{opacity:.55;cursor:default}
     .ops-msg{margin-top:10px;font-size:.9rem}
     .ops-msg.err{color:#b91c1c}.ops-msg.ok{color:#166534}
     [hidden]{display:none!important}
@@ -174,6 +176,51 @@
       } catch (e) { msg('search-msg', e.message, 'err'); }
     }
 
+    // One click: one more browser on this key. No prompts; the audit log records it.
+    async function addBrowser(l, button) {
+      const from = l.max_machines || 1;
+      button.disabled = true;
+      msg('search-msg', 'Adding a browser…');
+      try {
+        const data = await api('/api/ops/set-activation-limit', { license_id: l.id, activations: from + 1, reason: 'One-click +1 browser (' + from + ' to ' + (from + 1) + ')' });
+        await search();
+        msg('search-msg', 'Browser limit raised from ' + data.previous + ' to ' + data.activations + '.', 'ok');
+      } catch (e) { button.disabled = false; msg('search-msg', e.message, 'err'); }
+    }
+
+    // One click: a new pass like this one (same plan, policy, browser limit, buyer
+    // email), with a new key and dates from now. A failed click keeps its request
+    // id, so clicking again cannot create a second pass.
+    const reissueRequests = {};
+    async function reissuePass(l, button, out) {
+      const requestId = reissueRequests[l.id] || (reissueRequests[l.id] = Array.from(crypto.getRandomValues(new Uint8Array(10)), (b) => b.toString(16).padStart(2, '0')).join(''));
+      button.disabled = true;
+      out.replaceChildren(el('p', { class: 'ops-msg', text: 'Creating the new pass…' }));
+      try {
+        const data = await api('/api/ops/reissue-pass', { license_id: l.id, request_id: requestId });
+        delete reissueRequests[l.id];
+        const sendBtn = el('button', { class: 'ops-small', text: data.email ? 'Email it to ' + data.email : 'Email it…' });
+        sendBtn.addEventListener('click', async () => {
+          let to = data.email;
+          if (!to) { to = (prompt('Send the new licence email to:') || '').trim(); if (!to) return; }
+          sendBtn.disabled = true;
+          try {
+            const sent = await api('/api/ops/licence-action', { license_id: data.license_id, action: 'resend_email', reason: 'New pass from licence ' + l.id, ...(to !== data.email ? { to } : {}) });
+            sendBtn.textContent = 'Emailed to ' + sent.to;
+          } catch (e) { sendBtn.disabled = false; sendBtn.textContent = 'Email failed — try again'; }
+        });
+        out.replaceChildren(el('div', { class: 'ops-result', style: 'border-color:#bbf7d0;background:#f0fdf4' }, [
+          el('div', { class: 'ops-msg ok', style: 'margin:0 0 8px', text: 'New ' + data.plan + ' pass · ' + data.activations + ' browser' + (data.activations === 1 ? '' : 's') + ' · expires ' + fmt(data.expiry) + '. Key:' }),
+          el('code', { text: data.license_key }), ' ',
+          el('button', { class: 'ops-small', text: 'Copy', onclick: () => navigator.clipboard.writeText(data.license_key).catch(() => {}) }), ' ',
+          sendBtn
+        ]));
+      } catch (e) {
+        button.disabled = false;
+        out.replaceChildren(el('p', { class: 'ops-msg err', text: e.message }));
+      }
+    }
+
     async function licenceAction(l, action) {
       const extra = {};
       if (action === 'set_expiry') {
@@ -208,11 +255,18 @@
         el('li', {}, [el('span', { text: (m.name || 'Browser') + ' · activated ' + fmt(m.created) }),
           el('button', { class: 'ops-small danger', text: 'Deactivate', onclick: () => resetActivations(l.id, m.id) })])
       ) : [el('li', {}, [el('span', { class: 'ops-meta', text: 'No active browsers.' })])]);
+      const reissueOut = el('div');
+      const plusBtn = el('button', { class: 'ops-small ops-quick', text: '+1 browser (' + (l.max_machines || 1) + ' → ' + ((l.max_machines || 1) + 1) + ')' });
+      plusBtn.addEventListener('click', () => addBrowser(l, plusBtn));
+      const reissueBtn = el('button', { class: 'ops-small ops-quick', text: 'New pass, same setup' });
+      reissueBtn.addEventListener('click', () => reissuePass(l, reissueBtn, reissueOut));
       return el('div', { class: 'ops-result' }, [
         el('div', {}, [el('code', { text: l.key || '(no key)' })]),
         el('div', { class: 'ops-meta', text: [l.plan ? l.plan + ' pass' : null, l.source, l.status, 'expires ' + (l.expiry ? fmt(l.expiry) : 'at first activation / never'), l.email, l.reference ? 'ref ' + l.reference : null].filter(Boolean).join(' · ') }),
-        el('div', { class: 'ops-meta', text: 'Licence id ' + l.id + ' · created ' + fmt(l.created) + ' · limit ' + (l.max_machines || 1) + ' browser(s)' }),
+        el('div', { class: 'ops-meta', text: 'Licence id ' + l.id + ' · created ' + fmt(l.created) + ' · limit ' + (l.max_machines || 1) + ' browser(s)' + (l.reissued_from ? ' · new pass from ' + l.reissued_from : '') }),
         machines,
+        el('p', { style: 'margin:12px 0 0' }, [plusBtn, ' ', reissueBtn]),
+        reissueOut,
         el('p', {}, [
           el('button', { class: 'ops-small', text: 'Change browser limit (now ' + (l.max_machines || 1) + ')', onclick: () => changeLimit(l) }), ' ',
           l.machines.length > 1 ? el('button', { class: 'ops-small danger', text: 'Reset all activations', onclick: () => resetActivations(l.id) }) : '', ' ',

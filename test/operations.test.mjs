@@ -21,6 +21,7 @@ const lookup = (await import('../api/ops/lookup.mjs')).default;
 const offlineSale = (await import('../api/ops/offline-sale.mjs')).default;
 const reset = (await import('../api/ops/reset-activations.mjs')).default;
 const setLimit = (await import('../api/ops/set-activation-limit.mjs')).default;
+const reissue = (await import('../api/ops/reissue-pass.mjs')).default;
 const findKey = (await import('../api/find-key.mjs')).default;
 const licenceAction = (await import('../api/ops/licence-action.mjs')).default;
 const { sealSecret, licenceKeyHash } = await import('../api/_ledger.mjs');
@@ -40,7 +41,7 @@ function world(t) {
     if (v.startsWith('gt.')) return row[k] > v.slice(3);
     return true;
   };
-  const licDoc = (l) => ({ id: l.id, type: 'licenses', attributes: { key: l.key, status: l.status || 'ACTIVE', expiry: null, maxMachines: l.maxMachines || 1, metadata: l.metadata, created: l.created },
+  const licDoc = (l) => ({ id: l.id, type: 'licenses', attributes: { key: l.key, status: l.status || 'ACTIVE', expiry: l.expiry || null, maxMachines: l.maxMachines || 1, metadata: l.metadata, created: l.created },
     relationships: { policy: { data: { type: 'policies', id: l.policy } } } });
   t.mock.method(globalThis, 'fetch', async (url, opts = {}) => {
     const u = new URL(String(url));
@@ -96,7 +97,7 @@ function world(t) {
       if (path === '/licenses' && method === 'POST') {
         const a = body.data.attributes;
         if (w.licenses.some((l) => l.key === a.key)) return json({ errors: [{ code: 'KEY_TAKEN' }] }, 422);
-        const l = { id: randomUUID(), key: a.key, metadata: a.metadata, maxMachines: a.maxMachines, policy: body.data.relationships.policy.data.id, created: new Date().toISOString() };
+        const l = { id: randomUUID(), key: a.key, metadata: a.metadata, maxMachines: a.maxMachines, expiry: a.expiry || null, policy: body.data.relationships.policy.data.id, created: new Date().toISOString() };
         w.licenses.push(l);
         return json({ data: licDoc(l) }, 201);
       }
@@ -409,4 +410,56 @@ test('ops: suspend, reinstate, change expiry and re-send the email — each audi
     assert.deepEqual(w.tables.audit_events.slice(-4).map((e) => e.action), ['licence_suspended', 'licence_reinstated', 'licence_expiry_changed', 'licence_email_resent']);
     assert.equal((await call(licenceAction, { license_id: l.id, action: 'suspend', reason: 'x' }, USER)).statusCode, 401);
   } finally { delete process.env.RESEND_API_KEY; delete process.env.RESEND_FROM; }
+});
+
+test('ops: "new pass, same setup" copies policy, plan, browsers and email, with a new key dated from now', async (t) => {
+  quiet(t);
+  const w = world(t);
+  const old = { id: randomUUID(), key: 'TTD-OLD00-OLD00-OLD00-OLD00', maxMachines: 3, policy: 'pass-7', created: '2026-01-01T00:00:00Z', expiry: '2026-01-08T00:00:00Z',
+    metadata: { source: 'cashfree', orderId: randomUUID(), plan: '7d', email: 'buyer@example.com', publicProductId: 'pdt_weekly' } };
+  w.licenses.push(old);
+  const before = Date.now();
+  const r = await call(reissue, { license_id: old.id, request_id: 'click-0001' });
+  assert.equal(r.statusCode, 200, JSON.stringify(r.body));
+  const fresh = w.licenses.find((x) => x.id === r.body.license_id);
+  assert.notEqual(fresh.id, old.id);
+  assert.notEqual(fresh.key, old.key);
+  assert.equal(r.body.license_key, fresh.key);
+  assert.match(fresh.key, /^TTD-[A-Z0-9]{5}(-[A-Z0-9]{5}){3}$/);
+  assert.equal(fresh.policy, 'pass-7');
+  assert.equal(fresh.maxMachines, 3);
+  assert.equal(fresh.metadata.plan, '7d');
+  assert.equal(fresh.metadata.email, 'buyer@example.com');
+  assert.equal(fresh.metadata.publicProductId, 'pdt_weekly');
+  assert.equal(fresh.metadata.reissuedFrom, old.id);
+  const days = (Date.parse(fresh.expiry) - before) / 86400000;
+  assert.ok(days > 6.99 && days < 7.01, 'expires 7 days from now, got ' + fresh.expiry);
+  // The old licence is untouched.
+  assert.equal(old.expiry, '2026-01-08T00:00:00Z');
+  // Routed to Keygen, recorded as a free grant, audited.
+  assert.equal(w.tables.licence_authority.find((a) => a.keygen_license_id === fresh.id).authority, 'keygen');
+  const row = w.tables.offline_sales.find((x) => x.keygen_license_id === fresh.id);
+  assert.equal(row.kind, 'grant'); assert.equal(row.amount_inr, 0); assert.equal(row.activations, 3);
+  assert.equal(w.tables.audit_events.at(-1).action, 'pass_reissued');
+  // A repeated click (same request id) returns the same pass; no second licence.
+  const again = await call(reissue, { license_id: old.id, request_id: 'click-0001' });
+  assert.equal(again.body.license_key, r.body.license_key);
+  assert.equal(w.licenses.length, 2);
+  // A new click makes another new pass.
+  const other = await call(reissue, { license_id: old.id, request_id: 'click-0002' });
+  assert.notEqual(other.body.license_key, r.body.license_key);
+  // Lookup shows where it came from.
+  const found = await call(lookup, { query: fresh.id });
+  assert.equal(found.body.results[0].reissued_from, old.id);
+  assert.equal((await call(reissue, { license_id: old.id, request_id: 'click-0003' }, USER)).statusCode, 401);
+});
+
+test('ops: "+1 browser" raises the limit by one', async (t) => {
+  quiet(t);
+  const w = world(t);
+  const issued = (await call(offlineSale, sale({ reference: 'UTR-PLUS-ONE', activations: 2 }))).body;
+  const r = await call(setLimit, { license_id: issued.license_id, activations: 3, reason: 'One-click +1 browser (2 to 3)' });
+  assert.equal(r.statusCode, 200);
+  assert.deepEqual([r.body.previous, r.body.activations], [2, 3]);
+  assert.equal(w.licenses.find((x) => x.id === issued.license_id).maxMachines, 3);
 });

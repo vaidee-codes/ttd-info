@@ -18,6 +18,7 @@ function licenceView(license, machines) {
     email: m.email || null,
     reference: m.reference || null,
     order_id: m.orderId || null,
+    reissued_from: m.reissuedFrom || null,
     machines: machines.map((x) => ({ id: x.id, name: x.attributes && x.attributes.name, created: x.attributes && x.attributes.created }))
   };
 }
